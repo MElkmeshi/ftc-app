@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ScoreTarget;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -10,7 +11,11 @@ class ScoreType extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'points', 'created_by',
+        'name', 'points', 'target', 'created_by',
+    ];
+
+    protected $casts = [
+        'target' => ScoreTarget::class,
     ];
 
     public function creator()
