@@ -11,6 +11,8 @@ class ManageMatch extends SettingsPage
 {
     protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
 
+    protected static ?int $navigationSort = 100;
+
     protected static string $settings = MatchSetting::class;
 
     public function form(Form $form): Form
