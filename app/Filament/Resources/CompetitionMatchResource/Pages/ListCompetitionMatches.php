@@ -24,12 +24,12 @@ class ListCompetitionMatches extends ListRecords
                 ->form([
                     \Filament\Forms\Components\TextInput::make('matches_per_team')
                         ->label('Matches per Team')
-                        ->default(3)
+                        ->default(4)
                         ->numeric()
                         ->required(),
                     \Filament\Forms\Components\TextInput::make('teams_per_alliance')
                         ->label('Teams per Alliance')
-                        ->default(1)
+                        ->default(2)
                         ->numeric()
                         ->required(),
                 ])
@@ -39,6 +39,10 @@ class ListCompetitionMatches extends ListRecords
                         auth()->id() ?? 1,
                         $data['teams_per_alliance'],
                     );
+                    \Filament\Notifications\Notification::make()
+                        ->title('Match schedule generated!')
+                        ->success()
+                        ->send();
                 }),
             Actions\Action::make('deleteAllMatches')
                 ->label('Delete All Matches')
@@ -51,6 +55,10 @@ class ListCompetitionMatches extends ListRecords
                     MatchAlliance::truncate();
                     CompetitionMatch::truncate();
                     DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+                    \Filament\Notifications\Notification::make()
+                        ->title('All matches deleted!')
+                        ->success()
+                        ->send();
                 }),
         ];
     }

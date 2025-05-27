@@ -15,7 +15,7 @@ class ScoreTypeResource extends Resource
 {
     protected static ?string $model = ScoreType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-adjustments-vertical';
 
     protected static ?int $navigationSort = 3;
 

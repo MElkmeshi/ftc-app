@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\MatchStatus;
 use App\Filament\Resources\CompetitionMatchResource\Pages;
 use App\Models\CompetitionMatch;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -13,19 +13,11 @@ class CompetitionMatchResource extends Resource
 {
     protected static ?string $model = CompetitionMatch::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-trophy';
 
     protected static ?string $navigationLabel = 'Matches';
 
     protected static ?int $navigationSort = 2;
-
-    public static function form(Form $form): Form
-    {
-        return $form
-            ->schema([
-                //
-            ]);
-    }
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
@@ -70,11 +62,26 @@ class CompetitionMatchResource extends Resource
                 //
             ])
             ->actions([
-                // Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('startMatch')
+                    ->label('Start')
+                    ->icon('heroicon-o-play')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->status === MatchStatus::UPCOMING)
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+                        $record->update([
+                            'status' => MatchStatus::ONGOING,
+                            'started_at' => now(),
+                        ]);
+                        \Filament\Notifications\Notification::make()
+                            ->title("Match #{$record->match_number} started!")
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    // Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -90,8 +97,6 @@ class CompetitionMatchResource extends Resource
     {
         return [
             'index' => Pages\ListCompetitionMatches::route('/'),
-            'create' => Pages\CreateCompetitionMatch::route('/create'),
-            // 'edit' => Pages\EditCompetitionMatch::route('/{record}/edit'),
         ];
     }
 }

@@ -41,3 +41,33 @@ export interface User {
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
 }
+
+export interface Team {
+    id: number;
+    team_number: string;
+    team_name: string;
+}
+
+export interface Alliance {
+    id: number;
+    color: string;
+}
+
+export interface MatchAlliance {
+    id: number;
+    team: Team;
+    alliance: Alliance;
+    score: number;
+}
+
+export interface CompetitionMatch {
+    id: number;
+    match_number: number;
+    start_time: string;
+    status: string;
+    match_alliances: MatchAlliance[];
+}
+
+export interface ScoreUpdatedEvent {
+    match: CompetitionMatch;
+}
