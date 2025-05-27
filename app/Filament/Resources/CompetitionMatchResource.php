@@ -69,6 +69,14 @@ class CompetitionMatchResource extends Resource
                     ->visible(fn ($record) => $record->status === MatchStatus::UPCOMING)
                     ->requiresConfirmation()
                     ->action(function ($record) {
+                        if (CompetitionMatch::where('status', MatchStatus::ONGOING)->exists()) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('A match is already ongoing!')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
                         $record->update([
                             'status' => MatchStatus::ONGOING,
                             'started_at' => now(),
