@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('alliances', function (Blueprint $table) {
             $table->id();
-            $table->enum('color', ['red', 'blue']);
+            $table->string('color');
         });
     }
 

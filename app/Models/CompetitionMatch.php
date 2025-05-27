@@ -21,6 +21,11 @@ class CompetitionMatch extends Model
         'status' => MatchStatus::class,
     ];
 
+    public function matchAlliances()
+    {
+        return $this->hasMany(MatchAlliance::class, 'match_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
