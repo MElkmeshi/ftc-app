@@ -22,8 +22,8 @@ class TeamResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('team_number')->required(),
-                Forms\Components\TextInput::make('team_name')->required(),
+                Forms\Components\TextInput::make('number')->required(),
+                Forms\Components\TextInput::make('name')->required(),
             ]);
     }
 
@@ -31,8 +31,8 @@ class TeamResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('team_number')->sortable()->searchable(),
-                Tables\Columns\TextColumn::make('team_name')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('number')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('name')->sortable()->searchable(),
 
             ])
             ->filters([

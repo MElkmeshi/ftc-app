@@ -16,11 +16,11 @@ const ScoreDisplayPage: React.FC = () => {
         <div>
             <Head title="Score Display" />
             <h1>Score Display</h1>
-            <h2>Match #{activeMatch.match_number}</h2>
+            <h2>Match #{activeMatch.number}</h2>
             <ul>
                 {activeMatch.match_alliances.map((ma) => (
                     <li key={ma.id}>
-                        {ma.team.team_name}: {ma.score}
+                        {ma.team.name}: {ma.score}
                     </li>
                 ))}
             </ul>

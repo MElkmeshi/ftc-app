@@ -35,7 +35,7 @@ class CompetitionMatchResource extends Resource
         $allianceLabels = \App\Models\Alliance::pluck('color', 'id')->all();
 
         $columns = [
-            Tables\Columns\TextColumn::make('match_number')
+            Tables\Columns\TextColumn::make('number')
                 ->label('Match #'),
         ];
 
@@ -50,7 +50,7 @@ class CompetitionMatchResource extends Resource
                         return $ma->alliance_id == $pos->alliance_id && $ma->alliance_pos == $pos->alliance_pos;
                     });
 
-                    return $ma?->team?->team_name ?? '-';
+                    return $ma?->team?->name ?? '-';
                 });
         }
 
@@ -82,7 +82,7 @@ class CompetitionMatchResource extends Resource
                             'started_at' => now(),
                         ]);
                         \Filament\Notifications\Notification::make()
-                            ->title("Match #{$record->match_number} started!")
+                            ->title("Match #{$record->number} started!")
                             ->success()
                             ->send();
                     }),

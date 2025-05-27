@@ -14,6 +14,10 @@ class Score extends Model
         'match_id', 'team_id', 'score_type_id', 'points', 'created_by', 'updated_by',
     ];
 
+    protected $hidden = [
+        'created_by', 'updated_by', 'deleted_at', 'created_at', 'updated_at',
+    ];
+
     public function match()
     {
         return $this->belongsTo(CompetitionMatch::class);

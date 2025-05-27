@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('matches', function (Blueprint $table) {
             $table->id();
-            $table->integer('match_number')->unique();
+            $table->integer('number')->unique();
             $table->dateTime('start_time')->nullable();
             $table->enum('status', ['upcoming', 'ongoing', 'completed'])->default('upcoming');
             $table->timestamps();

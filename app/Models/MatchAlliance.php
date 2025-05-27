@@ -14,6 +14,10 @@ class MatchAlliance extends Model
         'match_id', 'team_id', 'alliance_id', 'alliance_pos', 'score', 'created_by', 'updated_by',
     ];
 
+    protected $hidden = [
+        'created_by', 'updated_by', 'deleted_at', 'created_at', 'updated_at',
+    ];
+
     public function match()
     {
         return $this->belongsTo(CompetitionMatch::class);

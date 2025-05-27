@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MatchStatus;
 use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\CompetitionMatch;
@@ -20,7 +21,7 @@ class MatchController extends Controller
     public function active()
     {
         $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance'])
-            ->where('status', 'active')
+            ->where('status', MatchStatus::ONGOING)
             ->first();
 
         return response()->json($match);

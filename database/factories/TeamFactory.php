@@ -12,8 +12,8 @@ class TeamFactory extends Factory
     public function definition()
     {
         return [
-            'team_number' => $this->faker->unique()->numberBetween(1000, 9999),
-            'team_name' => $this->faker->company.' Robotics',
+            'number' => $this->faker->unique()->numberBetween(1000, 9999),
+            'name' => $this->faker->company.' Robotics',
             'created_by' => 1,
             'updated_by' => 1,
         ];

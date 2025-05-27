@@ -34,17 +34,17 @@ const RefereePage: React.FC = () => {
                 <option value="">Select Match</option>
                 {matches.map((m) => (
                     <option key={m.id} value={m.id}>
-                        Match #{m.match_number}
+                        Match #{m.number}
                     </option>
                 ))}
             </select>
             {match && (
                 <div style={{ marginTop: 24 }}>
-                    <h2>Live Score for Match #{match.match_number}</h2>
+                    <h2>Live Score for Match #{match.number}</h2>
                     <ul>
                         {match.match_alliances.map((ma) => (
                             <li key={ma.id}>
-                                {ma.team.team_name}: {ma.score} <button onClick={() => handleScoreUpdate(ma, ma.score + 1)}>+1</button>
+                                {ma.team.name}: {ma.score} <button onClick={() => handleScoreUpdate(ma, ma.score + 1)}>+1</button>
                                 <button onClick={() => handleScoreUpdate(ma, Math.max(0, ma.score - 1))}>-1</button>
                             </li>
                         ))}

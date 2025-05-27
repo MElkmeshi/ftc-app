@@ -61,7 +61,7 @@ class MatchScheduler
                 for ($matchIndexInRound = 0; $matchIndexInRound < $numMatchesInThisRound; $matchIndexInRound++) {
                     $overallMatchCounter++;
                     $competitionMatch = CompetitionMatch::create([
-                        'match_number' => $overallMatchCounter,
+                        'number' => $overallMatchCounter,
                         'start_time' => now()->addMinutes($overallMatchCounter * 10),
                         'status' => MatchStatus::UPCOMING,
                         'created_by' => $createdBy,

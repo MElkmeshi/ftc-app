@@ -11,7 +11,11 @@ class Team extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'team_number', 'team_name', 'created_by', 'updated_by',
+        'number', 'name', 'created_by', 'updated_by',
+    ];
+
+    protected $hidden = [
+        'created_by', 'updated_by', 'deleted_at', 'created_at', 'updated_at',
     ];
 
     public function creator()

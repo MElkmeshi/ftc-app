@@ -14,6 +14,10 @@ class ScoreType extends Model
         'name', 'points', 'target', 'created_by',
     ];
 
+    protected $hidden = [
+        'created_by', 'updated_by', 'deleted_at', 'created_at', 'updated_at',
+    ];
+
     protected $casts = [
         'target' => ScoreTarget::class,
     ];

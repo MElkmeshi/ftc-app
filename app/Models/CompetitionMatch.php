@@ -14,7 +14,11 @@ class CompetitionMatch extends Model
     protected $table = 'matches';
 
     protected $fillable = [
-        'match_number', 'start_time', 'status', 'created_by', 'updated_by',
+        'number', 'start_time', 'status', 'created_by', 'updated_by',
+    ];
+
+    protected $hidden = [
+        'created_by', 'updated_by', 'deleted_at', 'created_at', 'updated_at',
     ];
 
     protected $casts = [

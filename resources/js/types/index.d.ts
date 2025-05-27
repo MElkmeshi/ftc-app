@@ -44,8 +44,8 @@ export interface User {
 
 export interface Team {
     id: number;
-    team_number: string;
-    team_name: string;
+    number: string;
+    name: string;
 }
 
 export interface Alliance {
@@ -62,7 +62,7 @@ export interface MatchAlliance {
 
 export interface CompetitionMatch {
     id: number;
-    match_number: number;
+    number: number;
     start_time: string;
     status: string;
     match_alliances: MatchAlliance[];
