@@ -8,17 +8,38 @@ Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
-});
-
 Route::prefix('matches')->group(function () {
     Route::get('/', [MatchController::class, 'index']);
     Route::get('/active', [MatchController::class, 'active']);
     Route::get('/{id}', [MatchController::class, 'show']);
     Route::get('/{id}/update-score', [MatchController::class, 'updateScore']);
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('dashboard', function () {
+        return Inertia::render('dashboard');
+    })->name('dashboard');
+
+    Route::get('competition-matches', function () {
+        $matches = \App\Models\CompetitionMatch::query()
+            ->with(['matchAlliances.team', 'matchAlliances.alliance'])
+            ->orderBy('number')
+            ->get();
+
+        $positions = \App\Models\MatchAlliance::select('alliance_id', 'alliance_pos')
+            ->distinct()
+            ->orderBy('alliance_id')
+            ->orderBy('alliance_pos')
+            ->get();
+
+        $allianceLabels = \App\Models\Alliance::pluck('color', 'id')->all();
+
+        return Inertia::render('matches/index', [
+            'matches' => $matches,
+            'positions' => $positions,
+            'allianceLabels' => $allianceLabels,
+        ]);
+    })->name('matches.index');
 });
 
 require __DIR__.'/settings.php';
