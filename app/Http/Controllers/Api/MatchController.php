@@ -13,14 +13,14 @@ class MatchController extends Controller
 {
     public function index()
     {
-        $matches = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance'])->get();
+        $matches = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'matchAlliances.scores.scoreType'])->get();
 
         return response()->json($matches);
     }
 
     public function active()
     {
-        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance'])
+        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'matchAlliances.scores.scoreType'])
             ->where('status', MatchStatus::ONGOING)
             ->first();
 
@@ -29,7 +29,7 @@ class MatchController extends Controller
 
     public function show($id)
     {
-        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance'])->findOrFail($id);
+        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'matchAlliances.scores.scoreType'])->findOrFail($id);
 
         return response()->json($match);
     }

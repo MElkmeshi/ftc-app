@@ -1,4 +1,4 @@
-import { CompetitionMatch } from '@/types';
+import { CompetitionMatch, ScoreType } from '@/types';
 import axios from 'axios';
 import { useCallback } from 'react';
 
@@ -22,5 +22,15 @@ export const useApi = () => {
         return axios.post(`/api/matches/${matchId}/update-score`, scoreData);
     }, []);
 
-    return { getMatches, getMatch, getActiveMatch, updateScore };
+    const getScoreTypes = useCallback(async (): Promise<ScoreType[]> => {
+        const res = await axios.get('/api/score-types');
+        return res.data;
+    }, []);
+
+    const addScore = useCallback(async (scoreData: { match_id: number; team_id: number; score_type_id: number }) => {
+        const res = await axios.post<{ score: any; match: CompetitionMatch }>('/api/scores', scoreData);
+        return res.data;
+    }, []);
+
+    return { getMatches, getMatch, getActiveMatch, updateScore, getScoreTypes, addScore };
 };

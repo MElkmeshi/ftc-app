@@ -8,11 +8,21 @@ Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
-Route::prefix('matches')->group(function () {
-    Route::get('/', [MatchController::class, 'index']);
-    Route::get('/active', [MatchController::class, 'active']);
-    Route::get('/{id}', [MatchController::class, 'show']);
-    Route::get('/{id}/update-score', [MatchController::class, 'updateScore']);
+Route::prefix('api')->group(function () {
+    Route::prefix('matches')->group(function () {
+        Route::get('/', [MatchController::class, 'index']);
+        Route::get('/active', [MatchController::class, 'active']);
+        Route::get('/{id}', [MatchController::class, 'show']);
+        Route::post('/{id}/update-score', [MatchController::class, 'updateScore']);
+    });
+
+    Route::prefix('score-types')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\ScoreController::class, 'index']);
+    });
+
+    Route::prefix('scores')->group(function () {
+        Route::post('/', [\App\Http\Controllers\Api\ScoreController::class, 'store']);
+    });
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -40,6 +50,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'allianceLabels' => $allianceLabels,
         ]);
     })->name('matches.index');
+
+    Route::get('referee/scoring', function () {
+        return Inertia::render('referee/scoring');
+    })->name('referee.scoring');
 });
 
 require __DIR__.'/settings.php';
