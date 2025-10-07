@@ -5,7 +5,9 @@
       "Bash(npm run build:*)",
       "mcp__laravel-boost__get-absolute-url",
       "mcp__laravel-boost__database-query",
-      "Bash(php artisan make:controller:*)"
+      "Bash(php artisan make:controller:*)",
+      "mcp__laravel-boost__browser-logs",
+      "mcp__laravel-boost__last-error"
     ]
   },
   "enableAllProjectMcpServers": true,
