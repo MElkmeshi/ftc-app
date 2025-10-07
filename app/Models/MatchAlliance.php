@@ -33,6 +33,12 @@ class MatchAlliance extends Model
         return $this->belongsTo(Alliance::class);
     }
 
+    public function scores()
+    {
+        return $this->hasMany(Score::class, 'team_id', 'team_id')
+            ->where('match_id', $this->match_id);
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

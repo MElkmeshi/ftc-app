@@ -53,11 +53,28 @@ export interface Alliance {
     color: string;
 }
 
+export interface ScoreType {
+    id: number;
+    name: string;
+    points: number;
+    target: 'team' | 'alliance';
+}
+
+export interface Score {
+    id: number;
+    match_id: number;
+    team_id: number;
+    score_type_id: number;
+    score_type?: ScoreType;
+    created_at: string;
+}
+
 export interface MatchAlliance {
     id: number;
     team: Team;
     alliance: Alliance;
     score: number;
+    scores?: Score[];
 }
 
 export interface CompetitionMatch {

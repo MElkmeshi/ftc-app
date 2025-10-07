@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, Trophy } from 'lucide-react';
+import { LayoutGrid, Trophy, UserCheck } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -16,6 +16,11 @@ const mainNavItems: NavItem[] = [
         title: 'Matches',
         href: '/competition-matches',
         icon: Trophy,
+    },
+    {
+        title: 'Referee',
+        href: '/referee/scoring',
+        icon: UserCheck,
     },
 ];
 
