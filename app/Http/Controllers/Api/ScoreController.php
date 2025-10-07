@@ -26,34 +26,35 @@ class ScoreController extends Controller
             'score_type_id' => 'required|exists:score_types,id',
         ]);
 
-        $scoreType = ScoreType::findOrFail($validated['score_type_id']);
-        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'matchAlliances.scores.scoreType'])
+        // Load the match with relationships once
+        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance'])
             ->findOrFail($validated['match_id']);
 
+        $scoreType = ScoreType::findOrFail($validated['score_type_id']);
+
         // Create the score record
-        $score = Score::create([
+        Score::create([
             'match_id' => $validated['match_id'],
             'team_id' => $validated['team_id'],
             'score_type_id' => $validated['score_type_id'],
             'created_by' => auth()->id() ?? 1,
         ]);
 
-        // Update the match alliance cumulative score
+        // Update the match alliance cumulative score directly in memory
         $matchAlliance = $match->matchAlliances->firstWhere('team_id', $validated['team_id']);
         if ($matchAlliance) {
             $matchAlliance->score += $scoreType->points;
             $matchAlliance->save();
+
+            // Update the in-memory score to avoid refetching
+            $matchAlliance->setAttribute('score', $matchAlliance->score);
         }
 
-        // Refresh the match to get the latest data
-        $updatedMatch = $match->fresh(['matchAlliances.team', 'matchAlliances.alliance', 'matchAlliances.scores.scoreType']);
-
-        // Broadcast the update
-        broadcast(new ScoreUpdated($updatedMatch))->toOthers();
+        // Broadcast the update asynchronously
+        broadcast(new ScoreUpdated($match))->toOthers();
 
         return response()->json([
-            'score' => $score,
-            'match' => $updatedMatch,
+            'match' => $match,
         ], 201);
     }
 }

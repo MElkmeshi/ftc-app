@@ -15,7 +15,7 @@ class ScoreUpdated implements ShouldBroadcast
 
     public function __construct(CompetitionMatch $match)
     {
-        $this->match = $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores');
+        $this->match = $match->load('matchAlliances.team', 'matchAlliances.alliance');
     }
 
     public function broadcastOn()
