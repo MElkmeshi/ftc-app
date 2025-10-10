@@ -37,12 +37,13 @@ export default function RefereeScoring() {
     const allianceScoreTypes = scoreTypes.filter((st) => st.target === 'alliance');
     const teamScoreTypes = scoreTypes.filter((st) => st.target === 'team');
 
-    const handleAddScore = (teamId: number, scoreTypeId: number) => {
+    const handleAddScore = (teamId: number, scoreTypeId: number, allianceId?: number) => {
         if (!match) return;
         addScore.mutate({
             match_id: match.id,
             team_id: teamId,
             score_type_id: scoreTypeId,
+            alliance_id: allianceId,
         });
     };
 
@@ -142,7 +143,11 @@ export default function RefereeScoring() {
                                                 onClick={() => {
                                                     // Apply to first team in alliance (alliance-wide scores)
                                                     if (teamsInAlliance[0]) {
-                                                        handleAddScore(teamsInAlliance[0].team.id, scoreType.id);
+                                                        handleAddScore(
+                                                            teamsInAlliance[0].team.id,
+                                                            scoreType.id,
+                                                            selectedAllianceId ?? undefined
+                                                        );
                                                     }
                                                 }}
                                                 className={getScoreTypeButtonClass(scoreType.points)}
