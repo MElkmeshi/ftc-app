@@ -8,7 +8,9 @@
       "Bash(php artisan make:controller:*)",
       "mcp__laravel-boost__browser-logs",
       "mcp__laravel-boost__last-error",
-      "mcp__laravel-boost__list-routes"
+      "mcp__laravel-boost__list-routes",
+      "Bash(vendor/bin/pint:*)",
+      "Bash(php artisan test:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

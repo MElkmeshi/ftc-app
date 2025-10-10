@@ -54,7 +54,8 @@ export function useAddScore() {
     const api = useApi();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (params: { match_id: number; team_id: number; score_type_id: number }) => api.addScore(params),
+        mutationFn: (params: { match_id: number; team_id: number; score_type_id: number; alliance_id?: number }) =>
+            api.addScore(params),
         onMutate: async (params) => {
             // Cancel any outgoing refetches
             await queryClient.cancelQueries({ queryKey: ['active-match'] });
@@ -70,6 +71,17 @@ export function useAddScore() {
                 const scoreType = scoreTypes?.find((st) => st.id === params.score_type_id);
                 if (!scoreType) return old;
 
+                // If this is an alliance-wide score, update all teams in the alliance
+                if (scoreType.target === 'alliance' && params.alliance_id) {
+                    return {
+                        ...old,
+                        match_alliances: old.match_alliances.map((ma) =>
+                            ma.alliance.id === params.alliance_id ? { ...ma, score: ma.score + scoreType.points } : ma,
+                        ),
+                    };
+                }
+
+                // Otherwise, update only the specific team
                 return {
                     ...old,
                     match_alliances: old.match_alliances.map((ma) =>
