@@ -30,6 +30,11 @@ class CompetitionMatch extends Model
         return $this->hasMany(MatchAlliance::class, 'match_id');
     }
 
+    public function scores()
+    {
+        return $this->hasMany(Score::class, 'match_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

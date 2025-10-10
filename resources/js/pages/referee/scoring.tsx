@@ -37,18 +37,35 @@ export default function RefereeScoring() {
     const allianceScoreTypes = scoreTypes.filter((st) => st.target === 'alliance');
     const teamScoreTypes = scoreTypes.filter((st) => st.target === 'team');
 
-    const handleAddScore = (teamId: number, scoreTypeId: number, allianceId?: number) => {
+    const handleAddScore = (scoreTypeId: number, options: { teamId?: number; allianceId?: number }) => {
         if (!match) return;
-        addScore.mutate({
-            match_id: match.id,
-            team_id: teamId,
-            score_type_id: scoreTypeId,
-            alliance_id: allianceId,
-        });
+
+        // Send either team_id or alliance_id, but not both
+        if (options.allianceId) {
+            addScore.mutate({
+                match_id: match.id,
+                alliance_id: options.allianceId,
+                score_type_id: scoreTypeId,
+            });
+        } else if (options.teamId) {
+            addScore.mutate({
+                match_id: match.id,
+                team_id: options.teamId,
+                score_type_id: scoreTypeId,
+            });
+        }
     };
 
     const getTotalAllianceScore = () => {
-        return teamsInAlliance.reduce((sum, ma) => sum + ma.score, 0);
+        // Sum team scores
+        const teamScoresTotal = teamsInAlliance.reduce((sum, ma) => sum + ma.score, 0);
+
+        // Add alliance-wide scores (where team_id is null)
+        const allianceScoresTotal = (match?.scores || [])
+            .filter(score => score.alliance_id === selectedAllianceId && !score.team_id)
+            .reduce((sum, score) => sum + (score.score_type?.points || 0), 0);
+
+        return teamScoresTotal + allianceScoresTotal;
     };
 
     const getScoreTypeButtonClass = (points: number) => {
@@ -140,16 +157,11 @@ export default function RefereeScoring() {
                                         {allianceScoreTypes.map((scoreType) => (
                                             <Button
                                                 key={scoreType.id}
-                                                onClick={() => {
-                                                    // Apply to first team in alliance (alliance-wide scores)
-                                                    if (teamsInAlliance[0]) {
-                                                        handleAddScore(
-                                                            teamsInAlliance[0].team.id,
-                                                            scoreType.id,
-                                                            selectedAllianceId ?? undefined
-                                                        );
-                                                    }
-                                                }}
+                                                onClick={() =>
+                                                    handleAddScore(scoreType.id, {
+                                                        allianceId: selectedAllianceId ?? undefined,
+                                                    })
+                                                }
                                                 className={getScoreTypeButtonClass(scoreType.points)}
                                                 disabled={addScore.isPending}
                                             >
@@ -183,7 +195,11 @@ export default function RefereeScoring() {
                                                 {teamScoreTypes.map((scoreType) => (
                                                     <Button
                                                         key={scoreType.id}
-                                                        onClick={() => handleAddScore(ma.team.id, scoreType.id)}
+                                                        onClick={() =>
+                                                            handleAddScore(scoreType.id, {
+                                                                teamId: ma.team.id,
+                                                            })
+                                                        }
                                                         className={getScoreTypeButtonClass(scoreType.points)}
                                                         disabled={addScore.isPending}
                                                     >
