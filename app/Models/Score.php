@@ -11,7 +11,7 @@ class Score extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'match_id', 'team_id', 'score_type_id', 'points', 'created_by', 'updated_by',
+        'match_id', 'team_id', 'alliance_id', 'score_type_id', 'points', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -26,6 +26,11 @@ class Score extends Model
     public function team()
     {
         return $this->belongsTo(Team::class);
+    }
+
+    public function alliance()
+    {
+        return $this->belongsTo(Alliance::class);
     }
 
     public function scoreType()

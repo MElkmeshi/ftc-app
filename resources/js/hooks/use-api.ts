@@ -27,7 +27,7 @@ export const useApi = () => {
         return res.data;
     }, []);
 
-    const addScore = useCallback(async (scoreData: { match_id: number; team_id: number; score_type_id: number }) => {
+    const addScore = useCallback(async (scoreData: { match_id: number; team_id?: number; alliance_id?: number; score_type_id: number }) => {
         const res = await axios.post<{ match: CompetitionMatch }>('/api/scores', scoreData);
         return res.data;
     }, []);

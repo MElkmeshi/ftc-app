@@ -63,7 +63,8 @@ export interface ScoreType {
 export interface Score {
     id: number;
     match_id: number;
-    team_id: number;
+    team_id: number | null;
+    alliance_id?: number | null;
     score_type_id: number;
     score_type?: ScoreType;
     created_at: string;
@@ -83,6 +84,7 @@ export interface CompetitionMatch {
     start_time: string;
     status: string;
     match_alliances: MatchAlliance[];
+    scores?: Score[];
 }
 
 export interface ScoreUpdatedEvent {

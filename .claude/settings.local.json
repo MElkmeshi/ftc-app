@@ -10,7 +10,10 @@
       "mcp__laravel-boost__last-error",
       "mcp__laravel-boost__list-routes",
       "Bash(vendor/bin/pint:*)",
-      "Bash(php artisan test:*)"
+      "Bash(php artisan test:*)",
+      "mcp__laravel-boost__tinker",
+      "Bash(php artisan make:migration:*)",
+      "Bash(php artisan:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
