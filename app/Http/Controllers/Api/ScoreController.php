@@ -24,6 +24,7 @@ class ScoreController extends Controller
             'match_id' => 'required|exists:matches,id',
             'team_id' => 'required|exists:teams,id',
             'score_type_id' => 'required|exists:score_types,id',
+            'alliance_id' => 'nullable|exists:alliances,id',
         ]);
 
         // Load the match with relationships once
@@ -40,14 +41,24 @@ class ScoreController extends Controller
             'created_by' => auth()->id() ?? 1,
         ]);
 
-        // Update the match alliance cumulative score directly in memory
-        $matchAlliance = $match->matchAlliances->firstWhere('team_id', $validated['team_id']);
-        if ($matchAlliance) {
-            $matchAlliance->score += $scoreType->points;
-            $matchAlliance->save();
+        // If this is an alliance-wide score, update all teams in the alliance
+        if ($scoreType->target === 'alliance' && isset($validated['alliance_id'])) {
+            $matchAlliances = $match->matchAlliances->where('alliance_id', $validated['alliance_id']);
 
-            // Update the in-memory score to avoid refetching
-            $matchAlliance->setAttribute('score', $matchAlliance->score);
+            foreach ($matchAlliances as $matchAlliance) {
+                $matchAlliance->score += $scoreType->points;
+                $matchAlliance->save();
+
+                $matchAlliance->setAttribute('score', $matchAlliance->score);
+            }
+        } else {
+            $matchAlliance = $match->matchAlliances->firstWhere('team_id', $validated['team_id']);
+            if ($matchAlliance) {
+                $matchAlliance->score += $scoreType->points;
+                $matchAlliance->save();
+
+                $matchAlliance->setAttribute('score', $matchAlliance->score);
+            }
         }
 
         // Broadcast the update asynchronously
