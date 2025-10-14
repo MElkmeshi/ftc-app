@@ -62,3 +62,15 @@ export function useAddScore() {
         },
     });
 }
+
+export function useDeleteScore() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (scoreId: number) => api.deleteScore(scoreId),
+        onSuccess: () => {
+            // Invalidate to trigger refetch with fresh data
+            queryClient.invalidateQueries({ queryKey: ['active-match'] });
+        },
+    });
+}

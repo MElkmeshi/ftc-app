@@ -32,5 +32,10 @@ export const useApi = () => {
         return res.data;
     }, []);
 
-    return { getMatches, getMatch, getActiveMatch, updateScore, getScoreTypes, addScore };
+    const deleteScore = useCallback(async (scoreId: number) => {
+        const res = await axios.delete<{ match: CompetitionMatch }>(`/api/scores/${scoreId}`);
+        return res.data;
+    }, []);
+
+    return { getMatches, getMatch, getActiveMatch, updateScore, getScoreTypes, addScore, deleteScore };
 };
