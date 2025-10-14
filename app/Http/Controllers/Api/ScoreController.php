@@ -63,4 +63,36 @@ class ScoreController extends Controller
             'match' => $match,
         ], 201);
     }
+
+    public function destroy(Score $score)
+    {
+        // Load the match with relationships
+        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance'])
+            ->findOrFail($score->match_id);
+
+        $scoreType = $score->scoreType;
+
+        // If it's a team-specific score, update the match_alliance score
+        if ($score->team_id) {
+            $matchAlliance = $match->matchAlliances->firstWhere('team_id', $score->team_id);
+            if ($matchAlliance) {
+                $matchAlliance->score -= $scoreType->points;
+                $matchAlliance->save();
+            }
+        }
+
+        // Delete the score record
+        $score->delete();
+
+        // Reload the match with fresh data
+        $match->refresh();
+        $match->load(['matchAlliances.team', 'matchAlliances.alliance']);
+
+        // Broadcast the update asynchronously
+        broadcast(new ScoreUpdated($match))->toOthers();
+
+        return response()->json([
+            'match' => $match,
+        ], 200);
+    }
 }
