@@ -12,8 +12,9 @@ Route::prefix('api')->group(function () {
     Route::prefix('matches')->group(function () {
         Route::get('/', [MatchController::class, 'index']);
         Route::get('/active', [MatchController::class, 'active']);
-        Route::get('/{id}', [MatchController::class, 'show']);
-        Route::post('/{id}/update-score', [MatchController::class, 'updateScore']);
+        Route::get('/teams-display', [MatchController::class, 'teamsDisplay']);
+        Route::get('/{id}', [MatchController::class, 'show'])->where('id', '[0-9]+');
+        Route::post('/{id}/update-score', [MatchController::class, 'updateScore'])->where('id', '[0-9]+');
     });
 
     Route::prefix('score-types')->group(function () {
@@ -54,6 +55,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('referee/scoring', function () {
         return Inertia::render('referee/scoring');
     })->name('referee.scoring');
+
+    Route::get('referee/display', function () {
+        return Inertia::render('referee/display');
+    })->name('referee.display');
 });
 
 require __DIR__.'/settings.php';

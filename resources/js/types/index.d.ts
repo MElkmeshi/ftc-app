@@ -90,3 +90,13 @@ export interface CompetitionMatch {
 export interface ScoreUpdatedEvent {
     match: CompetitionMatch;
 }
+
+export interface TeamDisplay {
+    team_id: number;
+    team_number: string;
+    team_name: string;
+    alliance_color: string;
+    team_score: number;
+    alliance_score: number;
+    total_score: number;
+}
