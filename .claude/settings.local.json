@@ -13,7 +13,9 @@
       "Bash(php artisan test:*)",
       "mcp__laravel-boost__tinker",
       "Bash(php artisan make:migration:*)",
-      "Bash(php artisan:*)"
+      "Bash(php artisan:*)",
+      "Bash(npx prettier:*)",
+      "Bash(curl:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

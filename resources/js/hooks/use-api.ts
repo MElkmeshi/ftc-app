@@ -1,4 +1,4 @@
-import { CompetitionMatch, ScoreType } from '@/types';
+import { CompetitionMatch, ScoreType, TeamDisplay } from '@/types';
 import axios from 'axios';
 import { useCallback } from 'react';
 
@@ -37,5 +37,10 @@ export const useApi = () => {
         return res.data;
     }, []);
 
-    return { getMatches, getMatch, getActiveMatch, updateScore, getScoreTypes, addScore, deleteScore };
+    const getTeamsDisplay = useCallback(async (): Promise<TeamDisplay[]> => {
+        const res = await axios.get('/api/matches/teams-display');
+        return res.data;
+    }, []);
+
+    return { getMatches, getMatch, getActiveMatch, updateScore, getScoreTypes, addScore, deleteScore, getTeamsDisplay };
 };

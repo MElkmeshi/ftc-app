@@ -1,13 +1,15 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useActiveMatch, useAddScore, useDeleteScore, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
-import { useActiveMatch, useAddScore, useDeleteScore, useScoreTypes } from '@/hooks/use-match';
-import { type BreadcrumbItem, type Alliance, type MatchAlliance, type ScoreType } from '@/types';
+import { cn } from '@/lib/utils';
+import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Minus } from 'lucide-react';
+import { Minus, Plus, Trophy, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -18,31 +20,39 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function RefereeScoring() {
     const [selectedAllianceId, setSelectedAllianceId] = useState<number | null>(null);
+    const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
     const addScore = useAddScore();
     const deleteScore = useDeleteScore();
 
-    // Fetch active match with 3-second polling
-    const { data: match, isLoading } = useActiveMatch(3000);
+    const { data: matches = [] } = useMatches();
+    const { data: activeMatch } = useActiveMatch();
+    const { data: match, isLoading } = useMatch(selectedMatchId, 3000);
     const { data: scoreTypes = [] } = useScoreTypes();
 
-    // Listen for real-time score updates from other users
+    const ongoingMatches = matches.filter((m) => m.status === 'ongoing');
+
+    useEffect(() => {
+        if (activeMatch && !selectedMatchId) {
+            setSelectedMatchId(activeMatch.id);
+        }
+    }, [activeMatch, selectedMatchId]);
+
     useEcho(match?.id ? `matches.${match.id}` : '', 'ScoreUpdated', () => {
         // Refetch when other referees update scores
-        // This won't interfere with our own optimistic updates
     });
 
     const selectedAlliance = match?.match_alliances.find((ma) => ma.alliance.id === selectedAllianceId);
     const teamsInAlliance = match?.match_alliances.filter((ma) => ma.alliance.id === selectedAllianceId) || [];
 
-    // Group score types by target
     const allianceScoreTypes = scoreTypes.filter((st) => st.target === 'alliance');
     const teamScoreTypes = scoreTypes.filter((st) => st.target === 'team');
+
+    const allianceColor = selectedAlliance?.alliance.color || 'gray';
 
     const handleAddScore = (scoreTypeId: number, options: { teamId?: number; allianceId?: number }) => {
         if (!match) return;
 
-        // Send either team_id or alliance_id, but not both
         if (options.allianceId) {
             addScore.mutate({
                 match_id: match.id,
@@ -59,65 +69,46 @@ export default function RefereeScoring() {
     };
 
     const getTotalAllianceScore = () => {
-        // Sum team scores
         const teamScoresTotal = teamsInAlliance.reduce((sum, ma) => sum + ma.score, 0);
-
-        // Add alliance-wide scores (where team_id is null)
         const allianceScoresTotal = (match?.scores || [])
-            .filter(score => score.alliance_id === selectedAllianceId && !score.team_id)
+            .filter((score) => score.alliance_id === selectedAllianceId && !score.team_id)
             .reduce((sum, score) => sum + (score.score_type?.points || 0), 0);
-
         return teamScoresTotal + allianceScoresTotal;
     };
 
-    const getScoreTypeButtonClass = (points: number) => {
-        if (points > 0) return 'bg-green-600 hover:bg-green-700 text-white';
-        if (points < 0) return 'bg-red-600 hover:bg-red-700 text-white';
-        return 'bg-gray-600 hover:bg-gray-700 text-white';
-    };
-
-    // Get count for a specific score type for alliance-wide scores
     const getAllianceScoreTypeCount = (scoreTypeId: number) => {
         if (!match || !selectedAllianceId) return 0;
         return (match.scores || []).filter(
-            score => score.score_type_id === scoreTypeId &&
-                     score.alliance_id === selectedAllianceId &&
-                     !score.team_id
+            (score) => score.score_type_id === scoreTypeId && score.alliance_id === selectedAllianceId && !score.team_id,
         ).length;
     };
 
-    // Get count for a specific score type for a specific team
     const getTeamScoreTypeCount = (scoreTypeId: number, teamId: number) => {
         if (!match) return 0;
-        return (match.scores || []).filter(
-            score => score.score_type_id === scoreTypeId && score.team_id === teamId
-        ).length;
+        return (match.scores || []).filter((score) => score.score_type_id === scoreTypeId && score.team_id === teamId).length;
     };
 
-    // Get the most recent score ID for removal (alliance-wide)
     const getLatestAllianceScoreId = (scoreTypeId: number) => {
         if (!match || !selectedAllianceId) return null;
         const scores = (match.scores || [])
-            .filter(
-                score => score.score_type_id === scoreTypeId &&
-                         score.alliance_id === selectedAllianceId &&
-                         !score.team_id
-            )
+            .filter((score) => score.score_type_id === scoreTypeId && score.alliance_id === selectedAllianceId && !score.team_id)
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         return scores.length > 0 ? scores[0].id : null;
     };
 
-    // Get the most recent score ID for removal (team-specific)
     const getLatestTeamScoreId = (scoreTypeId: number, teamId: number) => {
         if (!match) return null;
         const scores = (match.scores || [])
-            .filter(score => score.score_type_id === scoreTypeId && score.team_id === teamId)
+            .filter((score) => score.score_type_id === scoreTypeId && score.team_id === teamId)
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         return scores.length > 0 ? scores[0].id : null;
     };
 
     const handleRemoveScore = (scoreTypeId: number, options: { teamId?: number; allianceId?: number }) => {
         if (!match) return;
+
+        const scoreType = scoreTypes.find((st) => st.id === scoreTypeId);
+        if (!scoreType) return;
 
         let scoreId: number | null = null;
         if (options.allianceId) {
@@ -127,145 +118,233 @@ export default function RefereeScoring() {
         }
 
         if (scoreId) {
-            deleteScore.mutate(scoreId);
+            deleteScore.mutate({
+                scoreId,
+                matchId: match.id,
+                teamId: options.teamId,
+                points: scoreType.points,
+            });
         }
     };
+
+    const getScoreButtonStyles = (points: number) => {
+        if (points > 0) {
+            return 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-lg';
+        }
+        if (points < 0) {
+            return 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white shadow-lg';
+        }
+        return 'bg-slate-600 hover:bg-slate-700 active:bg-slate-800 text-white shadow-lg';
+    };
+
+    const getAllianceColorClasses = (color: string) => {
+        if (color === 'red') {
+            return {
+                bg: 'bg-red-600',
+                bgHover: 'hover:bg-red-700',
+                border: 'border-red-500',
+                text: 'text-red-600',
+                bgLight: 'bg-red-50 dark:bg-red-950',
+            };
+        }
+        if (color === 'blue') {
+            return {
+                bg: 'bg-blue-600',
+                bgHover: 'hover:bg-blue-700',
+                border: 'border-blue-500',
+                text: 'text-blue-600',
+                bgLight: 'bg-blue-50 dark:bg-blue-950',
+            };
+        }
+        return {
+            bg: 'bg-gray-600',
+            bgHover: 'hover:bg-gray-700',
+            border: 'border-gray-500',
+            text: 'text-gray-600',
+            bgLight: 'bg-gray-50 dark:bg-gray-950',
+        };
+    };
+
+    const alliances = match
+        ? Array.from(new Set(match.match_alliances.map((ma) => ma.alliance.id))).map((allianceId) => {
+              return match.match_alliances.find((ma) => ma.alliance.id === allianceId)?.alliance;
+          })
+        : [];
+
+    const colorClasses = getAllianceColorClasses(allianceColor);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Referee Scoring" />
 
             <div className="space-y-6">
-                {/* Match Status */}
+                {/* Match Selector */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Active Match</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading && <p className="text-muted-foreground">Loading active match...</p>}
-                        {!isLoading && !match && <p className="text-muted-foreground">No active match found</p>}
-                        {match && (
-                            <div>
-                                <div className="text-2xl font-bold">Match #{match.number}</div>
-                                <Badge className="mt-2">{match.status}</Badge>
-                            </div>
-                        )}
+                    <CardContent className="pt-6">
+                        <div className="flex items-center gap-4">
+                            <label className="text-lg font-semibold">Select Match:</label>
+                            <Select value={selectedMatchId?.toString() || ''} onValueChange={(value) => setSelectedMatchId(Number(value))}>
+                                <SelectTrigger className="w-[300px]">
+                                    <SelectValue placeholder="Choose a match" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {ongoingMatches.map((m) => (
+                                        <SelectItem key={m.id} value={m.id.toString()}>
+                                            Match #{m.number}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </CardContent>
                 </Card>
 
-                {/* Alliance Selection */}
-                {match && (
+                {isLoading && (
+                    <div className="flex min-h-[40vh] items-center justify-center">
+                        <div className="text-center">
+                            <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-current border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+                            <p className="text-muted-foreground text-lg">Loading match...</p>
+                        </div>
+                    </div>
+                )}
+
+                {!isLoading && !match && (
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Select Alliance</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex gap-4">
-                                {Array.from(new Set(match.match_alliances.map((ma) => ma.alliance.id))).map((allianceId) => {
-                                    const alliance = match.match_alliances.find((ma) => ma.alliance.id === allianceId)?.alliance;
-                                    if (!alliance) return null;
-                                    return (
-                                        <Button
-                                            key={allianceId}
-                                            onClick={() => setSelectedAllianceId(allianceId)}
-                                            variant={selectedAllianceId === allianceId ? 'default' : 'outline'}
-                                            className={
-                                                selectedAllianceId === allianceId && alliance.color === 'red'
-                                                    ? 'bg-red-600 hover:bg-red-700'
-                                                    : selectedAllianceId === allianceId && alliance.color === 'blue'
-                                                      ? 'bg-blue-600 hover:bg-blue-700'
-                                                      : ''
-                                            }
-                                        >
-                                            {alliance.color.charAt(0).toUpperCase() + alliance.color.slice(1)} Alliance
-                                        </Button>
-                                    );
-                                })}
-                            </div>
+                        <CardContent className="pt-12 pb-12 text-center">
+                            <Trophy className="text-muted-foreground mx-auto mb-4 h-16 w-16" />
+                            <h2 className="mb-2 text-2xl font-bold">No Match Selected</h2>
+                            <p className="text-muted-foreground">Please select an ongoing match from the dropdown above</p>
                         </CardContent>
                     </Card>
                 )}
 
+                {/* Header with Match Info and Alliance Selection */}
+                {match && match.match_alliances.length === 0 && (
+                    <Card>
+                        <CardContent className="pt-12 pb-12 text-center">
+                            <Users className="text-muted-foreground mx-auto mb-4 h-16 w-16" />
+                            <h2 className="mb-2 text-2xl font-bold">No Teams Assigned</h2>
+                            <p className="text-muted-foreground">
+                                Match #{match.number} doesn't have any teams assigned yet. Please assign teams to this match before scoring.
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {match && match.match_alliances.length > 0 && (
+                    <>
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className={cn('flex h-16 w-16 items-center justify-center rounded-xl', colorClasses.bg)}>
+                                    <Trophy className="h-8 w-8 text-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-bold">Match #{match.number}</h1>
+                                    <Badge variant="secondary" className="mt-1">
+                                        {match.status}
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            {/* Alliance Selection */}
+                            <div className="flex gap-3">
+                                {alliances.map((alliance) => {
+                                    if (!alliance) {
+                                        return null;
+                                    }
+                                    const isSelected = selectedAllianceId === alliance.id;
+                                    const colorClasses = getAllianceColorClasses(alliance.color);
+                                    return (
+                                        <Button
+                                            key={alliance.id}
+                                            onClick={() => setSelectedAllianceId(alliance.id)}
+                                            size="lg"
+                                            className={cn(
+                                                'min-w-[140px] text-lg font-semibold transition-all',
+                                                isSelected
+                                                    ? cn(colorClasses.bg, colorClasses.bgHover, 'shadow-lg')
+                                                    : 'bg-secondary hover:bg-secondary/80',
+                                            )}
+                                        >
+                                            {alliance.color.charAt(0).toUpperCase() + alliance.color.slice(1)}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </>
+                )}
+
                 {/* Scoring Interface */}
-                {match && selectedAllianceId && (
+                {match && selectedAllianceId ? (
                     <div className="space-y-6">
-                        {/* Alliance Total Score */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>
-                                    {selectedAlliance?.alliance.color.charAt(0).toUpperCase() +
-                                        selectedAlliance?.alliance.color.slice(1)}{' '}
-                                    Alliance Total Score
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-4xl font-bold">{getTotalAllianceScore()}</div>
+                        {/* Total Score Display */}
+                        <Card className={cn('border-2', colorClasses.border, colorClasses.bgLight)}>
+                            <CardContent className="pt-8 pb-8 text-center">
+                                <p className={cn('mb-2 text-lg font-medium', colorClasses.text)}>Total Score</p>
+                                <p className="text-7xl font-bold tracking-tight">{getTotalAllianceScore()}</p>
                             </CardContent>
                         </Card>
 
-                        {/* Alliance-wide Scoring */}
+                        {/* Alliance-Wide Scoring */}
                         {allianceScoreTypes.length > 0 && (
                             <Card>
-                                <CardHeader>
-                                    <CardTitle>Alliance-Wide Actions</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                                <CardContent className="pt-6">
+                                    <div className="mb-4 flex items-center gap-2">
+                                        <Users className="text-muted-foreground h-5 w-5" />
+                                        <h2 className="text-xl font-semibold">Alliance Actions</h2>
+                                    </div>
+                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                         {allianceScoreTypes.map((scoreType) => {
                                             const count = getAllianceScoreTypeCount(scoreType.id);
                                             return (
-                                                <div key={scoreType.id} className="flex flex-col gap-2">
-                                                    <Button
-                                                        onClick={() =>
-                                                            handleAddScore(scoreType.id, {
-                                                                allianceId: selectedAllianceId ?? undefined,
-                                                            })
-                                                        }
-                                                        className={getScoreTypeButtonClass(scoreType.points)}
-                                                        disabled={addScore.isPending || deleteScore.isPending}
-                                                    >
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <span className="text-sm">{scoreType.name.replace(/_/g, ' ').toUpperCase()}</span>
-                                                            <span className="text-lg font-bold">
-                                                                {scoreType.points > 0 ? '+' : ''}
-                                                                {scoreType.points}
-                                                            </span>
+                                                <Card key={scoreType.id} className="overflow-hidden">
+                                                    <CardContent className="p-4">
+                                                        <div className="mb-3 flex items-center justify-between">
+                                                            <div>
+                                                                <p className="text-sm leading-none font-medium">
+                                                                    {scoreType.name.replace(/_/g, ' ').toUpperCase()}
+                                                                </p>
+                                                                <p className="mt-1 text-2xl font-bold">
+                                                                    {scoreType.points > 0 ? '+' : ''}
+                                                                    {scoreType.points} pts
+                                                                </p>
+                                                            </div>
                                                             {count > 0 && (
-                                                                <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30">
-                                                                    {count}×
+                                                                <Badge variant="secondary" className="px-3 py-1 text-lg">
+                                                                    {count}
                                                                 </Badge>
                                                             )}
                                                         </div>
-                                                    </Button>
-                                                    <div className="flex gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                handleAddScore(scoreType.id, {
-                                                                    allianceId: selectedAllianceId ?? undefined,
-                                                                })
-                                                            }
-                                                            disabled={addScore.isPending || deleteScore.isPending}
-                                                            className="flex-1"
-                                                        >
-                                                            <Plus className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() =>
-                                                                handleRemoveScore(scoreType.id, {
-                                                                    allianceId: selectedAllianceId ?? undefined,
-                                                                })
-                                                            }
-                                                            disabled={count === 0 || addScore.isPending || deleteScore.isPending}
-                                                            className="flex-1"
-                                                        >
-                                                            <Minus className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                onClick={() =>
+                                                                    handleRemoveScore(scoreType.id, {
+                                                                        allianceId: selectedAllianceId ?? undefined,
+                                                                    })
+                                                                }
+                                                                disabled={count === 0 || addScore.isPending || deleteScore.isPending}
+                                                                size="lg"
+                                                                variant="outline"
+                                                                className="flex-1"
+                                                            >
+                                                                <Minus className="h-5 w-5" />
+                                                            </Button>
+                                                            <Button
+                                                                onClick={() =>
+                                                                    handleAddScore(scoreType.id, {
+                                                                        allianceId: selectedAllianceId ?? undefined,
+                                                                    })
+                                                                }
+                                                                disabled={addScore.isPending || deleteScore.isPending}
+                                                                size="lg"
+                                                                className={cn('flex-1', getScoreButtonStyles(scoreType.points))}
+                                                            >
+                                                                <Plus className="h-5 w-5" />
+                                                            </Button>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
                                             );
                                         })}
                                     </div>
@@ -273,76 +352,70 @@ export default function RefereeScoring() {
                             </Card>
                         )}
 
-                        {/* Team-Specific Scoring */}
+                        {/* Team Scoring */}
                         {teamScoreTypes.length > 0 && (
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 {teamsInAlliance.map((ma) => (
                                     <Card key={ma.id}>
-                                        <CardHeader>
-                                            <div className="flex items-center justify-between">
-                                                <CardTitle>{ma.team.name}</CardTitle>
-                                                <div className="text-2xl font-bold">{ma.score}</div>
+                                        <CardContent className="pt-6">
+                                            <div className="mb-4 flex items-center justify-between border-b pb-4">
+                                                <h3 className="text-2xl font-bold">{ma.team.name}</h3>
+                                                <div className="text-right">
+                                                    <p className="text-muted-foreground text-sm">Team Score</p>
+                                                    <p className="text-3xl font-bold">{ma.score}</p>
+                                                </div>
                                             </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                                 {teamScoreTypes.map((scoreType) => {
                                                     const count = getTeamScoreTypeCount(scoreType.id, ma.team.id);
                                                     return (
-                                                        <div key={scoreType.id} className="flex flex-col gap-2">
-                                                            <Button
-                                                                onClick={() =>
-                                                                    handleAddScore(scoreType.id, {
-                                                                        teamId: ma.team.id,
-                                                                    })
-                                                                }
-                                                                className={getScoreTypeButtonClass(scoreType.points)}
-                                                                disabled={addScore.isPending || deleteScore.isPending}
-                                                            >
-                                                                <div className="flex flex-col items-center gap-1">
-                                                                    <span className="text-sm">
-                                                                        {scoreType.name.replace(/_/g, ' ').toUpperCase()}
-                                                                    </span>
-                                                                    <span className="text-lg font-bold">
-                                                                        {scoreType.points > 0 ? '+' : ''}
-                                                                        {scoreType.points}
-                                                                    </span>
+                                                        <Card key={scoreType.id} className="overflow-hidden">
+                                                            <CardContent className="p-4">
+                                                                <div className="mb-3 flex items-center justify-between">
+                                                                    <div>
+                                                                        <p className="text-sm leading-none font-medium">
+                                                                            {scoreType.name.replace(/_/g, ' ').toUpperCase()}
+                                                                        </p>
+                                                                        <p className="mt-1 text-2xl font-bold">
+                                                                            {scoreType.points > 0 ? '+' : ''}
+                                                                            {scoreType.points} pts
+                                                                        </p>
+                                                                    </div>
                                                                     {count > 0 && (
-                                                                        <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/30">
-                                                                            {count}×
+                                                                        <Badge variant="secondary" className="px-3 py-1 text-lg">
+                                                                            {count}
                                                                         </Badge>
                                                                     )}
                                                                 </div>
-                                                            </Button>
-                                                            <div className="flex gap-2">
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() =>
-                                                                        handleAddScore(scoreType.id, {
-                                                                            teamId: ma.team.id,
-                                                                        })
-                                                                    }
-                                                                    disabled={addScore.isPending || deleteScore.isPending}
-                                                                    className="flex-1"
-                                                                >
-                                                                    <Plus className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() =>
-                                                                        handleRemoveScore(scoreType.id, {
-                                                                            teamId: ma.team.id,
-                                                                        })
-                                                                    }
-                                                                    disabled={count === 0 || addScore.isPending || deleteScore.isPending}
-                                                                    className="flex-1"
-                                                                >
-                                                                    <Minus className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </div>
+                                                                <div className="flex gap-2">
+                                                                    <Button
+                                                                        onClick={() =>
+                                                                            handleRemoveScore(scoreType.id, {
+                                                                                teamId: ma.team.id,
+                                                                            })
+                                                                        }
+                                                                        disabled={count === 0 || addScore.isPending || deleteScore.isPending}
+                                                                        size="lg"
+                                                                        variant="outline"
+                                                                        className="flex-1"
+                                                                    >
+                                                                        <Minus className="h-5 w-5" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        onClick={() =>
+                                                                            handleAddScore(scoreType.id, {
+                                                                                teamId: ma.team.id,
+                                                                            })
+                                                                        }
+                                                                        disabled={addScore.isPending || deleteScore.isPending}
+                                                                        size="lg"
+                                                                        className={cn('flex-1', getScoreButtonStyles(scoreType.points))}
+                                                                    >
+                                                                        <Plus className="h-5 w-5" />
+                                                                    </Button>
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
                                                     );
                                                 })}
                                             </div>
@@ -352,7 +425,15 @@ export default function RefereeScoring() {
                             </div>
                         )}
                     </div>
-                )}
+                ) : match && !selectedAllianceId ? (
+                    <Card className="border-dashed">
+                        <CardContent className="pt-12 pb-12 text-center">
+                            <Users className="text-muted-foreground mx-auto mb-4 h-16 w-16" />
+                            <h2 className="mb-2 text-2xl font-bold">Select an Alliance</h2>
+                            <p className="text-muted-foreground">Choose an alliance above to begin scoring</p>
+                        </CardContent>
+                    </Card>
+                ) : null}
             </div>
         </AppLayout>
     );
