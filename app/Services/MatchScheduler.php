@@ -10,12 +10,19 @@ use App\Models\Score;
 use App\Models\Team;
 use Exception;
 use Illuminate\Support\Facades\DB;
-use LogicException;
 
 class MatchScheduler
 {
+    private array $teamMatchCounts = [];
+
+    private array $teamPartners = [];
+
+    private array $teamOpponents = [];
+
+    private int $maxIterations = 100;
+
     public function generate(
-        int $matchesPerTeam = 3,
+        int $minMatchesPerTeam = 3,
         int $createdBy = 1,
         int $teamsPerAlliance = 1
     ): void {
@@ -38,90 +45,281 @@ class MatchScheduler
         if ($teamCount < $teamsPerMatch) {
             throw new Exception("Not enough teams for a full match. At least {$teamsPerMatch} teams are required, but found {$teamCount}.");
         }
-        if ($matchesPerTeam <= 0) {
-            throw new Exception('Matches per team (rounds) must be a positive number.');
+        if ($minMatchesPerTeam <= 0) {
+            throw new Exception('Minimum matches per team must be a positive number.');
         }
 
-        DB::beginTransaction();
-        try {
+        // Initialize tracking arrays
+        $this->initializeTracking($teamIds);
+
+        // Disable foreign key checks based on database driver
+        $driver = DB::getDriverName();
+        if ($driver === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-            Score::truncate();
-            MatchAlliance::truncate();
-            CompetitionMatch::truncate();
+        } elseif ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF;');
+        }
+
+        Score::truncate();
+        MatchAlliance::truncate();
+        CompetitionMatch::truncate();
+
+        // Re-enable foreign key checks
+        if ($driver === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        } elseif ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = ON;');
+        }
 
-            $overallMatchCounter = 0;
-            $allTeamIdsCollection = collect($teamIds);
+        $matchNumber = 1;
+        $iterations = 0;
 
-            for ($roundNumber = 1; $roundNumber <= $matchesPerTeam; $roundNumber++) {
-                $teamsAvailableForThisRound = collect($teamIds)->shuffle()->all();
+        // Schedule matches until all teams meet minimum requirement
+        while (! $this->allTeamsMetMinimum($minMatchesPerTeam) && $iterations < $this->maxIterations) {
+            // Select teams for next match
+            $selectedTeams = $this->selectTeamsForMatch($teamIds, $teamsPerMatch);
+            if ($selectedTeams === null) {
+                throw new Exception('Cannot form match: Not enough available teams');
+            }
 
-                $numMatchesInThisRound = (int) ceil($teamCount / $teamsPerMatch);
+            // Form alliances with partnership diversity optimization
+            [$alliance1Teams, $alliance2Teams] = $this->formAlliances($selectedTeams, $teamsPerAlliance, $allianceIds);
 
-                for ($matchIndexInRound = 0; $matchIndexInRound < $numMatchesInThisRound; $matchIndexInRound++) {
-                    $overallMatchCounter++;
-                    $competitionMatch = CompetitionMatch::create([
-                        'number' => $overallMatchCounter,
-                        'start_time' => now()->addMinutes($overallMatchCounter * 10),
-                        'status' => MatchStatus::UPCOMING,
-                        'created_by' => $createdBy,
-                        'updated_by' => $createdBy,
-                    ]);
+            // Create the match
+            $competitionMatch = CompetitionMatch::create([
+                'number' => $matchNumber,
+                'start_time' => now()->addMinutes($matchNumber * 10),
+                'status' => MatchStatus::UPCOMING,
+                'created_by' => $createdBy,
+                'updated_by' => $createdBy,
+            ]);
 
-                    $teamsAssignedToCurrentMatch = [];
+            // Assign teams to alliances
+            $this->assignTeamsToAlliances(
+                $competitionMatch->id,
+                $alliance1Teams,
+                $alliance2Teams,
+                $allianceIds,
+                $createdBy
+            );
 
-                    $numNonSurrogatesToPick = min(count($teamsAvailableForThisRound), $teamsPerMatch);
-                    for ($i = 0; $i < $numNonSurrogatesToPick; $i++) {
-                        $teamsAssignedToCurrentMatch[] = array_shift($teamsAvailableForThisRound);
-                    }
+            // Update tracking statistics
+            $this->updateTracking($selectedTeams, $alliance1Teams, $alliance2Teams);
 
-                    $numSurrogatesNeeded = $teamsPerMatch - count($teamsAssignedToCurrentMatch);
-                    if ($numSurrogatesNeeded > 0) {
-                        $candidateSurrogatePool = $allTeamIdsCollection->diff($teamsAssignedToCurrentMatch);
+            $matchNumber++;
+            $iterations++;
+        }
 
-                        if ($candidateSurrogatePool->count() < $numSurrogatesNeeded) {
-                            throw new LogicException(
-                                "Insufficient unique teams to select as surrogates for match {$overallMatchCounter}. ".
-                                "Needed: {$numSurrogatesNeeded}, Available in pool (excluding non-surrogates for this match): {$candidateSurrogatePool->count()}."
-                            );
-                        }
+        if ($iterations >= $this->maxIterations) {
+            throw new Exception('Maximum iterations reached while scheduling matches');
+        }
+    }
 
-                        $selectedSurrogates = $candidateSurrogatePool->shuffle()->take($numSurrogatesNeeded)->all();
-                        $teamsAssignedToCurrentMatch = array_merge($teamsAssignedToCurrentMatch, $selectedSurrogates);
-                    }
+    private function initializeTracking(array $teamIds): void
+    {
+        foreach ($teamIds as $teamId) {
+            $this->teamMatchCounts[$teamId] = 0;
+            $this->teamPartners[$teamId] = [];
+            $this->teamOpponents[$teamId] = [];
+        }
+    }
 
-                    if (count($teamsAssignedToCurrentMatch) !== $teamsPerMatch) {
-                        throw new LogicException(
-                            "Match {$overallMatchCounter} could not be filled correctly. ".
-                            "Expected {$teamsPerMatch} teams, got ".count($teamsAssignedToCurrentMatch).'.'
-                        );
-                    }
+    private function allTeamsMetMinimum(int $minMatches): bool
+    {
+        foreach ($this->teamMatchCounts as $count) {
+            if ($count < $minMatches) {
+                return false;
+            }
+        }
 
-                    shuffle($teamsAssignedToCurrentMatch);
+        return true;
+    }
 
-                    $teamAssignmentIndex = 0;
-                    foreach ($allianceIds as $allianceId) {
-                        for ($positionInAlliance = 1; $positionInAlliance <= $teamsPerAlliance; $positionInAlliance++) {
-                            if ($teamAssignmentIndex < count($teamsAssignedToCurrentMatch)) {
-                                $teamIdToAssign = $teamsAssignedToCurrentMatch[$teamAssignmentIndex++];
-                                MatchAlliance::create([
-                                    'match_id' => $competitionMatch->id,
-                                    'team_id' => $teamIdToAssign,
-                                    'alliance_id' => $allianceId,
-                                    'alliance_pos' => $positionInAlliance,
-                                    'score' => 0,
-                                    'created_by' => $createdBy,
-                                    'updated_by' => $createdBy,
-                                ]);
-                            } else {
-                                throw new LogicException("Error assigning teams to alliance positions for match {$competitionMatch->id}. Index out of bounds.");
-                            }
-                        }
-                    }
+    private function getTeamsWithFewestMatches(array $availableTeams): array
+    {
+        $minCount = min(array_map(fn ($team) => $this->teamMatchCounts[$team], $availableTeams));
+
+        return array_filter($availableTeams, fn ($team) => $this->teamMatchCounts[$team] === $minCount);
+    }
+
+    private function selectTeamsForMatch(array $teamIds, int $teamsPerMatch): ?array
+    {
+        if (count($teamIds) < $teamsPerMatch) {
+            return null;
+        }
+
+        // Prioritize teams with fewer matches
+        $teamsWithMinMatches = $this->getTeamsWithFewestMatches($teamIds);
+
+        if (count($teamsWithMinMatches) >= $teamsPerMatch) {
+            // Randomly select from teams with minimum matches
+            shuffle($teamsWithMinMatches);
+
+            return array_slice($teamsWithMinMatches, 0, $teamsPerMatch);
+        } else {
+            // Take all teams with minimum matches, then add others
+            $selected = $teamsWithMinMatches;
+            $remaining = array_diff($teamIds, $selected);
+            shuffle($remaining);
+            $needed = $teamsPerMatch - count($selected);
+
+            return array_merge($selected, array_slice($remaining, 0, $needed));
+        }
+    }
+
+    private function formAlliances(array $teams, int $teamsPerAlliance, array $allianceIds): array
+    {
+        if (count($allianceIds) !== 2) {
+            throw new Exception('This algorithm currently supports exactly 2 alliances');
+        }
+
+        // Generate all possible ways to split teams into two alliances
+        $allPossibleSplits = $this->getCombinations($teams, $teamsPerAlliance);
+
+        // Score each split based on partnership diversity (lower is better)
+        $scoredSplits = [];
+
+        foreach ($allPossibleSplits as $alliance1Combo) {
+            $alliance2 = array_values(array_diff($teams, $alliance1Combo));
+
+            // Calculate partnership score
+            $partnershipScore = $this->calculatePartnershipScore($alliance1Combo) +
+                                $this->calculatePartnershipScore($alliance2);
+
+            $scoredSplits[] = [
+                'score' => $partnershipScore,
+                'alliance1' => $alliance1Combo,
+                'alliance2' => $alliance2,
+            ];
+        }
+
+        // Sort by score and pick the best split
+        usort($scoredSplits, fn ($a, $b) => $a['score'] <=> $b['score']);
+
+        return [$scoredSplits[0]['alliance1'], $scoredSplits[0]['alliance2']];
+    }
+
+    private function getCombinations(array $items, int $size): array
+    {
+        if ($size === 0) {
+            return [[]];
+        }
+        if (count($items) === 0) {
+            return [];
+        }
+
+        $combinations = [];
+        $first = array_shift($items);
+
+        // Get combinations that include the first item
+        $withFirst = $this->getCombinations($items, $size - 1);
+        foreach ($withFirst as $combo) {
+            $combinations[] = array_merge([$first], $combo);
+        }
+
+        // Get combinations that don't include the first item
+        $withoutFirst = $this->getCombinations($items, $size);
+        $combinations = array_merge($combinations, $withoutFirst);
+
+        return $combinations;
+    }
+
+    private function calculatePartnershipScore(array $alliance): int
+    {
+        $score = 0;
+        $allianceCount = count($alliance);
+
+        for ($i = 0; $i < $allianceCount; $i++) {
+            for ($j = $i + 1; $j < $allianceCount; $j++) {
+                $team1 = $alliance[$i];
+                $team2 = $alliance[$j];
+
+                // Count how many times these teams have been partners before
+                if (in_array($team2, $this->teamPartners[$team1])) {
+                    $score++;
                 }
             }
-        } catch (Exception $e) {
-            throw $e;
+        }
+
+        return $score;
+    }
+
+    private function assignTeamsToAlliances(
+        int $matchId,
+        array $alliance1Teams,
+        array $alliance2Teams,
+        array $allianceIds,
+        int $createdBy
+    ): void {
+        // Assign alliance 1
+        foreach ($alliance1Teams as $index => $teamId) {
+            MatchAlliance::create([
+                'match_id' => $matchId,
+                'team_id' => $teamId,
+                'alliance_id' => $allianceIds[0],
+                'alliance_pos' => $index + 1,
+                'score' => 0,
+                'created_by' => $createdBy,
+                'updated_by' => $createdBy,
+            ]);
+        }
+
+        // Assign alliance 2
+        foreach ($alliance2Teams as $index => $teamId) {
+            MatchAlliance::create([
+                'match_id' => $matchId,
+                'team_id' => $teamId,
+                'alliance_id' => $allianceIds[1],
+                'alliance_pos' => $index + 1,
+                'score' => 0,
+                'created_by' => $createdBy,
+                'updated_by' => $createdBy,
+            ]);
+        }
+    }
+
+    private function updateTracking(array $selectedTeams, array $alliance1Teams, array $alliance2Teams): void
+    {
+        // Update match counts
+        foreach ($selectedTeams as $teamId) {
+            $this->teamMatchCounts[$teamId]++;
+        }
+
+        // Update partners within alliance 1
+        $this->updatePartners($alliance1Teams);
+
+        // Update partners within alliance 2
+        $this->updatePartners($alliance2Teams);
+
+        // Update opponents between alliances
+        foreach ($alliance1Teams as $team1) {
+            foreach ($alliance2Teams as $team2) {
+                if (! in_array($team2, $this->teamOpponents[$team1])) {
+                    $this->teamOpponents[$team1][] = $team2;
+                }
+                if (! in_array($team1, $this->teamOpponents[$team2])) {
+                    $this->teamOpponents[$team2][] = $team1;
+                }
+            }
+        }
+    }
+
+    private function updatePartners(array $allianceTeams): void
+    {
+        $allianceCount = count($allianceTeams);
+
+        for ($i = 0; $i < $allianceCount; $i++) {
+            for ($j = $i + 1; $j < $allianceCount; $j++) {
+                $team1 = $allianceTeams[$i];
+                $team2 = $allianceTeams[$j];
+
+                if (! in_array($team2, $this->teamPartners[$team1])) {
+                    $this->teamPartners[$team1][] = $team2;
+                }
+                if (! in_array($team1, $this->teamPartners[$team2])) {
+                    $this->teamPartners[$team2][] = $team1;
+                }
+            }
         }
     }
 }
