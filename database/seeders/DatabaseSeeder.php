@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Alliance;
+use App\Models\Group;
 use App\Models\ScoreType;
 use App\Models\Team;
 use App\Models\User;
@@ -16,6 +17,18 @@ class DatabaseSeeder extends Seeder
 
         $red = Alliance::create(['color' => 'red']);
         $blue = Alliance::create(['color' => 'blue']);
+
+        $autonomous = Group::create([
+            'name' => 'autonomous',
+            'description' => 'Autonomous period scoring',
+            'display_order' => 1,
+        ]);
+
+        $teleop = Group::create([
+            'name' => 'teleop',
+            'description' => 'Teleoperated period scoring',
+            'display_order' => 2,
+        ]);
 
         $scoreTypes = [
             ['name' => 'score', 'points' => 1, 'created_by' => $admin->id],

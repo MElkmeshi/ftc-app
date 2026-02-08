@@ -26,7 +26,7 @@ beforeEach(function () {
 
 it('schedules matches until all teams meet minimum requirement', function () {
     $minMatchesPerTeam = 5;
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     $scheduler->generate(
         minMatchesPerTeam: $minMatchesPerTeam,
@@ -47,7 +47,7 @@ it('schedules matches until all teams meet minimum requirement', function () {
 });
 
 it('assigns teams to exactly 2 alliances per match', function () {
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     $scheduler->generate(
         minMatchesPerTeam: 3,
@@ -69,7 +69,7 @@ it('assigns teams to exactly 2 alliances per match', function () {
 
 it('assigns correct number of teams per alliance', function () {
     $teamsPerAlliance = 2;
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     $scheduler->generate(
         minMatchesPerTeam: 3,
@@ -92,7 +92,7 @@ it('assigns correct number of teams per alliance', function () {
 
 it('balances matches across teams', function () {
     $minMatchesPerTeam = 5;
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     $scheduler->generate(
         minMatchesPerTeam: $minMatchesPerTeam,
@@ -115,7 +115,7 @@ it('balances matches across teams', function () {
 });
 
 it('creates unique match numbers', function () {
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     $scheduler->generate(
         minMatchesPerTeam: 3,
@@ -130,7 +130,7 @@ it('creates unique match numbers', function () {
 });
 
 it('sets match start times progressively', function () {
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     $scheduler->generate(
         minMatchesPerTeam: 3,
@@ -157,7 +157,7 @@ it('throws exception when not enough teams', function () {
     // Delete all teams except 2 (need at least 4 for 2v2)
     Team::limit(Team::count() - 2)->delete();
 
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     expect(fn () => $scheduler->generate(
         minMatchesPerTeam: 3,
@@ -169,7 +169,7 @@ it('throws exception when not enough teams', function () {
 it('throws exception when no alliances exist', function () {
     Alliance::truncate();
 
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     expect(fn () => $scheduler->generate(
         minMatchesPerTeam: 3,
@@ -179,7 +179,7 @@ it('throws exception when no alliances exist', function () {
 });
 
 it('throws exception for invalid minimum matches', function () {
-    $scheduler = new MatchScheduler();
+    $scheduler = new MatchScheduler;
 
     expect(fn () => $scheduler->generate(
         minMatchesPerTeam: 0,

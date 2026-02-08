@@ -11,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('scores', function (Blueprint $table) {
-            $table->foreignId('alliance_id')->nullable()->after('team_id')->constrained('alliances');
+        Schema::create('groups', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->unique();
+            $table->string('description')->nullable();
+            $table->integer('display_order')->default(0);
+            $table->timestamps();
         });
     }
 
@@ -21,9 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('scores', function (Blueprint $table) {
-            $table->dropForeign(['alliance_id']);
-            $table->dropColumn('alliance_id');
-        });
+        Schema::dropIfExists('groups');
     }
 };

@@ -35,6 +35,12 @@ class ScoreTypeResource extends Resource
                             ->toArray()
                     )
                     ->required(),
+                Forms\Components\Select::make('group_id')
+                    ->label('Group')
+                    ->relationship('group', 'name')
+                    ->preload()
+                    ->nullable()
+                    ->helperText('Assign to a group for better organization in referee interface'),
             ]);
     }
 
@@ -45,10 +51,18 @@ class ScoreTypeResource extends Resource
                 Tables\Columns\TextColumn::make('name')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('points')->sortable()->searchable(),
                 Tables\Columns\TextColumn::make('target')->sortable()->searchable(),
+                Tables\Columns\TextColumn::make('group.name')
+                    ->label('Group')
+                    ->sortable()
+                    ->searchable()
+                    ->default('—')
+                    ->placeholder('No Group'),
 
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('group')
+                    ->relationship('group', 'name')
+                    ->label('Group'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
