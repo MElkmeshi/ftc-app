@@ -13,7 +13,10 @@ class ScoreController extends Controller
 {
     public function index()
     {
-        $scoreTypes = ScoreType::all();
+        $scoreTypes = ScoreType::with('group')
+            ->orderBy('group_id')
+            ->orderBy('name')
+            ->get();
 
         return response()->json($scoreTypes);
     }

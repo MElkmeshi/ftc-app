@@ -53,11 +53,20 @@ export interface Alliance {
     color: string;
 }
 
+export interface Group {
+    id: number;
+    name: string;
+    description: string | null;
+    display_order: number;
+}
+
 export interface ScoreType {
     id: number;
     name: string;
     points: number;
     target: 'team' | 'alliance';
+    group_id: number | null;
+    group?: Group;
 }
 
 export interface Score {

@@ -11,7 +11,7 @@ class ScoreType extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name', 'points', 'target', 'created_by',
+        'name', 'points', 'target', 'group_id', 'created_by',
     ];
 
     protected $hidden = [
@@ -25,5 +25,10 @@ class ScoreType extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function group()
+    {
+        return $this->belongsTo(Group::class);
     }
 }
