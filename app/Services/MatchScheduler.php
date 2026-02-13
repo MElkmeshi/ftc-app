@@ -24,7 +24,8 @@ class MatchScheduler
     public function generate(
         int $minMatchesPerTeam = 3,
         int $createdBy = 1,
-        int $teamsPerAlliance = 1
+        int $teamsPerAlliance = 1,
+        ?int $maxScoringMatches = null
     ): void {
         $teams = Team::all();
         if ($teams->isEmpty()) {
@@ -39,6 +40,10 @@ class MatchScheduler
         }
         $allianceIds = $alliances->pluck('id')->all();
         $alliancesCount = count($allianceIds);
+
+        if ($alliancesCount !== 2) {
+            throw new Exception('This algorithm currently supports exactly 2 alliances');
+        }
 
         $teamsPerMatch = $teamsPerAlliance * $alliancesCount;
 
@@ -83,7 +88,7 @@ class MatchScheduler
             }
 
             // Form alliances with partnership diversity optimization
-            [$alliance1Teams, $alliance2Teams] = $this->formAlliances($selectedTeams, $teamsPerAlliance, $allianceIds);
+            [$alliance1Teams, $alliance2Teams] = $this->formAlliances($selectedTeams, $teamsPerAlliance);
 
             // Create the match
             $competitionMatch = CompetitionMatch::create([
@@ -100,7 +105,8 @@ class MatchScheduler
                 $alliance1Teams,
                 $alliance2Teams,
                 $allianceIds,
-                $createdBy
+                $createdBy,
+                $maxScoringMatches
             );
 
             // Update tracking statistics
@@ -167,12 +173,8 @@ class MatchScheduler
         }
     }
 
-    private function formAlliances(array $teams, int $teamsPerAlliance, array $allianceIds): array
+    private function formAlliances(array $teams, int $teamsPerAlliance): array
     {
-        if (count($allianceIds) !== 2) {
-            throw new Exception('This algorithm currently supports exactly 2 alliances');
-        }
-
         // Generate all possible ways to split teams into two alliances
         $allPossibleSplits = $this->getCombinations($teams, $teamsPerAlliance);
 
@@ -249,16 +251,20 @@ class MatchScheduler
         array $alliance1Teams,
         array $alliance2Teams,
         array $allianceIds,
-        int $createdBy
+        int $createdBy,
+        ?int $maxScoringMatches = null
     ): void {
         // Assign alliance 1
         foreach ($alliance1Teams as $index => $teamId) {
+            $countsForRanking = $maxScoringMatches === null || $this->teamMatchCounts[$teamId] < $maxScoringMatches;
+
             MatchAlliance::create([
                 'match_id' => $matchId,
                 'team_id' => $teamId,
                 'alliance_id' => $allianceIds[0],
                 'alliance_pos' => $index + 1,
                 'score' => 0,
+                'counts_for_ranking' => $countsForRanking,
                 'created_by' => $createdBy,
                 'updated_by' => $createdBy,
             ]);
@@ -266,12 +272,15 @@ class MatchScheduler
 
         // Assign alliance 2
         foreach ($alliance2Teams as $index => $teamId) {
+            $countsForRanking = $maxScoringMatches === null || $this->teamMatchCounts[$teamId] < $maxScoringMatches;
+
             MatchAlliance::create([
                 'match_id' => $matchId,
                 'team_id' => $teamId,
                 'alliance_id' => $allianceIds[1],
                 'alliance_pos' => $index + 1,
                 'score' => 0,
+                'counts_for_ranking' => $countsForRanking,
                 'created_by' => $createdBy,
                 'updated_by' => $createdBy,
             ]);
@@ -285,41 +294,47 @@ class MatchScheduler
             $this->teamMatchCounts[$teamId]++;
         }
 
-        // Update partners within alliance 1
-        $this->updatePartners($alliance1Teams);
+        // Update partners and opponents for alliance 1
+        $alliance1Count = count($alliance1Teams);
+        for ($i = 0; $i < $alliance1Count; $i++) {
+            $team1 = $alliance1Teams[$i];
+
+            for ($j = $i + 1; $j < $alliance1Count; $j++) {
+                $team2 = $alliance1Teams[$j];
+                $this->addPartner($team1, $team2);
+            }
+
+            foreach ($alliance2Teams as $opponent) {
+                $this->addOpponent($team1, $opponent);
+            }
+        }
 
         // Update partners within alliance 2
-        $this->updatePartners($alliance2Teams);
-
-        // Update opponents between alliances
-        foreach ($alliance1Teams as $team1) {
-            foreach ($alliance2Teams as $team2) {
-                if (! in_array($team2, $this->teamOpponents[$team1])) {
-                    $this->teamOpponents[$team1][] = $team2;
-                }
-                if (! in_array($team1, $this->teamOpponents[$team2])) {
-                    $this->teamOpponents[$team2][] = $team1;
-                }
+        $alliance2Count = count($alliance2Teams);
+        for ($i = 0; $i < $alliance2Count; $i++) {
+            for ($j = $i + 1; $j < $alliance2Count; $j++) {
+                $this->addPartner($alliance2Teams[$i], $alliance2Teams[$j]);
             }
         }
     }
 
-    private function updatePartners(array $allianceTeams): void
+    private function addPartner(int $team1, int $team2): void
     {
-        $allianceCount = count($allianceTeams);
+        if (! in_array($team2, $this->teamPartners[$team1])) {
+            $this->teamPartners[$team1][] = $team2;
+        }
+        if (! in_array($team1, $this->teamPartners[$team2])) {
+            $this->teamPartners[$team2][] = $team1;
+        }
+    }
 
-        for ($i = 0; $i < $allianceCount; $i++) {
-            for ($j = $i + 1; $j < $allianceCount; $j++) {
-                $team1 = $allianceTeams[$i];
-                $team2 = $allianceTeams[$j];
-
-                if (! in_array($team2, $this->teamPartners[$team1])) {
-                    $this->teamPartners[$team1][] = $team2;
-                }
-                if (! in_array($team1, $this->teamPartners[$team2])) {
-                    $this->teamPartners[$team2][] = $team1;
-                }
-            }
+    private function addOpponent(int $team1, int $team2): void
+    {
+        if (! in_array($team2, $this->teamOpponents[$team1])) {
+            $this->teamOpponents[$team1][] = $team2;
+        }
+        if (! in_array($team1, $this->teamOpponents[$team2])) {
+            $this->teamOpponents[$team2][] = $team1;
         }
     }
 }

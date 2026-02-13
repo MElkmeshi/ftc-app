@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\AllianceSelectionController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\ScoreTypeController;
@@ -55,11 +57,41 @@ Route::prefix('api')->group(function () {
     });
 
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+
+    Route::prefix('alliance-selection')->group(function () {
+        Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
+        Route::post('/start', [AllianceSelectionController::class, 'start']);
+        Route::get('/groups', [AllianceSelectionController::class, 'groups']);
+        Route::get('/available-teams', [AllianceSelectionController::class, 'availableTeams']);
+        Route::post('/pick', [AllianceSelectionController::class, 'pick']);
+        Route::get('/status', [AllianceSelectionController::class, 'status']);
+        Route::delete('/reset', [AllianceSelectionController::class, 'reset']);
+    });
+
+    Route::prefix('elimination')->group(function () {
+        Route::post('/generate', [EliminationController::class, 'generate']);
+        Route::get('/bracket', [EliminationController::class, 'bracket']);
+        Route::post('/series/{series}/check-winner', [EliminationController::class, 'checkWinner']);
+        Route::post('/series/{series}/tiebreaker', [EliminationController::class, 'tiebreaker']);
+        Route::delete('/reset', [EliminationController::class, 'reset']);
+    });
 });
 
 Route::get('referee/match-control', function () {
     return Inertia::render('referee/match-control');
 })->name('referee.match-control');
+
+Route::get('alliance-selection/display', function () {
+    return Inertia::render('alliance-selection/display');
+})->name('alliance-selection.display');
+
+Route::get('elimination/bracket', function () {
+    return Inertia::render('elimination/bracket');
+})->name('elimination.bracket');
+
+Route::get('referee/display', function () {
+    return Inertia::render('referee/display');
+})->name('referee.display');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
@@ -91,10 +123,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('referee/scoring');
     })->name('referee.scoring');
 
-    Route::get('referee/display', function () {
-        return Inertia::render('referee/display');
-    })->name('referee.display');
-
     Route::get('admin/teams', function () {
         return Inertia::render('admin/teams');
     })->name('admin.teams');
@@ -102,6 +130,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('admin/score-types', function () {
         return Inertia::render('admin/score-types');
     })->name('admin.score-types');
+
+    Route::get('admin/alliance-selection', function () {
+        return Inertia::render('admin/alliance-selection');
+    })->name('admin.alliance-selection');
 
 });
 

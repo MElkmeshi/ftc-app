@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use App\Enums\MatchStatus;
+use App\Enums\MatchType;
 use Database\Factories\MatchFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CompetitionMatch extends Model
@@ -21,7 +24,7 @@ class CompetitionMatch extends Model
     protected $table = 'matches';
 
     protected $fillable = [
-        'number', 'start_time', 'status', 'started_at', 'ended_at', 'cancelled_at', 'created_by', 'updated_by',
+        'number', 'type', 'round', 'elimination_series_id', 'start_time', 'status', 'started_at', 'ended_at', 'cancelled_at', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -32,10 +35,26 @@ class CompetitionMatch extends Model
     {
         return [
             'status' => MatchStatus::class,
+            'type' => MatchType::class,
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
+    }
+
+    public function scopeQualification(Builder $query): Builder
+    {
+        return $query->where('type', MatchType::QUALIFICATION);
+    }
+
+    public function scopeElimination(Builder $query): Builder
+    {
+        return $query->where('type', MatchType::ELIMINATION);
+    }
+
+    public function eliminationSeries(): BelongsTo
+    {
+        return $this->belongsTo(EliminationSeries::class);
     }
 
     public function matchAlliances()

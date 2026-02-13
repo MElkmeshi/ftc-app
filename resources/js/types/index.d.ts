@@ -84,12 +84,16 @@ export interface MatchAlliance {
     team: Team;
     alliance: Alliance;
     score: number;
+    alliance_group_id: number | null;
     scores?: Score[];
 }
 
 export interface CompetitionMatch {
     id: number;
     number: number;
+    type: 'qualification' | 'elimination';
+    round: string | null;
+    elimination_series_id: number | null;
     start_time: string;
     started_at: string | null;
     status: string;
@@ -116,6 +120,43 @@ export interface TeamDisplay {
     team_score: number;
     alliance_score: number;
     total_score: number;
+}
+
+export interface AllianceGroup {
+    id: number;
+    seed: number;
+    captain_team: Team;
+    picked_team: Team | null;
+}
+
+export interface SeriesResult {
+    group_1_wins: number;
+    group_2_wins: number;
+    completed_matches: number;
+    total_matches: number;
+}
+
+export interface EliminationSeries {
+    id: number;
+    round: string;
+    alliance_group_1: AllianceGroup;
+    alliance_group_2: AllianceGroup;
+    winner_alliance_group_id: number | null;
+    winner: AllianceGroup | null;
+    status: 'pending' | 'in_progress' | 'completed';
+    matches: CompetitionMatch[];
+    result?: SeriesResult;
+}
+
+export interface EliminationBracket {
+    series: EliminationSeries[];
+    alliance_groups: AllianceGroup[];
+}
+
+export interface AllianceSelectionStatus {
+    started: boolean;
+    complete: boolean;
+    groups: AllianceGroup[];
 }
 
 export interface DashboardStats {

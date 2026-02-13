@@ -178,6 +178,46 @@ it('throws exception when no alliances exist', function () {
     ))->toThrow(Exception::class, 'No alliances available');
 });
 
+it('marks matches beyond max scoring limit as not counting for ranking', function () {
+    $maxScoringMatches = 2;
+    $minMatchesPerTeam = 4;
+    $scheduler = new MatchScheduler;
+
+    $scheduler->generate(
+        minMatchesPerTeam: $minMatchesPerTeam,
+        createdBy: 1,
+        teamsPerAlliance: 2,
+        maxScoringMatches: $maxScoringMatches
+    );
+
+    $teams = Team::all();
+    foreach ($teams as $team) {
+        $rankingCount = MatchAlliance::where('team_id', $team->id)
+            ->where('counts_for_ranking', true)
+            ->count();
+
+        $nonRankingCount = MatchAlliance::where('team_id', $team->id)
+            ->where('counts_for_ranking', false)
+            ->count();
+
+        expect($rankingCount)->toBeLessThanOrEqual($maxScoringMatches);
+        expect($rankingCount + $nonRankingCount)->toBeGreaterThanOrEqual($minMatchesPerTeam);
+    }
+});
+
+it('sets all matches as counting for ranking when no max scoring limit', function () {
+    $scheduler = new MatchScheduler;
+
+    $scheduler->generate(
+        minMatchesPerTeam: 3,
+        createdBy: 1,
+        teamsPerAlliance: 2,
+    );
+
+    $nonRankingCount = MatchAlliance::where('counts_for_ranking', false)->count();
+    expect($nonRankingCount)->toBe(0);
+});
+
 it('throws exception for invalid minimum matches', function () {
     $scheduler = new MatchScheduler;
 

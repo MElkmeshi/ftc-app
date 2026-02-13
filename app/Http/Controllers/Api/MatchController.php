@@ -7,7 +7,9 @@ use App\Events\MatchStatusChanged;
 use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GenerateScheduleRequest;
+use App\Models\AllianceGroup;
 use App\Models\CompetitionMatch;
+use App\Models\EliminationSeries;
 use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Services\MatchScheduler;
@@ -185,6 +187,7 @@ class MatchController extends Controller
                 minMatchesPerTeam: $request->validated('matches_per_team'),
                 createdBy: auth()->id() ?? 1,
                 teamsPerAlliance: $request->validated('teams_per_alliance'),
+                maxScoringMatches: $request->validated('max_scoring_matches'),
             );
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -205,6 +208,8 @@ class MatchController extends Controller
         Score::truncate();
         MatchAlliance::truncate();
         CompetitionMatch::truncate();
+        EliminationSeries::truncate();
+        AllianceGroup::truncate();
 
         if ($driver === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
@@ -218,6 +223,7 @@ class MatchController extends Controller
     public function teamsDisplay()
     {
         $completedMatches = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType'])
+            ->qualification()
             ->where('status', MatchStatus::COMPLETED)
             ->get();
 
@@ -229,6 +235,10 @@ class MatchController extends Controller
 
         foreach ($completedMatches as $match) {
             foreach ($match->matchAlliances as $ma) {
+                if (! $ma->counts_for_ranking) {
+                    continue;
+                }
+
                 $teamId = $ma->team->id;
 
                 if (! isset($teamScores[$teamId])) {

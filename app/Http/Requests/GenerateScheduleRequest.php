@@ -14,6 +14,7 @@ class GenerateScheduleRequest extends FormRequest
         return [
             'matches_per_team' => ['required', 'integer', 'min:1'],
             'teams_per_alliance' => ['required', 'integer', 'min:1'],
+            'max_scoring_matches' => ['nullable', 'integer', 'min:1'],
         ];
     }
 }

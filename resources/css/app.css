@@ -157,3 +157,24 @@
         @apply bg-background text-foreground;
     }
 }
+
+@media print {
+    [data-slot="sidebar"] {
+        display: none !important;
+    }
+
+    header {
+        display: none !important;
+    }
+
+    body {
+        background: white !important;
+        color: black !important;
+    }
+
+    [data-slot="sidebar-inset"] {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+}

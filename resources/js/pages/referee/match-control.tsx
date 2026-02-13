@@ -1,3 +1,4 @@
+import { useApi } from '@/hooks/use-api';
 import { useMatchTimer } from '@/hooks/use-match-timer';
 import { useActiveMatch, useLoadedMatch, useMatch } from '@/hooks/use-match';
 import { cn } from '@/lib/utils';
@@ -64,9 +65,11 @@ export default function MatchControl() {
     const [winnerState, setWinnerState] = useState<WinnerState>(null);
     const [echoLoadedMatch, setEchoLoadedMatch] = useState<CompetitionMatch | null>(null);
     const lastEndedMatchRef = useRef<number | null>(null);
+    const prevActiveMatchIdRef = useRef<number | null>(null);
 
     const loadedMatch = echoLoadedMatch ?? polledLoadedMatch ?? null;
 
+    const api = useApi();
     const queryClient = useQueryClient();
     const timer = useMatchTimer();
     const startSoundPendingRef = useRef(false);
@@ -105,6 +108,25 @@ export default function MatchControl() {
             timer.cancel();
         }
     }, [activeMatch]);
+
+    // Polling fallback: detect when activeMatch transitions from set to null (match ended)
+    useEffect(() => {
+        const prevId = prevActiveMatchIdRef.current;
+
+        if (activeMatch?.id) {
+            prevActiveMatchIdRef.current = activeMatch.id;
+        } else if (prevId && !activeMatch && !winnerState && lastEndedMatchRef.current !== prevId) {
+            prevActiveMatchIdRef.current = null;
+            lastEndedMatchRef.current = prevId;
+
+            api.getMatch(prevId).then((completedMatch) => {
+                const red = getAllianceScore(completedMatch, 'red');
+                const blue = getAllianceScore(completedMatch, 'blue');
+                const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+                setWinnerState({ winner, redScore: red, blueScore: blue, match: completedMatch });
+            }).catch(() => {});
+        }
+    }, [activeMatch, winnerState, api]);
 
     // Listen to match-control channel for sync
     useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
