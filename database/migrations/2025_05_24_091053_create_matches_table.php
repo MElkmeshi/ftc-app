@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->integer('number')->unique();
             $table->dateTime('start_time')->nullable();
-            $table->enum('status', ['upcoming', 'ongoing', 'completed'])->default('upcoming');
+            $table->enum('status', ['upcoming', 'ongoing', 'completed', 'cancelled'])->default('upcoming');
             $table->timestamps();
             $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
             $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('cascade');
