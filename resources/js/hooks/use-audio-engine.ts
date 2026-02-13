@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 const SOUND_FILES = [
     'start_match.wav',
     'end_autonomous_1.wav',
-    'end_autonomous_2.wav',
+    'end_autonomous_23.wav',
     'start_endgame.wav',
     'end_match.wav',
     'canel_match.wav',

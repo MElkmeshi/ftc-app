@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type MatchPhase } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 function formatTime(seconds: number): string {
     const m = Math.floor(seconds / 60);
@@ -18,6 +18,8 @@ function getPhaseLabel(phase: MatchPhase): string {
     switch (phase) {
         case 'autonomous':
             return 'AUTONOMOUS';
+        case 'transition':
+            return 'TRANSITION';
         case 'teleop':
             return 'TELEOP';
         case 'endgame':
@@ -33,6 +35,8 @@ function getPhaseColors(phase: MatchPhase): { text: string; bg: string } {
     switch (phase) {
         case 'autonomous':
             return { text: 'text-yellow-400', bg: 'bg-yellow-400' };
+        case 'transition':
+            return { text: 'text-orange-400', bg: 'bg-orange-400' };
         case 'teleop':
             return { text: 'text-green-400', bg: 'bg-green-400' };
         case 'endgame':
@@ -62,22 +66,42 @@ function getAllianceScore(match: CompetitionMatch, color: string): number {
     return total;
 }
 
-type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch } | null;
+type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch; matchId: number } | null;
 
 export default function MatchControl() {
-    const { data: activeMatch } = useActiveMatch(3000);
-    const { data: polledLoadedMatch } = useLoadedMatch(3000);
-    const { data: match } = useMatch(activeMatch?.id ?? null, 3000);
+    const { data: activeMatch } = useActiveMatch(500);
+    const { data: polledLoadedMatch } = useLoadedMatch(500);
+    const { data: match } = useMatch(activeMatch?.id ?? null, 500);
     const [winnerState, setWinnerState] = useState<WinnerState>(null);
     const [echoLoadedMatch, setEchoLoadedMatch] = useState<CompetitionMatch | null>(null);
     const lastEndedMatchRef = useRef<number | null>(null);
+    const [lastRunningMatch, setLastRunningMatch] = useState<CompetitionMatch | null>(null);
 
     const loadedMatch = echoLoadedMatch ?? polledLoadedMatch ?? null;
 
     const api = useApi();
     const queryClient = useQueryClient();
     const { playSound } = useAudioEngine();
-    const timer = useMatchTimer({ playSound });
+
+    // Handle match end from timer
+    const handleMatchEnd = useCallback(() => {
+        if (match && match.match_alliances.length > 0) {
+            // Immediately show winner when timer ends
+            const red = getAllianceScore(match, 'red');
+            const blue = getAllianceScore(match, 'blue');
+            const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+
+            console.log('[Timer End] Showing winner:', { winner, red, blue, matchId: match.id });
+            setWinnerState({ winner, redScore: red, blueScore: blue, match, matchId: match.id });
+            lastEndedMatchRef.current = match.id;
+
+            // Also invalidate queries to get the latest match data
+            queryClient.invalidateQueries({ queryKey: ['matches'] });
+            queryClient.invalidateQueries({ queryKey: ['active-match'] });
+        }
+    }, [match, queryClient]);
+
+    const timer = useMatchTimer({ playSound, onMatchEnd: handleMatchEnd });
     const lastStartedMatchIdRef = useRef<number | null>(null);
 
     // On mount, check if there's a recently completed match to show winner for
@@ -95,7 +119,7 @@ export default function MatchControl() {
                         const red = getAllianceScore(recentlyCompleted, 'red');
                         const blue = getAllianceScore(recentlyCompleted, 'blue');
                         const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
-                        setWinnerState({ winner, redScore: red, blueScore: blue, match: recentlyCompleted });
+                        setWinnerState({ winner, redScore: red, blueScore: blue, match: recentlyCompleted, matchId: recentlyCompleted.id });
                     }
                 }
             })
@@ -105,36 +129,115 @@ export default function MatchControl() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Clear winner screen when a different match is loaded or when a new match starts
+    // Clear winner screen ONLY when a different match is loaded
     useEffect(() => {
-        const shouldClearFromLoaded = winnerState && loadedMatch && loadedMatch.id && loadedMatch.id !== winnerState.match.id;
-        const shouldClearFromActive = winnerState && activeMatch && activeMatch.id !== winnerState.match.id;
+        if (!winnerState) {
+            console.log('[Clear Winner] No winner state');
+            return;
+        }
 
-        if (shouldClearFromLoaded || shouldClearFromActive) {
+        const loadedId = loadedMatch?.id;
+        const winnerId = winnerState.matchId;
+
+        console.log('[Clear Winner] Check:', { loadedId, winnerId });
+
+        // Clear ONLY if a different match is loaded AND loadedId is valid
+        if (loadedMatch && loadedId && loadedId !== winnerId) {
+            console.log('[Clear Winner] ❌ CLEARING - different match loaded');
             setWinnerState(null);
+            setLastRunningMatch(null);
+        } else {
+            console.log('[Clear Winner] ✅ Keeping winner visible');
         }
     }, [loadedMatch, activeMatch, winnerState]);
+
+    // Track the last running match so we can show winner even after match ends
+    useEffect(() => {
+        if (timer.isRunning && match && match.match_alliances.length > 0) {
+            console.log('[Track Match] Saving running match:', match.id);
+            setLastRunningMatch(match);
+        }
+    }, [timer.isRunning, match]);
+
+    // When timer reaches post-match, wait for match to be completed and show winner with final scores
+    useEffect(() => {
+        if (timer.phase !== 'post-match' || winnerState) {
+            return;
+        }
+
+        const matchId = lastRunningMatch?.id;
+        if (!matchId || lastEndedMatchRef.current === matchId) {
+            return;
+        }
+
+        console.log('[Post-Match] Timer ended, waiting for match to be completed with final scores...');
+
+        // Poll for the completed match with final scores
+        const checkInterval = setInterval(() => {
+            api.getMatches()
+                .then((matches) => {
+                    const completedMatch = matches.find((m) => m.id === matchId && m.status === 'completed' && m.ended_at);
+
+                    if (completedMatch && completedMatch.match_alliances.length > 0) {
+                        console.log('[Post-Match] ✅ Found completed match with scores:', {
+                            matchId: completedMatch.id,
+                            matchNumber: completedMatch.number,
+                            allianceCount: completedMatch.match_alliances.length,
+                        });
+
+                        const red = getAllianceScore(completedMatch, 'red');
+                        const blue = getAllianceScore(completedMatch, 'blue');
+                        const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+
+                        console.log('[Post-Match] ⭐ Setting winner with matchId:', completedMatch.id, 'winner:', winner, 'scores:', red, '-', blue);
+
+                        const winnerData = { winner, redScore: red, blueScore: blue, match: completedMatch, matchId: completedMatch.id };
+                        setWinnerState(winnerData);
+                        lastEndedMatchRef.current = completedMatch.id;
+
+                        clearInterval(checkInterval);
+                    }
+                })
+                .catch((error) => {
+                    console.error('[Post-Match] Error fetching matches:', error);
+                });
+        }, 500);
+
+        // Cleanup interval after 30 seconds if match never completes
+        const timeout = setTimeout(() => {
+            clearInterval(checkInterval);
+            console.log('[Post-Match] Timeout waiting for completed match');
+        }, 30000);
+
+        return () => {
+            clearInterval(checkInterval);
+            clearTimeout(timeout);
+        };
+    }, [timer.phase, winnerState, lastRunningMatch, api]);
 
     // Auto-resume timer when an active match exists, stop when no longer ongoing
     useEffect(() => {
         if (activeMatch && activeMatch.status === 'ongoing' && activeMatch.started_at) {
             if (!timer.isRunning && lastStartedMatchIdRef.current !== activeMatch.id) {
+                console.log('[Timer Resume] Resuming timer for match:', activeMatch.id);
                 timer.resumeFrom(activeMatch.started_at);
+                lastStartedMatchIdRef.current = activeMatch.id; // Mark as started to prevent duplicate resumes
             }
         } else if (timer.isRunning) {
-            timer.cancel();
+            // Use stop() instead of cancel() - the match ended normally, not cancelled
+            timer.stop();
         }
     }, [activeMatch, timer]);
 
     // Winner detection: check for recently completed matches on every change
     useEffect(() => {
-        if (winnerState) {
-            return;
-        }
+        console.log('[Winner Detection] Effect running', { activeMatch: activeMatch?.id, winnerState: winnerState?.matchId });
 
         api.getMatches()
             .then((matches) => {
+                console.log('[Winner Detection] Got matches:', matches.length);
                 const completed = matches.filter((m) => m.status === 'completed' && m.ended_at);
+                console.log('[Winner Detection] Completed matches:', completed.length);
 
                 if (completed.length === 0) {
                     return;
@@ -145,18 +248,47 @@ export default function MatchControl() {
                 const endedAt = new Date(recentlyCompleted.ended_at!);
                 const secondsSinceEnd = (new Date().getTime() - endedAt.getTime()) / 1000;
 
-                if (secondsSinceEnd < 60 && lastEndedMatchRef.current !== recentlyCompleted.id) {
+                console.log('[Winner Detection] Most recent:', {
+                    matchId: recentlyCompleted.id,
+                    matchNumber: recentlyCompleted.number,
+                    secondsSinceEnd,
+                    lastEndedMatchRef: lastEndedMatchRef.current,
+                    hasAlliances: !!recentlyCompleted.match_alliances,
+                    allianceCount: recentlyCompleted.match_alliances?.length,
+                });
+
+                // Only show winner if match ended recently and it's a different match than currently shown
+                // Skip if this is the lastRunningMatch (post-match polling will handle it)
+                const isLastRunningMatch = lastRunningMatch && recentlyCompleted.id === lastRunningMatch.id;
+
+                console.log('[Winner Detection] Conditions check:', {
+                    secondsSinceEnd,
+                    withinTimeWindow: secondsSinceEnd < 60,
+                    lastEndedMatchRef: lastEndedMatchRef.current,
+                    recentlyCompletedId: recentlyCompleted.id,
+                    notAlreadyShown: lastEndedMatchRef.current !== recentlyCompleted.id,
+                    isLastRunningMatch,
+                    willShowWinner: secondsSinceEnd < 60 && lastEndedMatchRef.current !== recentlyCompleted.id && !isLastRunningMatch,
+                });
+
+                if (secondsSinceEnd < 60 && lastEndedMatchRef.current !== recentlyCompleted.id && !isLastRunningMatch) {
                     lastEndedMatchRef.current = recentlyCompleted.id;
 
                     const red = getAllianceScore(recentlyCompleted, 'red');
                     const blue = getAllianceScore(recentlyCompleted, 'blue');
                     const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
 
-                    setWinnerState({ winner, redScore: red, blueScore: blue, match: recentlyCompleted });
+                    console.log('[Winner Detection] ⭐ Setting winner state - Match:', recentlyCompleted.id, 'Winner:', winner, 'Scores:', red, '-', blue);
+
+                    const winnerData = { winner, redScore: red, blueScore: blue, match: recentlyCompleted, matchId: recentlyCompleted.id };
+                    console.log('[Winner Detection] ⭐ Setting winner with matchId:', recentlyCompleted.id);
+                    setWinnerState(winnerData);
+                } else {
+                    console.log('[Winner Detection] Skipping - conditions not met');
                 }
             })
-            .catch(() => {
-                // Silently fail
+            .catch((error) => {
+                console.error('[Winner Detection] Error:', error);
             });
     }, [activeMatch, winnerState, api]);
 
@@ -315,16 +447,28 @@ export default function MatchControl() {
             <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8">
                 {timer.phase !== 'pre-match' && (
                     <>
-                        {/* Phase Label */}
-                        <div className={cn('text-3xl font-black tracking-[0.3em]', phaseColors.text, timer.phase === 'endgame' && 'animate-pulse')}>
-                            {getPhaseLabel(timer.phase)}
-                        </div>
+                        {/* Phase Label - hidden during transition */}
+                        {timer.phase !== 'transition' && (
+                            <div className={cn('text-3xl font-black tracking-[0.3em]', phaseColors.text, timer.phase === 'endgame' && 'animate-pulse')}>
+                                {getPhaseLabel(timer.phase)}
+                            </div>
+                        )}
 
                         {/* Main Timer */}
-                        <div className="text-[10rem] leading-none font-black text-white tabular-nums">{formatTime(timer.remainingSeconds)}</div>
+                        {timer.phase === 'transition' ? (
+                            <div className="text-[10rem] leading-none font-black text-orange-400 tabular-nums animate-pulse">
+                                {timer.phaseRemainingSeconds}
+                            </div>
+                        ) : (
+                            <div className="text-[10rem] leading-none font-black text-white tabular-nums">
+                                {formatTime(timer.phase === 'autonomous' ? timer.remainingSeconds - 10 : timer.remainingSeconds)}
+                            </div>
+                        )}
 
-                        {/* Phase Time */}
-                        {timer.isRunning && <div className="text-xl text-white/60">Phase time remaining: {formatTime(timer.phaseRemainingSeconds)}</div>}
+                        {/* Phase Time - hidden during transition */}
+                        {timer.isRunning && timer.phase !== 'transition' && (
+                            <div className="text-xl text-white/60">Phase time remaining: {formatTime(timer.phaseRemainingSeconds)}</div>
+                        )}
                     </>
                 )}
 
