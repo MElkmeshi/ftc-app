@@ -25,7 +25,10 @@
       "Bash(ls:*)",
       "Bash(git add:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Remove Filament and move all admin to React\n\n- Remove filament/filament, filament/spatie-laravel-settings-plugin,\n  and spatie/laravel-settings packages\n- Delete entire app/Filament directory, AdminPanelProvider, and\n  MatchSetting class\n- Add API controllers: TeamController, ScoreTypeController,\n  GroupController, DashboardController with full CRUD\n- Add MatchController endpoints: generateSchedule and deleteAll\n- Add form request classes for validation\n- Create React admin pages: Teams CRUD, Score Types + Groups CRUD\n- Update dashboard with stats cards \\(teams, matches, completed, ongoing\\)\n- Add Generate Schedule and Delete All dialogs to matches page\n- Update sidebar with Competition and Admin nav sections\n- Add Ranking Display to sidebar navigation\n- Add 30 Pest feature tests covering all new API endpoints\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(composer show:*)",
+      "Bash(composer outdated:*)",
+      "Bash(composer update:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
