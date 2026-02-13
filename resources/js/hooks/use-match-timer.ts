@@ -2,9 +2,9 @@ import { type SoundName } from '@/hooks/use-audio-engine';
 import { MatchPhase } from '@/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const AUTONOMOUS_DURATION = 3;
-const ENDGAME_START = 7;
-const MATCH_DURATION = 10;
+const AUTONOMOUS_DURATION = 30;
+const ENDGAME_START = 120;
+const MATCH_DURATION = 150;
 const RESUME_START_SOUND_THRESHOLD = 5;
 
 interface MatchTimerConfig {

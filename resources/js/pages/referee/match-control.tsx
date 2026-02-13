@@ -105,14 +105,15 @@ export default function MatchControl() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Clear winner screen when a different match is loaded
+    // Clear winner screen when a different match is loaded or when a new match starts
     useEffect(() => {
-        const shouldClear = winnerState && loadedMatch && loadedMatch.id && loadedMatch.id !== winnerState.match.id;
+        const shouldClearFromLoaded = winnerState && loadedMatch && loadedMatch.id && loadedMatch.id !== winnerState.match.id;
+        const shouldClearFromActive = winnerState && activeMatch && activeMatch.id !== winnerState.match.id;
 
-        if (shouldClear) {
+        if (shouldClearFromLoaded || shouldClearFromActive) {
             setWinnerState(null);
         }
-    }, [loadedMatch, winnerState]);
+    }, [loadedMatch, activeMatch, winnerState]);
 
     // Auto-resume timer when an active match exists, stop when no longer ongoing
     useEffect(() => {
@@ -312,16 +313,20 @@ export default function MatchControl() {
 
             {/* Timer Section */}
             <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8">
-                {/* Phase Label */}
-                <div className={cn('text-3xl font-black tracking-[0.3em]', phaseColors.text, timer.phase === 'endgame' && 'animate-pulse')}>
-                    {getPhaseLabel(timer.phase)}
-                </div>
+                {timer.phase !== 'pre-match' && (
+                    <>
+                        {/* Phase Label */}
+                        <div className={cn('text-3xl font-black tracking-[0.3em]', phaseColors.text, timer.phase === 'endgame' && 'animate-pulse')}>
+                            {getPhaseLabel(timer.phase)}
+                        </div>
 
-                {/* Main Timer */}
-                <div className="text-[10rem] leading-none font-black text-white tabular-nums">{formatTime(timer.remainingSeconds)}</div>
+                        {/* Main Timer */}
+                        <div className="text-[10rem] leading-none font-black text-white tabular-nums">{formatTime(timer.remainingSeconds)}</div>
 
-                {/* Phase Time */}
-                {timer.isRunning && <div className="text-xl text-white/60">Phase time remaining: {formatTime(timer.phaseRemainingSeconds)}</div>}
+                        {/* Phase Time */}
+                        {timer.isRunning && <div className="text-xl text-white/60">Phase time remaining: {formatTime(timer.phaseRemainingSeconds)}</div>}
+                    </>
+                )}
 
                 {/* Progress Bar */}
                 <div className="h-4 w-full max-w-2xl overflow-hidden rounded-full bg-white/10">
