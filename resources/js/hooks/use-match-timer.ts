@@ -3,8 +3,10 @@ import { MatchPhase } from '@/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const AUTONOMOUS_DURATION = 30;
-const ENDGAME_START = 120;
-const MATCH_DURATION = 150;
+const TRANSITION_DURATION = 10;
+const TELEOP_START = AUTONOMOUS_DURATION + TRANSITION_DURATION;
+const ENDGAME_START = 130;
+const MATCH_DURATION = 160;
 const RESUME_START_SOUND_THRESHOLD = 5;
 
 interface MatchTimerConfig {
@@ -50,6 +52,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             if (elapsed <= 0) return 'pre-match';
             if (elapsed >= matchDurationSeconds) return 'post-match';
             if (elapsed <= AUTONOMOUS_DURATION) return 'autonomous';
+            if (elapsed <= TELEOP_START) return 'transition';
             if (elapsed < ENDGAME_START) return 'teleop';
             return 'endgame';
         },
@@ -61,6 +64,8 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             switch (currentPhase) {
                 case 'autonomous':
                     return AUTONOMOUS_DURATION - elapsed;
+                case 'transition':
+                    return TELEOP_START - elapsed;
                 case 'teleop':
                     return ENDGAME_START - elapsed;
                 case 'endgame':
@@ -79,10 +84,15 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
                 playSoundRef.current?.('start_match.wav');
             }
 
-            if (elapsed >= AUTONOMOUS_DURATION && !soundsPlayedRef.current.has('end_auto')) {
-                soundsPlayedRef.current.add('end_auto');
+            if (elapsed >= AUTONOMOUS_DURATION && !soundsPlayedRef.current.has('end_auto_1')) {
+                soundsPlayedRef.current.add('end_auto_1');
                 playSoundRef.current?.('end_autonomous_1.wav');
-                setTimeout(() => playSoundRef.current?.('end_autonomous_2.wav'), 1500);
+            }
+
+            // Play end_autonomous_23 when transition countdown reaches 3 (elapsed = 37s)
+            if (elapsed >= 37 && !soundsPlayedRef.current.has('end_auto_2')) {
+                soundsPlayedRef.current.add('end_auto_2');
+                playSoundRef.current?.('end_autonomous_23.wav');
             }
 
             if (elapsed >= ENDGAME_START && !soundsPlayedRef.current.has('endgame')) {
@@ -180,7 +190,8 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
 
             // Mark sounds that should have already played as played (don't replay on resume)
             if (elapsed >= 1) soundsPlayedRef.current.add('start');
-            if (elapsed >= AUTONOMOUS_DURATION) soundsPlayedRef.current.add('end_auto');
+            if (elapsed >= AUTONOMOUS_DURATION) soundsPlayedRef.current.add('end_auto_1');
+            if (elapsed >= 37) soundsPlayedRef.current.add('end_auto_2');
             if (elapsed >= ENDGAME_START) soundsPlayedRef.current.add('endgame');
 
             startTimeRef.current = startedAt;

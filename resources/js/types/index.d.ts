@@ -102,7 +102,7 @@ export interface CompetitionMatch {
     scores?: Score[];
 }
 
-export type MatchPhase = 'pre-match' | 'autonomous' | 'teleop' | 'endgame' | 'post-match';
+export type MatchPhase = 'pre-match' | 'autonomous' | 'transition' | 'teleop' | 'endgame' | 'post-match';
 
 export interface MatchStatusChangedEvent {
     match: CompetitionMatch;
