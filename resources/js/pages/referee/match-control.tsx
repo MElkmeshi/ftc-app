@@ -1,3 +1,4 @@
+import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { useApi } from '@/hooks/use-api';
 import { useMatchTimer } from '@/hooks/use-match-timer';
 import { useActiveMatch, useLoadedMatch, useMatch } from '@/hooks/use-match';
@@ -45,15 +46,33 @@ function getPhaseColors(phase: MatchPhase): { text: string; bg: string } {
 }
 
 function getAllianceScore(match: CompetitionMatch, color: string): number {
-    const allianceTeams = match.match_alliances.filter((ma) => ma.alliance.color === color);
-    const teamScore = allianceTeams.reduce((sum, ma) => sum + ma.score, 0);
+    console.log(`[getAllianceScore] Calculating score for ${color} alliance`, {
+        matchId: match.id,
+        hasAlliances: !!match.match_alliances,
+        allianceCount: match.match_alliances?.length || 0,
+        hasScores: !!match.scores,
+        scoreCount: match.scores?.length || 0,
+    });
+
+    if (!match.match_alliances || match.match_alliances.length === 0) {
+        console.warn('[getAllianceScore] No match_alliances found for match', match.id);
+        return 0;
+    }
+
+    const allianceTeams = match.match_alliances.filter((ma) => ma.alliance?.color === color);
+    const teamScore = allianceTeams.reduce((sum, ma) => sum + (ma.score || 0), 0);
+    console.log(`[getAllianceScore] ${color} team score:`, teamScore);
 
     const allianceIds = [...new Set(allianceTeams.map((ma) => ma.alliance.id))];
     const allianceWideScore = (match.scores || [])
         .filter((s) => !s.team_id && allianceIds.includes(s.alliance_id ?? -1))
         .reduce((sum, s) => sum + (s.score_type?.points || 0), 0);
+    console.log(`[getAllianceScore] ${color} alliance-wide score:`, allianceWideScore);
 
-    return teamScore + allianceWideScore;
+    const total = teamScore + allianceWideScore;
+    console.log(`[getAllianceScore] ${color} total score:`, total);
+
+    return total;
 }
 
 type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch } | null;
@@ -71,37 +90,14 @@ export default function MatchControl() {
 
     const api = useApi();
     const queryClient = useQueryClient();
-    const timer = useMatchTimer();
-    const startSoundPendingRef = useRef(false);
-    const startSoundRef = useRef<HTMLAudioElement | null>(null);
-
-    useEffect(() => {
-        const audio = new Audio('/sounds/start_match.wav');
-        audio.preload = 'auto';
-        startSoundRef.current = audio;
-        return () => {
-            audio.pause();
-            audio.src = '';
-        };
-    }, []);
-
-    // Retry playing start sound if it hasn't played yet
-    useEffect(() => {
-        if (startSoundPendingRef.current && timer.isRunning) {
-            const audio = startSoundRef.current;
-            if (audio) {
-                audio.currentTime = 0;
-                audio.play().then(() => {
-                    startSoundPendingRef.current = false;
-                }).catch(() => {});
-            }
-        }
-    }, [timer.elapsedSeconds, timer.isRunning]);
+    const { playSound } = useAudioEngine();
+    const timer = useMatchTimer({ playSound });
+    const lastStartedMatchIdRef = useRef<number | null>(null);
 
     // Auto-resume timer when an active match exists, stop when no longer ongoing
     useEffect(() => {
         if (activeMatch && activeMatch.status === 'ongoing' && activeMatch.started_at) {
-            if (!timer.isRunning) {
+            if (!timer.isRunning && lastStartedMatchIdRef.current !== activeMatch.id) {
                 timer.resumeFrom(activeMatch.started_at);
             }
         } else if (timer.isRunning) {
@@ -116,45 +112,71 @@ export default function MatchControl() {
         if (activeMatch?.id) {
             prevActiveMatchIdRef.current = activeMatch.id;
         } else if (prevId && !activeMatch && !winnerState && lastEndedMatchRef.current !== prevId) {
+            console.log('[Polling Fallback] Detected match ended, fetching match:', prevId);
             prevActiveMatchIdRef.current = null;
             lastEndedMatchRef.current = prevId;
 
             api.getMatch(prevId).then((completedMatch) => {
+                console.log('[Polling Fallback] Fetched completed match:', {
+                    matchId: completedMatch.id,
+                    hasAlliances: !!completedMatch.match_alliances,
+                    allianceCount: completedMatch.match_alliances?.length || 0,
+                });
                 const red = getAllianceScore(completedMatch, 'red');
                 const blue = getAllianceScore(completedMatch, 'blue');
+                console.log('[Polling Fallback] Calculated scores:', { red, blue });
                 const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
                 setWinnerState({ winner, redScore: red, blueScore: blue, match: completedMatch });
-            }).catch(() => {});
+            }).catch((error) => {
+                console.error('[Polling Fallback] Failed to fetch match:', error);
+            });
         }
     }, [activeMatch, winnerState, api]);
 
+    // WebSocket disabled - using polling instead for simplicity
     // Listen to match-control channel for sync
-    useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
-        queryClient.invalidateQueries({ queryKey: ['matches'] });
-        queryClient.invalidateQueries({ queryKey: ['active-match'] });
-        queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
+    // useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
+    //     console.log('[WebSocket] MatchStatusChanged event received:', {
+    //         action: event.action,
+    //         matchId: event.match?.id,
+    //     });
 
-        if (event.action === 'loaded') {
-            setEchoLoadedMatch(event.match);
-        } else if (event.action === 'started' && event.match.started_at) {
-            setEchoLoadedMatch(null);
-            setWinnerState(null);
-            startSoundPendingRef.current = true;
-            timer.start();
-        } else if (event.action === 'ended') {
-            timer.cancel();
-            if (lastEndedMatchRef.current !== event.match.id) {
-                lastEndedMatchRef.current = event.match.id;
-                const red = getAllianceScore(event.match, 'red');
-                const blue = getAllianceScore(event.match, 'blue');
-                const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
-                setWinnerState({ winner, redScore: red, blueScore: blue, match: event.match });
-            }
-        } else if (event.action === 'cancelled') {
-            timer.cancel();
-            setWinnerState(null);
-        }
-    });
+    //     queryClient.invalidateQueries({ queryKey: ['matches'] });
+    //     queryClient.invalidateQueries({ queryKey: ['active-match'] });
+    //     queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
+
+    //     if (event.action === 'loaded') {
+    //         setEchoLoadedMatch(event.match);
+    //     } else if (event.action === 'started' && event.match.started_at) {
+    //         setEchoLoadedMatch(null);
+    //         setWinnerState(null);
+    //         lastStartedMatchIdRef.current = event.match.id;
+    //         timer.start();
+    //     } else if (event.action === 'ended') {
+    //         console.log('[WebSocket] Match ended - full event data:', {
+    //             matchId: event.match.id,
+    //             hasAlliances: !!event.match.match_alliances,
+    //             allianceCount: event.match.match_alliances?.length || 0,
+    //             hasScores: !!event.match.scores,
+    //             scoreCount: event.match.scores?.length || 0,
+    //             scores: event.match.scores,
+    //             matchAlliances: event.match.match_alliances,
+    //         });
+    //         timer.cancel();
+    //         if (lastEndedMatchRef.current !== event.match.id) {
+    //             lastEndedMatchRef.current = event.match.id;
+    //             const red = getAllianceScore(event.match, 'red');
+    //             const blue = getAllianceScore(event.match, 'blue');
+    //             console.log('[WebSocket] Final calculated scores:', { red, blue });
+    //             const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+    //             console.log('[WebSocket] Setting winner state:', { winner, redScore: red, blueScore: blue });
+    //             setWinnerState({ winner, redScore: red, blueScore: blue, match: event.match });
+    //         }
+    //     } else if (event.action === 'cancelled') {
+    //         timer.cancel();
+    //         setWinnerState(null);
+    //     }
+    // });
 
     const phaseColors = getPhaseColors(timer.phase);
     const redScore = match ? getAllianceScore(match, 'red') : 0;

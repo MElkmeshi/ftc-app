@@ -10,8 +10,9 @@ export default function AllianceSelectionDisplay() {
     const isLoading = rankingsLoading || groupsLoading;
     const hasGroups = groups.length > 0;
 
-    // Find the next group that needs a pick
-    const currentPickIndex = hasGroups ? groups.findIndex((g) => g.picked_team === null) : -1;
+    // Find the next group that needs a pick (no pick and no pending invite)
+    const currentPickIndex = hasGroups ? groups.findIndex((g) => g.picked_team === null && g.pending_team === null) : -1;
+    const pendingIndex = hasGroups ? groups.findIndex((g) => g.pending_team !== null) : -1;
 
     if (isLoading) {
         return (
@@ -37,12 +38,17 @@ export default function AllianceSelectionDisplay() {
                             <Users className="h-16 w-16 text-yellow-400" />
                             <h1 className="text-6xl font-bold text-white">Alliance Selection</h1>
                         </div>
-                        {hasGroups && currentPickIndex >= 0 && (
+                        {hasGroups && pendingIndex >= 0 && (
+                            <p className="text-3xl text-amber-400">
+                                Alliance #{groups[pendingIndex].seed} invited #{groups[pendingIndex].pending_team?.number} — Awaiting response...
+                            </p>
+                        )}
+                        {hasGroups && pendingIndex === -1 && currentPickIndex >= 0 && (
                             <p className="text-3xl text-yellow-400">
                                 Alliance #{groups[currentPickIndex].seed} is picking...
                             </p>
                         )}
-                        {hasGroups && currentPickIndex === -1 && (
+                        {hasGroups && currentPickIndex === -1 && pendingIndex === -1 && (
                             <p className="text-3xl text-green-400">All alliances formed!</p>
                         )}
                         {!hasGroups && (
@@ -60,27 +66,32 @@ export default function AllianceSelectionDisplay() {
                                 <div className="space-y-4">
                                     {groups.map((group, index) => {
                                         const isCurrentPick = index === currentPickIndex;
+                                        const isPending = group.pending_team !== null;
                                         return (
                                             <div
                                                 key={group.id}
                                                 className={cn(
                                                     'rounded-2xl border-2 p-6 transition-all duration-500',
-                                                    isCurrentPick
-                                                        ? 'animate-pulse border-yellow-400 bg-yellow-400/10'
-                                                        : group.picked_team
-                                                            ? 'border-green-500/50 bg-green-500/10'
-                                                            : 'border-white/20 bg-white/5',
+                                                    isPending
+                                                        ? 'animate-pulse border-amber-400 bg-amber-400/10'
+                                                        : isCurrentPick
+                                                            ? 'animate-pulse border-yellow-400 bg-yellow-400/10'
+                                                            : group.picked_team
+                                                                ? 'border-green-500/50 bg-green-500/10'
+                                                                : 'border-white/20 bg-white/5',
                                                 )}
                                             >
                                                 <div className="flex items-center gap-4">
                                                     <div
                                                         className={cn(
                                                             'flex h-16 w-16 items-center justify-center rounded-full text-3xl font-bold',
-                                                            isCurrentPick
-                                                                ? 'bg-yellow-400 text-slate-900'
-                                                                : group.picked_team
-                                                                    ? 'bg-green-500 text-white'
-                                                                    : 'bg-white/20 text-white',
+                                                            isPending
+                                                                ? 'bg-amber-400 text-slate-900'
+                                                                : isCurrentPick
+                                                                    ? 'bg-yellow-400 text-slate-900'
+                                                                    : group.picked_team
+                                                                        ? 'bg-green-500 text-white'
+                                                                        : 'bg-white/20 text-white',
                                                         )}
                                                     >
                                                         {group.seed}
@@ -93,6 +104,11 @@ export default function AllianceSelectionDisplay() {
                                                         {group.picked_team ? (
                                                             <div className="mt-2 text-xl font-semibold text-green-400">
                                                                 Pick: #{group.picked_team.number} - {group.picked_team.name}
+                                                            </div>
+                                                        ) : isPending ? (
+                                                            <div className="mt-2 text-xl font-semibold text-amber-400">
+                                                                Invited: #{group.pending_team!.number} — {group.pending_team!.name}
+                                                                <span className="ml-2 text-lg text-amber-400/70">Awaiting response...</span>
                                                             </div>
                                                         ) : (
                                                             <div className="mt-2 text-xl text-yellow-400/70">
@@ -132,7 +148,8 @@ export default function AllianceSelectionDisplay() {
                                         {rankings.map((team, index) => {
                                             const isCaptain = groups.some((g) => g.captain_team.id === team.team_id);
                                             const isPicked = groups.some((g) => g.picked_team?.id === team.team_id);
-                                            const isTaken = isCaptain || isPicked;
+                                            const isInvited = groups.some((g) => g.pending_team?.id === team.team_id);
+                                            const isTaken = isCaptain || isPicked || isInvited;
 
                                             return (
                                                 <tr
@@ -166,6 +183,11 @@ export default function AllianceSelectionDisplay() {
                                                         {isPicked && (
                                                             <span className="ml-2 rounded bg-green-500 px-2 py-0.5 text-xs font-bold text-white">
                                                                 PICKED
+                                                            </span>
+                                                        )}
+                                                        {isInvited && (
+                                                            <span className="ml-2 rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
+                                                                INVITED
                                                             </span>
                                                         )}
                                                     </td>

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\PickTeamRequest;
+use App\Http\Requests\AcceptPickRequest;
+use App\Http\Requests\DeclinePickRequest;
+use App\Http\Requests\InviteTeamRequest;
 use App\Http\Requests\StartAllianceSelectionRequest;
 use App\Services\AllianceSelectionService;
 use Illuminate\Http\JsonResponse;
@@ -41,12 +43,40 @@ class AllianceSelectionController extends Controller
         return response()->json($this->service->getAvailableTeams());
     }
 
-    public function pick(PickTeamRequest $request): JsonResponse
+    public function invite(InviteTeamRequest $request): JsonResponse
     {
         try {
-            $group = $this->service->pickTeam(
+            $group = $this->service->inviteTeam(
                 allianceGroupId: $request->validated('alliance_group_id'),
                 teamId: $request->validated('team_id'),
+                updatedBy: auth()->id() ?? 1,
+            );
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($group);
+    }
+
+    public function accept(AcceptPickRequest $request): JsonResponse
+    {
+        try {
+            $group = $this->service->acceptPick(
+                allianceGroupId: $request->validated('alliance_group_id'),
+                updatedBy: auth()->id() ?? 1,
+            );
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json($group);
+    }
+
+    public function decline(DeclinePickRequest $request): JsonResponse
+    {
+        try {
+            $group = $this->service->declinePick(
+                allianceGroupId: $request->validated('alliance_group_id'),
                 updatedBy: auth()->id() ?? 1,
             );
         } catch (\Exception $e) {

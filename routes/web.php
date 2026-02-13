@@ -63,7 +63,9 @@ Route::prefix('api')->group(function () {
         Route::post('/start', [AllianceSelectionController::class, 'start']);
         Route::get('/groups', [AllianceSelectionController::class, 'groups']);
         Route::get('/available-teams', [AllianceSelectionController::class, 'availableTeams']);
-        Route::post('/pick', [AllianceSelectionController::class, 'pick']);
+        Route::post('/invite', [AllianceSelectionController::class, 'invite']);
+        Route::post('/accept', [AllianceSelectionController::class, 'accept']);
+        Route::post('/decline', [AllianceSelectionController::class, 'decline']);
         Route::get('/status', [AllianceSelectionController::class, 'status']);
         Route::delete('/reset', [AllianceSelectionController::class, 'reset']);
     });

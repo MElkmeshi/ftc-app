@@ -96,7 +96,7 @@ it('creates alliance groups for top N teams', function () {
     expect($group2->captain_team_id)->toBe($teams[0]->id);
 });
 
-it('allows captain to pick an available team', function () {
+it('invite sets pending_team_id', function () {
     $teams = Team::factory()->count(4)->create();
 
     createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 100, 50, 1);
@@ -108,12 +108,68 @@ it('allows captain to pick an available team', function () {
     $group1 = AllianceGroup::where('seed', 1)->first();
     $availableTeam = $teams[2]; // score 80, not a captain
 
-    $result = $service->pickTeam($group1->id, $availableTeam->id, 1);
+    $result = $service->inviteTeam($group1->id, $availableTeam->id, 1);
 
-    expect($result->picked_team_id)->toBe($availableTeam->id);
+    expect($result->pending_team_id)->toBe($availableTeam->id);
+    expect($result->picked_team_id)->toBeNull();
 });
 
-it('prevents picking a team that is already a captain', function () {
+it('accept moves pending to picked', function () {
+    $teams = Team::factory()->count(4)->create();
+
+    createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 100, 50, 1);
+    createCompletedQualificationMatch($teams[2]->id, $teams[3]->id, 80, 120, 2);
+
+    $service = new AllianceSelectionService;
+    $service->startSelection(2, 1);
+
+    $group1 = AllianceGroup::where('seed', 1)->first();
+    $availableTeam = $teams[2];
+
+    $service->inviteTeam($group1->id, $availableTeam->id, 1);
+    $result = $service->acceptPick($group1->id, 1);
+
+    expect($result->picked_team_id)->toBe($availableTeam->id);
+    expect($result->pending_team_id)->toBeNull();
+});
+
+it('decline clears pending', function () {
+    $teams = Team::factory()->count(4)->create();
+
+    createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 100, 50, 1);
+    createCompletedQualificationMatch($teams[2]->id, $teams[3]->id, 80, 120, 2);
+
+    $service = new AllianceSelectionService;
+    $service->startSelection(2, 1);
+
+    $group1 = AllianceGroup::where('seed', 1)->first();
+    $availableTeam = $teams[2];
+
+    $service->inviteTeam($group1->id, $availableTeam->id, 1);
+    $result = $service->declinePick($group1->id, 1);
+
+    expect($result->pending_team_id)->toBeNull();
+    expect($result->picked_team_id)->toBeNull();
+});
+
+it('cannot invite when already has a pending invite', function () {
+    $teams = Team::factory()->count(4)->create();
+
+    createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 100, 50, 1);
+    createCompletedQualificationMatch($teams[2]->id, $teams[3]->id, 80, 120, 2);
+
+    $service = new AllianceSelectionService;
+    $service->startSelection(2, 1);
+
+    $group1 = AllianceGroup::where('seed', 1)->first();
+
+    $service->inviteTeam($group1->id, $teams[2]->id, 1);
+
+    expect(fn () => $service->inviteTeam($group1->id, $teams[1]->id, 1))
+        ->toThrow(Exception::class, 'This alliance group already has a pending invite.');
+});
+
+it('cannot invite a team that is pending for another alliance', function () {
     $teams = Team::factory()->count(4)->create();
 
     createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 100, 50, 1);
@@ -125,12 +181,29 @@ it('prevents picking a team that is already a captain', function () {
     $group1 = AllianceGroup::where('seed', 1)->first();
     $group2 = AllianceGroup::where('seed', 2)->first();
 
-    // Try to pick the other captain
-    expect(fn () => $service->pickTeam($group1->id, $group2->captain_team_id, 1))
+    $service->inviteTeam($group1->id, $teams[2]->id, 1);
+
+    expect(fn () => $service->inviteTeam($group2->id, $teams[2]->id, 1))
+        ->toThrow(Exception::class, 'This team already has a pending invite from another alliance.');
+});
+
+it('prevents inviting a team that is already a captain', function () {
+    $teams = Team::factory()->count(4)->create();
+
+    createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 100, 50, 1);
+    createCompletedQualificationMatch($teams[2]->id, $teams[3]->id, 80, 120, 2);
+
+    $service = new AllianceSelectionService;
+    $service->startSelection(2, 1);
+
+    $group1 = AllianceGroup::where('seed', 1)->first();
+    $group2 = AllianceGroup::where('seed', 2)->first();
+
+    expect(fn () => $service->inviteTeam($group1->id, $group2->captain_team_id, 1))
         ->toThrow(Exception::class, 'Cannot pick a team that is already a captain.');
 });
 
-it('prevents picking a team that is already picked', function () {
+it('prevents inviting a team that is already picked', function () {
     $teams = Team::factory()->count(4)->create();
 
     createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 100, 50, 1);
@@ -142,12 +215,35 @@ it('prevents picking a team that is already picked', function () {
     $group1 = AllianceGroup::where('seed', 1)->first();
     $group2 = AllianceGroup::where('seed', 2)->first();
 
-    // Pick a team for group 1
-    $service->pickTeam($group1->id, $teams[1]->id, 1);
+    // Invite and accept for group 1
+    $service->inviteTeam($group1->id, $teams[1]->id, 1);
+    $service->acceptPick($group1->id, 1);
 
-    // Try to pick the same team for group 2
-    expect(fn () => $service->pickTeam($group2->id, $teams[1]->id, 1))
+    // Try to invite the same team for group 2
+    expect(fn () => $service->inviteTeam($group2->id, $teams[1]->id, 1))
         ->toThrow(Exception::class, 'This team has already been picked by another alliance.');
+});
+
+it('available teams excludes pending teams', function () {
+    $teams = Team::factory()->count(4)->create();
+
+    createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 100, 50, 1);
+    createCompletedQualificationMatch($teams[2]->id, $teams[3]->id, 80, 120, 2);
+
+    $service = new AllianceSelectionService;
+    $service->startSelection(2, 1);
+
+    $group1 = AllianceGroup::where('seed', 1)->first();
+
+    // Before invite: 2 available (4 teams - 2 captains)
+    expect($service->getAvailableTeams())->toHaveCount(2);
+
+    $service->inviteTeam($group1->id, $teams[2]->id, 1);
+
+    // After invite: 1 available (pending team excluded)
+    $available = $service->getAvailableTeams();
+    expect($available)->toHaveCount(1);
+    expect($available->pluck('id')->all())->not->toContain($teams[2]->id);
 });
 
 it('returns correct available teams', function () {
@@ -184,11 +280,13 @@ it('detects selection completion', function () {
     $groups = AllianceGroup::orderBy('seed')->get();
     $available = $service->getAvailableTeams();
 
-    $service->pickTeam($groups[0]->id, $available[0]->id, 1);
+    $service->inviteTeam($groups[0]->id, $available[0]->id, 1);
+    $service->acceptPick($groups[0]->id, 1);
     expect($service->isComplete())->toBeFalse();
 
     $available = $service->getAvailableTeams();
-    $service->pickTeam($groups[1]->id, $available[0]->id, 1);
+    $service->inviteTeam($groups[1]->id, $available[0]->id, 1);
+    $service->acceptPick($groups[1]->id, 1);
     expect($service->isComplete())->toBeTrue();
 });
 

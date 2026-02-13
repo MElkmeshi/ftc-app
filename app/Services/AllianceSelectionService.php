@@ -102,14 +102,18 @@ class AllianceSelectionService
     }
 
     /**
-     * Pick a team for an alliance group.
+     * Invite a team for an alliance group (sets pending).
      */
-    public function pickTeam(int $allianceGroupId, int $teamId, int $updatedBy): AllianceGroup
+    public function inviteTeam(int $allianceGroupId, int $teamId, int $updatedBy): AllianceGroup
     {
         $group = AllianceGroup::findOrFail($allianceGroupId);
 
         if ($group->picked_team_id !== null) {
             throw new Exception('This alliance group has already picked a team.');
+        }
+
+        if ($group->pending_team_id !== null) {
+            throw new Exception('This alliance group already has a pending invite.');
         }
 
         $isCaptain = AllianceGroup::where('captain_team_id', $teamId)->exists();
@@ -122,17 +126,61 @@ class AllianceSelectionService
             throw new Exception('This team has already been picked by another alliance.');
         }
 
+        $isPending = AllianceGroup::where('pending_team_id', $teamId)->exists();
+        if ($isPending) {
+            throw new Exception('This team already has a pending invite from another alliance.');
+        }
+
         $teamExists = Team::where('id', $teamId)->exists();
         if (! $teamExists) {
             throw new Exception('Team not found.');
         }
 
         $group->update([
-            'picked_team_id' => $teamId,
+            'pending_team_id' => $teamId,
             'updated_by' => $updatedBy,
         ]);
 
-        return $group->load(['captainTeam', 'pickedTeam']);
+        return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+    }
+
+    /**
+     * Accept a pending invite (moves pending → picked).
+     */
+    public function acceptPick(int $allianceGroupId, int $updatedBy): AllianceGroup
+    {
+        $group = AllianceGroup::findOrFail($allianceGroupId);
+
+        if ($group->pending_team_id === null) {
+            throw new Exception('No pending invite to accept.');
+        }
+
+        $group->update([
+            'picked_team_id' => $group->pending_team_id,
+            'pending_team_id' => null,
+            'updated_by' => $updatedBy,
+        ]);
+
+        return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+    }
+
+    /**
+     * Decline a pending invite (clears pending).
+     */
+    public function declinePick(int $allianceGroupId, int $updatedBy): AllianceGroup
+    {
+        $group = AllianceGroup::findOrFail($allianceGroupId);
+
+        if ($group->pending_team_id === null) {
+            throw new Exception('No pending invite to decline.');
+        }
+
+        $group->update([
+            'pending_team_id' => null,
+            'updated_by' => $updatedBy,
+        ]);
+
+        return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
     }
 
     /**
@@ -140,7 +188,7 @@ class AllianceSelectionService
      */
     public function getGroups(): Collection
     {
-        return AllianceGroup::with(['captainTeam', 'pickedTeam'])
+        return AllianceGroup::with(['captainTeam', 'pickedTeam', 'pendingTeam'])
             ->orderBy('seed')
             ->get();
     }
@@ -152,8 +200,9 @@ class AllianceSelectionService
     {
         $captainIds = AllianceGroup::pluck('captain_team_id');
         $pickedIds = AllianceGroup::whereNotNull('picked_team_id')->pluck('picked_team_id');
+        $pendingIds = AllianceGroup::whereNotNull('pending_team_id')->pluck('pending_team_id');
 
-        $excludedIds = $captainIds->merge($pickedIds);
+        $excludedIds = $captainIds->merge($pickedIds)->merge($pendingIds);
 
         return Team::whereNotIn('id', $excludedIds)->orderBy('number')->get();
     }

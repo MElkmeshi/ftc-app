@@ -1,13 +1,16 @@
+import { type SoundName } from '@/hooks/use-audio-engine';
 import { MatchPhase } from '@/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const AUTONOMOUS_DURATION = 30;
 const ENDGAME_START = 120;
 const MATCH_DURATION = 150;
+const RESUME_START_SOUND_THRESHOLD = 5;
 
 interface MatchTimerConfig {
     matchDurationSeconds?: number;
     onMatchEnd?: () => void;
+    playSound?: (name: SoundName) => void;
 }
 
 interface MatchTimerState {
@@ -27,7 +30,7 @@ interface MatchTimerActions {
 }
 
 export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & MatchTimerActions {
-    const { matchDurationSeconds = MATCH_DURATION, onMatchEnd } = config;
+    const { matchDurationSeconds = MATCH_DURATION, onMatchEnd, playSound } = config;
 
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [isRunning, setIsRunning] = useState(false);
@@ -37,35 +40,10 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const soundsPlayedRef = useRef<Set<string>>(new Set());
     const onMatchEndRef = useRef(onMatchEnd);
-    const audioRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+    const playSoundRef = useRef(playSound);
 
     onMatchEndRef.current = onMatchEnd;
-
-    const soundFiles = ['start_match.wav', 'end_autonomous_1.wav', 'end_autonomous_2.wav', 'start_endgame.wav', 'end_match.wav', 'canel_match.wav'];
-
-    useEffect(() => {
-        soundFiles.forEach((file) => {
-            const audio = new Audio(`/sounds/${file}`);
-            audio.preload = 'auto';
-            audioRef.current.set(file, audio);
-        });
-
-        return () => {
-            audioRef.current.forEach((audio) => {
-                audio.pause();
-                audio.src = '';
-            });
-            audioRef.current.clear();
-        };
-    }, []);
-
-    const playSound = useCallback((filename: string) => {
-        const audio = audioRef.current.get(filename);
-        if (audio) {
-            audio.currentTime = 0;
-            audio.play().catch(() => {});
-        }
-    }, []);
+    playSoundRef.current = playSound;
 
     const getPhase = useCallback(
         (elapsed: number): MatchPhase => {
@@ -98,26 +76,26 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
         (elapsed: number) => {
             if (elapsed >= 1 && !soundsPlayedRef.current.has('start')) {
                 soundsPlayedRef.current.add('start');
-                playSound('start_match.wav');
+                playSoundRef.current?.('start_match.wav');
             }
 
             if (elapsed >= AUTONOMOUS_DURATION && !soundsPlayedRef.current.has('end_auto')) {
                 soundsPlayedRef.current.add('end_auto');
-                playSound('end_autonomous_1.wav');
-                setTimeout(() => playSound('end_autonomous_2.wav'), 1500);
+                playSoundRef.current?.('end_autonomous_1.wav');
+                setTimeout(() => playSoundRef.current?.('end_autonomous_2.wav'), 1500);
             }
 
             if (elapsed >= ENDGAME_START && !soundsPlayedRef.current.has('endgame')) {
                 soundsPlayedRef.current.add('endgame');
-                playSound('start_endgame.wav');
+                playSoundRef.current?.('start_endgame.wav');
             }
 
             if (elapsed >= matchDurationSeconds && !soundsPlayedRef.current.has('end')) {
                 soundsPlayedRef.current.add('end');
-                playSound('end_match.wav');
+                playSoundRef.current?.('end_match.wav');
             }
         },
-        [matchDurationSeconds, playSound],
+        [matchDurationSeconds],
     );
 
     const tick = useCallback(() => {
@@ -154,12 +132,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
         setPhase('autonomous');
         setIsRunning(true);
 
-        // Play start sound immediately (not delayed via checkSoundCues)
-        const audio = audioRef.current.get('start_match.wav');
-        if (audio) {
-            audio.currentTime = 0;
-            audio.play().catch(() => {});
-        }
+        playSoundRef.current?.('start_match.wav');
 
         if (intervalRef.current) clearInterval(intervalRef.current);
         intervalRef.current = setInterval(() => tickRef.current(), 100);
@@ -179,13 +152,13 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             clearInterval(intervalRef.current);
             intervalRef.current = null;
         }
-        playSound('canel_match.wav');
+        playSoundRef.current?.('canel_match.wav');
         setIsRunning(false);
         setElapsedSeconds(0);
         setPhase('pre-match');
         soundsPlayedRef.current.clear();
         startTimeRef.current = null;
-    }, [playSound]);
+    }, []);
 
     const resumeFrom = useCallback(
         (startedAtIso: string) => {
@@ -198,6 +171,11 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
                 setPhase('post-match');
                 setIsRunning(false);
                 return;
+            }
+
+            // Play start sound if match just started (within threshold)
+            if (elapsed < RESUME_START_SOUND_THRESHOLD) {
+                playSoundRef.current?.('start_match.wav');
             }
 
             // Mark sounds that should have already played as played (don't replay on resume)
