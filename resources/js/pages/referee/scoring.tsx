@@ -2,14 +2,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useActiveMatch, useAddScore, useDeleteScore, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
+import { useActiveMatch, useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
-import { Minus, Plus, Trophy, Users } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CheckCircle, Minus, Plus, Trophy, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -24,6 +24,7 @@ export default function RefereeScoring() {
 
     const addScore = useAddScore();
     const deleteScore = useDeleteScore();
+    const endMatch = useEndMatch();
 
     const { data: matches = [] } = useMatches();
     const { data: activeMatch } = useActiveMatch();
@@ -37,6 +38,16 @@ export default function RefereeScoring() {
             setSelectedMatchId(activeMatch.id);
         }
     }, [activeMatch, selectedMatchId]);
+
+    // Auto-select alliance when match loads and only one ongoing match
+    useEffect(() => {
+        if (match && !selectedAllianceId && ongoingMatches.length === 1) {
+            const firstAlliance = match.match_alliances[0]?.alliance;
+            if (firstAlliance) {
+                setSelectedAllianceId(firstAlliance.id);
+            }
+        }
+    }, [match, selectedAllianceId, ongoingMatches.length]);
 
     useEcho(match?.id ? `matches.${match.id}` : '', 'ScoreUpdated', () => {
         // Refetch when other referees update scores
@@ -487,6 +498,36 @@ export default function RefereeScoring() {
                         </CardContent>
                     </Card>
                 ) : null}
+
+                {/* Submit Match Button — always visible when a match is selected */}
+                {match && match.status === 'ongoing' && (
+                    <Card className="border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-950/30">
+                        <CardContent className="flex items-center justify-between pt-6 pb-6">
+                            <div>
+                                <h3 className="text-xl font-bold">Submit Match</h3>
+                                <p className="text-muted-foreground text-sm">Finalize scoring and end Match #{match.number}</p>
+                            </div>
+                            <Button
+                                onClick={() => {
+                                    if (match) {
+                                        endMatch.mutate(match.id, {
+                                            onSuccess: () => {
+                                                setSelectedMatchId(null);
+                                                setSelectedAllianceId(null);
+                                            },
+                                        });
+                                    }
+                                }}
+                                disabled={endMatch.isPending}
+                                size="lg"
+                                className="bg-amber-600 text-white shadow-lg hover:bg-amber-500"
+                            >
+                                <CheckCircle className="mr-2 h-5 w-5" />
+                                {endMatch.isPending ? 'Submitting...' : 'Submit Match'}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </AppLayout>
     );

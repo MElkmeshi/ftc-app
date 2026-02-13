@@ -16,7 +16,6 @@ class ScoreTypeFactory extends Factory
             'name' => $this->faker->unique()->randomElement(['score', 'minor_penalty', 'major_penalty', 'bonus']),
             'points' => $this->faker->randomElement([1, -10, -30, 20]),
             'created_by' => 1,
-            'updated_by' => 1,
         ];
     }
 

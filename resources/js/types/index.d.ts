@@ -91,9 +91,17 @@ export interface CompetitionMatch {
     id: number;
     number: number;
     start_time: string;
+    started_at: string | null;
     status: string;
     match_alliances: MatchAlliance[];
     scores?: Score[];
+}
+
+export type MatchPhase = 'pre-match' | 'autonomous' | 'teleop' | 'endgame' | 'post-match';
+
+export interface MatchStatusChangedEvent {
+    match: CompetitionMatch;
+    action: 'started' | 'ended' | 'cancelled';
 }
 
 export interface ScoreUpdatedEvent {
@@ -109,3 +117,11 @@ export interface TeamDisplay {
     alliance_score: number;
     total_score: number;
 }
+
+export interface DashboardStats {
+    total_teams: number;
+    total_matches: number;
+    completed_matches: number;
+    ongoing_match: { id: number; number: number } | null;
+}
+

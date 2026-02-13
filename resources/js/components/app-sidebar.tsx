@@ -3,10 +3,10 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, Trophy, UserCheck } from 'lucide-react';
+import { BarChart3, LayoutGrid, ListChecks, Monitor, Trophy, UserCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const mainNavItems: NavItem[] = [
+const competitionNavItems: NavItem[] = [
     {
         title: 'Dashboard',
         href: '/dashboard',
@@ -21,6 +21,29 @@ const mainNavItems: NavItem[] = [
         title: 'Referee',
         href: '/referee/scoring',
         icon: UserCheck,
+    },
+    {
+        title: 'Match Display',
+        href: '/referee/match-control',
+        icon: Monitor,
+    },
+    {
+        title: 'Ranking Display',
+        href: '/referee/display',
+        icon: BarChart3,
+    },
+];
+
+const adminNavItems: NavItem[] = [
+    {
+        title: 'Teams',
+        href: '/admin/teams',
+        icon: Users,
+    },
+    {
+        title: 'Score Types',
+        href: '/admin/score-types',
+        icon: ListChecks,
     },
 ];
 
@@ -40,7 +63,8 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={competitionNavItems} label="Competition" />
+                <NavMain items={adminNavItems} label="Admin" />
             </SidebarContent>
 
             <SidebarFooter>

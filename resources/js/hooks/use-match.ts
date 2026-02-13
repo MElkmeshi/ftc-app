@@ -161,6 +161,62 @@ export function useDeleteScore() {
     });
 }
 
+export function useLoadedMatch(refetchInterval?: number) {
+    const api = useApi();
+    return useQuery<CompetitionMatch | null>({
+        queryKey: ['loaded-match'],
+        queryFn: api.getLoadedMatch,
+        refetchInterval: refetchInterval || false,
+    });
+}
+
+export function useLoadMatch() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (matchId: number) => api.loadMatch(matchId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
+        },
+    });
+}
+
+export function useStartMatch() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (matchId: number) => api.startMatch(matchId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['matches'] });
+            queryClient.invalidateQueries({ queryKey: ['active-match'] });
+        },
+    });
+}
+
+export function useEndMatch() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (matchId: number) => api.endMatch(matchId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['matches'] });
+            queryClient.invalidateQueries({ queryKey: ['active-match'] });
+        },
+    });
+}
+
+export function useCancelMatch() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (matchId: number) => api.cancelMatch(matchId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['matches'] });
+            queryClient.invalidateQueries({ queryKey: ['active-match'] });
+        },
+    });
+}
+
 export function useTeamsDisplay(refetchInterval?: number) {
     const api = useApi();
     return useQuery({
