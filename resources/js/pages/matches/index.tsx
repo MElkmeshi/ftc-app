@@ -1,26 +1,18 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useApi } from '@/hooks/use-api';
 import { useCancelMatch, useEndMatch, useLoadMatch, useMatches, useStartMatch } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Eye, Pause, Play, Trash2, XCircle } from 'lucide-react';
+import { Calendar, Eye, Pause, Play, Printer, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
-import { useApi } from '@/hooks/use-api';
 
 interface Position {
     alliance_id: number;
@@ -54,8 +46,8 @@ function statusColor(status: string): string {
 
 function GenerateScheduleDialog() {
     const [open, setOpen] = useState(false);
-    const [matchesPerTeam, setMatchesPerTeam] = useState('3');
-    const [teamsPerAlliance, setTeamsPerAlliance] = useState('1');
+    const [matchesPerTeam, setMatchesPerTeam] = useState('4');
+    const [teamsPerAlliance, setTeamsPerAlliance] = useState('2');
     const [error, setError] = useState('');
     const api = useApi();
     const queryClient = useQueryClient();
@@ -84,7 +76,13 @@ function GenerateScheduleDialog() {
     };
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); setError(''); }}>
+        <Dialog
+            open={open}
+            onOpenChange={(v) => {
+                setOpen(v);
+                setError('');
+            }}
+        >
             <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
                     <Calendar className="mr-1 h-4 w-4" />
@@ -95,9 +93,7 @@ function GenerateScheduleDialog() {
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>Generate Match Schedule</DialogTitle>
-                        <DialogDescription>
-                            This will delete all existing matches and generate a new schedule.
-                        </DialogDescription>
+                        <DialogDescription>This will delete all existing matches and generate a new schedule.</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
@@ -160,8 +156,7 @@ function DeleteAllMatchesDialog() {
                 <DialogHeader>
                     <DialogTitle>Delete All Matches</DialogTitle>
                     <DialogDescription>
-                        Are you sure? This will permanently delete all matches, scores, and alliance assignments. This action cannot be
-                        undone.
+                        Are you sure? This will permanently delete all matches, scores, and alliance assignments. This action cannot be undone.
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
@@ -200,7 +195,11 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>Competition Matches</CardTitle>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 print:hidden">
+                        <Button size="sm" variant="outline" onClick={() => window.print()}>
+                            <Printer className="mr-1 h-4 w-4" />
+                            Print Schedule
+                        </Button>
                         <GenerateScheduleDialog />
                         <DeleteAllMatchesDialog />
                     </div>
@@ -221,24 +220,18 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                             const allianceColor = allianceLabels[pos.alliance_id] ?? 'Alliance';
                                             const label = `${allianceColor.charAt(0).toUpperCase() + allianceColor.slice(1)} ${pos.alliance_pos}`;
                                             return (
-                                                <th
-                                                    key={`${pos.alliance_id}-${pos.alliance_pos}`}
-                                                    className="px-4 py-2 text-left font-medium"
-                                                >
+                                                <th key={`${pos.alliance_id}-${pos.alliance_pos}`} className="px-4 py-2 text-left font-medium">
                                                     {label}
                                                 </th>
                                             );
                                         })}
-                                        <th className="px-4 py-2 text-right font-medium">Actions</th>
+                                        <th className="px-4 py-2 text-right font-medium print:hidden">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {matches.length === 0 ? (
                                         <tr>
-                                            <td
-                                                colSpan={positions.length + 3}
-                                                className="text-muted-foreground px-4 py-8 text-center"
-                                            >
+                                            <td colSpan={positions.length + 3} className="text-muted-foreground px-4 py-8 text-center">
                                                 No matches found
                                             </td>
                                         </tr>
@@ -247,19 +240,14 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                             <tr key={match.id} className="hover:bg-muted/50 border-b">
                                                 <td className="px-4 py-2 font-medium">{match.number}</td>
                                                 <td className="px-4 py-2">
-                                                    <Badge className={cn('capitalize', statusColor(match.status))}>
-                                                        {match.status}
-                                                    </Badge>
+                                                    <Badge className={cn('capitalize', statusColor(match.status))}>{match.status}</Badge>
                                                 </td>
                                                 {positions.map((pos) => (
-                                                    <td
-                                                        key={`${match.id}-${pos.alliance_id}-${pos.alliance_pos}`}
-                                                        className="px-4 py-2"
-                                                    >
+                                                    <td key={`${match.id}-${pos.alliance_id}-${pos.alliance_pos}`} className="px-4 py-2">
                                                         {getTeamForPosition(match, pos)}
                                                     </td>
                                                 ))}
-                                                <td className="px-4 py-2">
+                                                <td className="px-4 py-2 print:hidden">
                                                     <div className="flex justify-end gap-2">
                                                         {match.status === 'upcoming' && loadedMatchId !== match.id && (
                                                             <Button

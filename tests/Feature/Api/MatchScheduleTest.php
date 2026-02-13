@@ -31,6 +31,27 @@ it('generates a match schedule', function () {
     expect(MatchAlliance::count())->toBeGreaterThan(0);
 });
 
+it('generates a schedule with max scoring matches', function () {
+    Team::factory()->count(6)->create();
+
+    $response = $this->postJson('/api/matches/generate-schedule', [
+        'matches_per_team' => 4,
+        'teams_per_alliance' => 2,
+        'max_scoring_matches' => 2,
+    ]);
+
+    $response->assertSuccessful();
+
+    $teams = Team::all();
+    foreach ($teams as $team) {
+        $rankingCount = MatchAlliance::where('team_id', $team->id)
+            ->where('counts_for_ranking', true)
+            ->count();
+
+        expect($rankingCount)->toBeLessThanOrEqual(2);
+    }
+});
+
 it('validates required fields for schedule generation', function () {
     $response = $this->postJson('/api/matches/generate-schedule', []);
 

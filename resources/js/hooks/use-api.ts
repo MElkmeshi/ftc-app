@@ -1,4 +1,4 @@
-import { CompetitionMatch, DashboardStats, Group, ScoreType, Team, TeamDisplay } from '@/types';
+import { AllianceGroup, AllianceSelectionStatus, CompetitionMatch, DashboardStats, EliminationBracket, Group, ScoreType, Team, TeamDisplay } from '@/types';
 import axios from 'axios';
 import { useCallback } from 'react';
 
@@ -137,6 +137,65 @@ export const useApi = () => {
         return res.data;
     }, []);
 
+    // Alliance Selection
+    const getAllianceSelectionRankings = useCallback(async (): Promise<TeamDisplay[]> => {
+        const res = await axios.get('/api/alliance-selection/rankings');
+        return res.data;
+    }, []);
+
+    const startAllianceSelection = useCallback(async (numberOfAlliances: number): Promise<AllianceGroup[]> => {
+        const res = await axios.post('/api/alliance-selection/start', { number_of_alliances: numberOfAlliances });
+        return res.data;
+    }, []);
+
+    const getAllianceGroups = useCallback(async (): Promise<AllianceGroup[]> => {
+        const res = await axios.get('/api/alliance-selection/groups');
+        return res.data;
+    }, []);
+
+    const getAvailableTeams = useCallback(async (): Promise<Team[]> => {
+        const res = await axios.get('/api/alliance-selection/available-teams');
+        return res.data;
+    }, []);
+
+    const pickTeam = useCallback(async (allianceGroupId: number, teamId: number): Promise<AllianceGroup> => {
+        const res = await axios.post('/api/alliance-selection/pick', { alliance_group_id: allianceGroupId, team_id: teamId });
+        return res.data;
+    }, []);
+
+    const getAllianceSelectionStatus = useCallback(async (): Promise<AllianceSelectionStatus> => {
+        const res = await axios.get('/api/alliance-selection/status');
+        return res.data;
+    }, []);
+
+    const resetAllianceSelection = useCallback(async (): Promise<void> => {
+        await axios.delete('/api/alliance-selection/reset');
+    }, []);
+
+    // Elimination
+    const generateElimination = useCallback(async (): Promise<void> => {
+        await axios.post('/api/elimination/generate');
+    }, []);
+
+    const getEliminationBracket = useCallback(async (): Promise<EliminationBracket> => {
+        const res = await axios.get('/api/elimination/bracket');
+        return res.data;
+    }, []);
+
+    const checkSeriesWinner = useCallback(async (seriesId: number) => {
+        const res = await axios.post(`/api/elimination/series/${seriesId}/check-winner`);
+        return res.data;
+    }, []);
+
+    const generateTiebreaker = useCallback(async (seriesId: number): Promise<CompetitionMatch> => {
+        const res = await axios.post(`/api/elimination/series/${seriesId}/tiebreaker`);
+        return res.data;
+    }, []);
+
+    const resetElimination = useCallback(async (): Promise<void> => {
+        await axios.delete('/api/elimination/reset');
+    }, []);
+
     // Match Schedule
     const generateSchedule = useCallback(async (data: { matches_per_team: number; teams_per_alliance: number }): Promise<void> => {
         await axios.post('/api/matches/generate-schedule', data);
@@ -174,5 +233,17 @@ export const useApi = () => {
         getDashboardStats,
         generateSchedule,
         deleteAllMatches,
+        getAllianceSelectionRankings,
+        startAllianceSelection,
+        getAllianceGroups,
+        getAvailableTeams,
+        pickTeam,
+        getAllianceSelectionStatus,
+        resetAllianceSelection,
+        generateElimination,
+        getEliminationBracket,
+        checkSeriesWinner,
+        generateTiebreaker,
+        resetElimination,
     };
 };

@@ -20,6 +20,7 @@ class MatchAllianceFactory extends Factory
             'alliance_id' => Alliance::factory(),
             'alliance_pos' => $this->faker->numberBetween(1, 2),
             'score' => $this->faker->numberBetween(0, 200),
+            'counts_for_ranking' => true,
             'created_by' => 1,
             'updated_by' => 1,
         ];

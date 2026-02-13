@@ -28,7 +28,11 @@
       "Bash(git push:*)",
       "Bash(composer show:*)",
       "Bash(composer outdated:*)",
-      "Bash(composer update:*)"
+      "Bash(composer update:*)",
+      "mcp__laravel-boost__application-info",
+      "mcp__laravel-boost__search-docs",
+      "mcp__laravel-boost__list-available-env-vars",
+      "Bash(npx tsc:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
