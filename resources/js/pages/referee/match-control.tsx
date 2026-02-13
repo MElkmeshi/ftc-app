@@ -1,13 +1,12 @@
-import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { useApi } from '@/hooks/use-api';
-import { useMatchTimer } from '@/hooks/use-match-timer';
+import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { useActiveMatch, useLoadedMatch, useMatch } from '@/hooks/use-match';
+import { useMatchTimer } from '@/hooks/use-match-timer';
 import { cn } from '@/lib/utils';
-import { type CompetitionMatch, type MatchPhase, type MatchStatusChangedEvent } from '@/types';
+import { type CompetitionMatch, type MatchPhase } from '@/types';
 import { Head } from '@inertiajs/react';
-import { useEcho } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function formatTime(seconds: number): string {
     const m = Math.floor(seconds / 60);
@@ -46,31 +45,19 @@ function getPhaseColors(phase: MatchPhase): { text: string; bg: string } {
 }
 
 function getAllianceScore(match: CompetitionMatch, color: string): number {
-    console.log(`[getAllianceScore] Calculating score for ${color} alliance`, {
-        matchId: match.id,
-        hasAlliances: !!match.match_alliances,
-        allianceCount: match.match_alliances?.length || 0,
-        hasScores: !!match.scores,
-        scoreCount: match.scores?.length || 0,
-    });
-
     if (!match.match_alliances || match.match_alliances.length === 0) {
-        console.warn('[getAllianceScore] No match_alliances found for match', match.id);
         return 0;
     }
 
     const allianceTeams = match.match_alliances.filter((ma) => ma.alliance?.color === color);
     const teamScore = allianceTeams.reduce((sum, ma) => sum + (ma.score || 0), 0);
-    console.log(`[getAllianceScore] ${color} team score:`, teamScore);
 
     const allianceIds = [...new Set(allianceTeams.map((ma) => ma.alliance.id))];
     const allianceWideScore = (match.scores || [])
         .filter((s) => !s.team_id && allianceIds.includes(s.alliance_id ?? -1))
         .reduce((sum, s) => sum + (s.score_type?.points || 0), 0);
-    console.log(`[getAllianceScore] ${color} alliance-wide score:`, allianceWideScore);
 
     const total = teamScore + allianceWideScore;
-    console.log(`[getAllianceScore] ${color} total score:`, total);
 
     return total;
 }
@@ -84,7 +71,6 @@ export default function MatchControl() {
     const [winnerState, setWinnerState] = useState<WinnerState>(null);
     const [echoLoadedMatch, setEchoLoadedMatch] = useState<CompetitionMatch | null>(null);
     const lastEndedMatchRef = useRef<number | null>(null);
-    const prevActiveMatchIdRef = useRef<number | null>(null);
 
     const loadedMatch = echoLoadedMatch ?? polledLoadedMatch ?? null;
 
@@ -93,6 +79,40 @@ export default function MatchControl() {
     const { playSound } = useAudioEngine();
     const timer = useMatchTimer({ playSound });
     const lastStartedMatchIdRef = useRef<number | null>(null);
+
+    // On mount, check if there's a recently completed match to show winner for
+    useEffect(() => {
+        api.getMatches()
+            .then((matches) => {
+                const completed = matches.filter((m) => m.status === 'completed' && m.ended_at);
+                const recentlyCompleted = completed.sort((a, b) => new Date(b.ended_at!).getTime() - new Date(a.ended_at!).getTime())[0];
+
+                if (recentlyCompleted) {
+                    const endedAt = new Date(recentlyCompleted.ended_at!);
+                    const secondsSinceEnd = (new Date().getTime() - endedAt.getTime()) / 1000;
+
+                    if (secondsSinceEnd < 60) {
+                        const red = getAllianceScore(recentlyCompleted, 'red');
+                        const blue = getAllianceScore(recentlyCompleted, 'blue');
+                        const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+                        setWinnerState({ winner, redScore: red, blueScore: blue, match: recentlyCompleted });
+                    }
+                }
+            })
+            .catch(() => {
+                // Silently fail
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Clear winner screen when a different match is loaded
+    useEffect(() => {
+        const shouldClear = winnerState && loadedMatch && loadedMatch.id && loadedMatch.id !== winnerState.match.id;
+
+        if (shouldClear) {
+            setWinnerState(null);
+        }
+    }, [loadedMatch, winnerState]);
 
     // Auto-resume timer when an active match exists, stop when no longer ongoing
     useEffect(() => {
@@ -103,34 +123,40 @@ export default function MatchControl() {
         } else if (timer.isRunning) {
             timer.cancel();
         }
-    }, [activeMatch]);
+    }, [activeMatch, timer]);
 
-    // Polling fallback: detect when activeMatch transitions from set to null (match ended)
+    // Winner detection: check for recently completed matches on every change
     useEffect(() => {
-        const prevId = prevActiveMatchIdRef.current;
-
-        if (activeMatch?.id) {
-            prevActiveMatchIdRef.current = activeMatch.id;
-        } else if (prevId && !activeMatch && !winnerState && lastEndedMatchRef.current !== prevId) {
-            console.log('[Polling Fallback] Detected match ended, fetching match:', prevId);
-            prevActiveMatchIdRef.current = null;
-            lastEndedMatchRef.current = prevId;
-
-            api.getMatch(prevId).then((completedMatch) => {
-                console.log('[Polling Fallback] Fetched completed match:', {
-                    matchId: completedMatch.id,
-                    hasAlliances: !!completedMatch.match_alliances,
-                    allianceCount: completedMatch.match_alliances?.length || 0,
-                });
-                const red = getAllianceScore(completedMatch, 'red');
-                const blue = getAllianceScore(completedMatch, 'blue');
-                console.log('[Polling Fallback] Calculated scores:', { red, blue });
-                const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
-                setWinnerState({ winner, redScore: red, blueScore: blue, match: completedMatch });
-            }).catch((error) => {
-                console.error('[Polling Fallback] Failed to fetch match:', error);
-            });
+        if (winnerState) {
+            return;
         }
+
+        api.getMatches()
+            .then((matches) => {
+                const completed = matches.filter((m) => m.status === 'completed' && m.ended_at);
+
+                if (completed.length === 0) {
+                    return;
+                }
+
+                const recentlyCompleted = completed.sort((a, b) => new Date(b.ended_at!).getTime() - new Date(a.ended_at!).getTime())[0];
+
+                const endedAt = new Date(recentlyCompleted.ended_at!);
+                const secondsSinceEnd = (new Date().getTime() - endedAt.getTime()) / 1000;
+
+                if (secondsSinceEnd < 60 && lastEndedMatchRef.current !== recentlyCompleted.id) {
+                    lastEndedMatchRef.current = recentlyCompleted.id;
+
+                    const red = getAllianceScore(recentlyCompleted, 'red');
+                    const blue = getAllianceScore(recentlyCompleted, 'blue');
+                    const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+
+                    setWinnerState({ winner, redScore: red, blueScore: blue, match: recentlyCompleted });
+                }
+            })
+            .catch(() => {
+                // Silently fail
+            });
     }, [activeMatch, winnerState, api]);
 
     // WebSocket disabled - using polling instead for simplicity
@@ -212,9 +238,7 @@ export default function MatchControl() {
 
                 <div className="relative z-10 flex flex-col items-center gap-8">
                     {/* Match number */}
-                    <p className="text-2xl font-semibold tracking-widest text-white/60 uppercase">
-                        Match #{winnerState.match.number} - Final Result
-                    </p>
+                    <p className="text-2xl font-semibold tracking-widest text-white/60 uppercase">Match #{winnerState.match.number} - Final Result</p>
 
                     {/* Winner announcement */}
                     <div className="animate-bounce">
@@ -270,13 +294,8 @@ export default function MatchControl() {
                         </div>
                     </div>
 
-                    {/* Dismiss hint */}
-                    <button
-                        onClick={() => setWinnerState(null)}
-                        className="mt-8 rounded-full bg-white/10 px-8 py-3 text-lg font-medium text-white/70 transition-colors hover:bg-white/20 hover:text-white"
-                    >
-                        Dismiss
-                    </button>
+                    {/* Next match hint */}
+                    <p className="mt-8 text-lg text-white/50">Load the next match to continue</p>
                 </div>
             </div>
         );
@@ -288,9 +307,7 @@ export default function MatchControl() {
 
             {/* Header */}
             <div className="border-b border-white/10 bg-white/5 px-8 py-4">
-                <h1 className="text-center text-2xl font-bold text-white">
-                    {match ? `MATCH #${match.number}` : 'WAITING FOR MATCH'}
-                </h1>
+                <h1 className="text-center text-2xl font-bold text-white">{match ? `MATCH #${match.number}` : 'WAITING FOR MATCH'}</h1>
             </div>
 
             {/* Timer Section */}
@@ -301,12 +318,10 @@ export default function MatchControl() {
                 </div>
 
                 {/* Main Timer */}
-                <div className="text-[10rem] leading-none font-black tabular-nums text-white">{formatTime(timer.remainingSeconds)}</div>
+                <div className="text-[10rem] leading-none font-black text-white tabular-nums">{formatTime(timer.remainingSeconds)}</div>
 
                 {/* Phase Time */}
-                {timer.isRunning && (
-                    <div className="text-xl text-white/60">Phase time remaining: {formatTime(timer.phaseRemainingSeconds)}</div>
-                )}
+                {timer.isRunning && <div className="text-xl text-white/60">Phase time remaining: {formatTime(timer.phaseRemainingSeconds)}</div>}
 
                 {/* Progress Bar */}
                 <div className="h-4 w-full max-w-2xl overflow-hidden rounded-full bg-white/10">
@@ -345,8 +360,9 @@ export default function MatchControl() {
                 )}
 
                 {/* Loaded match preview or waiting message */}
-                {!match && !timer.isRunning && (
-                    loadedMatch?.match_alliances ? (
+                {!match &&
+                    !timer.isRunning &&
+                    (loadedMatch?.match_alliances ? (
                         <div className="mt-4 flex w-full max-w-2xl flex-col items-center gap-6">
                             <p className="text-2xl font-bold text-white">NEXT UP - Match #{loadedMatch.number}</p>
                             <div className="flex w-full gap-6">
@@ -379,8 +395,7 @@ export default function MatchControl() {
                         </div>
                     ) : (
                         <p className="mt-4 text-xl text-white/40">Waiting for a match to be loaded...</p>
-                    )
-                )}
+                    ))}
             </div>
         </div>
     );
