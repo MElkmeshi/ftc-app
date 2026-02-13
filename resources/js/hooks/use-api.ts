@@ -158,8 +158,18 @@ export const useApi = () => {
         return res.data;
     }, []);
 
-    const pickTeam = useCallback(async (allianceGroupId: number, teamId: number): Promise<AllianceGroup> => {
-        const res = await axios.post('/api/alliance-selection/pick', { alliance_group_id: allianceGroupId, team_id: teamId });
+    const inviteTeam = useCallback(async (allianceGroupId: number, teamId: number): Promise<AllianceGroup> => {
+        const res = await axios.post('/api/alliance-selection/invite', { alliance_group_id: allianceGroupId, team_id: teamId });
+        return res.data;
+    }, []);
+
+    const acceptPick = useCallback(async (allianceGroupId: number): Promise<AllianceGroup> => {
+        const res = await axios.post('/api/alliance-selection/accept', { alliance_group_id: allianceGroupId });
+        return res.data;
+    }, []);
+
+    const declinePick = useCallback(async (allianceGroupId: number): Promise<AllianceGroup> => {
+        const res = await axios.post('/api/alliance-selection/decline', { alliance_group_id: allianceGroupId });
         return res.data;
     }, []);
 
@@ -237,7 +247,9 @@ export const useApi = () => {
         startAllianceSelection,
         getAllianceGroups,
         getAvailableTeams,
-        pickTeam,
+        inviteTeam,
+        acceptPick,
+        declinePick,
         getAllianceSelectionStatus,
         resetAllianceSelection,
         generateElimination,

@@ -105,7 +105,7 @@ export type MatchPhase = 'pre-match' | 'autonomous' | 'teleop' | 'endgame' | 'po
 
 export interface MatchStatusChangedEvent {
     match: CompetitionMatch;
-    action: 'started' | 'ended' | 'cancelled';
+    action: 'started' | 'ended' | 'cancelled' | 'loaded';
 }
 
 export interface ScoreUpdatedEvent {
@@ -127,6 +127,7 @@ export interface AllianceGroup {
     seed: number;
     captain_team: Team;
     picked_team: Team | null;
+    pending_team: Team | null;
 }
 
 export interface SeriesResult {
@@ -139,8 +140,8 @@ export interface SeriesResult {
 export interface EliminationSeries {
     id: number;
     round: string;
-    alliance_group_1: AllianceGroup;
-    alliance_group_2: AllianceGroup;
+    alliance_group1: AllianceGroup;
+    alliance_group2: AllianceGroup;
     winner_alliance_group_id: number | null;
     winner: AllianceGroup | null;
     status: 'pending' | 'in_progress' | 'completed';

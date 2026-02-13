@@ -17,7 +17,7 @@ class MatchStatusChanged implements ShouldBroadcastNow
 
     public function __construct(CompetitionMatch $match, string $action)
     {
-        $this->match = $match->load('matchAlliances.team', 'matchAlliances.alliance');
+        $this->match = $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
         $this->action = $action;
     }
 

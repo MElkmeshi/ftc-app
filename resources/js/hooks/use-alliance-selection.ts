@@ -49,11 +49,37 @@ export function useStartAllianceSelection() {
     });
 }
 
-export function usePickTeam() {
+export function useInviteTeam() {
     const api = useApi();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (params: { allianceGroupId: number; teamId: number }) => api.pickTeam(params.allianceGroupId, params.teamId),
+        mutationFn: (params: { allianceGroupId: number; teamId: number }) => api.inviteTeam(params.allianceGroupId, params.teamId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['alliance-groups'] });
+            queryClient.invalidateQueries({ queryKey: ['available-teams'] });
+            queryClient.invalidateQueries({ queryKey: ['alliance-selection-status'] });
+        },
+    });
+}
+
+export function useAcceptPick() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (allianceGroupId: number) => api.acceptPick(allianceGroupId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['alliance-groups'] });
+            queryClient.invalidateQueries({ queryKey: ['available-teams'] });
+            queryClient.invalidateQueries({ queryKey: ['alliance-selection-status'] });
+        },
+    });
+}
+
+export function useDeclinePick() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (allianceGroupId: number) => api.declinePick(allianceGroupId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['alliance-groups'] });
             queryClient.invalidateQueries({ queryKey: ['available-teams'] });

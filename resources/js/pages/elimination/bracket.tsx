@@ -1,8 +1,20 @@
 import { useEliminationBracket } from '@/hooks/use-elimination';
 import { cn } from '@/lib/utils';
-import { type EliminationSeries } from '@/types';
+import { type CompetitionMatch, type EliminationSeries } from '@/types';
 import { Head } from '@inertiajs/react';
 import { Swords, Trophy } from 'lucide-react';
+
+function getAllianceScore(match: CompetitionMatch, color: string): number {
+    const allianceTeams = match.match_alliances.filter((ma) => ma.alliance.color === color);
+    const teamScore = allianceTeams.reduce((sum, ma) => sum + ma.score, 0);
+
+    const allianceIds = [...new Set(allianceTeams.map((ma) => ma.alliance.id))];
+    const allianceWideScore = (match.scores || [])
+        .filter((s) => !s.team_id && allianceIds.includes(s.alliance_id ?? -1))
+        .reduce((sum, s) => sum + (s.score_type?.points || 0), 0);
+
+    return teamScore + allianceWideScore;
+}
 
 function getRoundLabel(round: string): string {
     const labels: Record<string, string> = {
@@ -18,8 +30,8 @@ function getRoundLabel(round: string): string {
 
 function SeriesBox({ series }: { series: EliminationSeries }) {
     const result = series.result;
-    const group1IsWinner = series.winner_alliance_group_id === series.alliance_group_1.id;
-    const group2IsWinner = series.winner_alliance_group_id === series.alliance_group_2.id;
+    const group1IsWinner = series.winner_alliance_group_id === series.alliance_group1.id;
+    const group2IsWinner = series.winner_alliance_group_id === series.alliance_group2.id;
 
     return (
         <div
@@ -57,14 +69,14 @@ function SeriesBox({ series }: { series: EliminationSeries }) {
                                 group1IsWinner ? 'bg-yellow-400 text-slate-900' : 'bg-white/20 text-white',
                             )}
                         >
-                            {series.alliance_group_1.seed}
+                            {series.alliance_group1.seed}
                         </div>
                         <div>
                             <div className="text-xl font-bold text-white">
-                                #{series.alliance_group_1.captain_team.number} & #{series.alliance_group_1.picked_team?.number}
+                                #{series.alliance_group1.captain_team.number} & #{series.alliance_group1.picked_team?.number}
                             </div>
                             <div className="text-sm text-white/60">
-                                {series.alliance_group_1.captain_team.name} & {series.alliance_group_1.picked_team?.name}
+                                {series.alliance_group1.captain_team.name} & {series.alliance_group1.picked_team?.name}
                             </div>
                         </div>
                     </div>
@@ -93,14 +105,14 @@ function SeriesBox({ series }: { series: EliminationSeries }) {
                                 group2IsWinner ? 'bg-yellow-400 text-slate-900' : 'bg-white/20 text-white',
                             )}
                         >
-                            {series.alliance_group_2.seed}
+                            {series.alliance_group2.seed}
                         </div>
                         <div>
                             <div className="text-xl font-bold text-white">
-                                #{series.alliance_group_2.captain_team.number} & #{series.alliance_group_2.picked_team?.number}
+                                #{series.alliance_group2.captain_team.number} & #{series.alliance_group2.picked_team?.number}
                             </div>
                             <div className="text-sm text-white/60">
-                                {series.alliance_group_2.captain_team.name} & {series.alliance_group_2.picked_team?.name}
+                                {series.alliance_group2.captain_team.name} & {series.alliance_group2.picked_team?.name}
                             </div>
                         </div>
                     </div>
@@ -116,10 +128,8 @@ function SeriesBox({ series }: { series: EliminationSeries }) {
                 <div className="mb-2 text-center text-sm font-semibold text-white/60">MATCHES</div>
                 <div className="space-y-2">
                     {series.matches.map((match) => {
-                        const redAlliances = match.match_alliances.filter((ma) => ma.alliance.color === 'red');
-                        const blueAlliances = match.match_alliances.filter((ma) => ma.alliance.color === 'blue');
-                        const redScore = redAlliances.reduce((sum, ma) => sum + ma.score, 0);
-                        const blueScore = blueAlliances.reduce((sum, ma) => sum + ma.score, 0);
+                        const redScore = getAllianceScore(match, 'red');
+                        const blueScore = getAllianceScore(match, 'blue');
                         const isComplete = match.status === 'completed';
                         const isTiebreaker = match.round?.startsWith('tiebreaker');
 

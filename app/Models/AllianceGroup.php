@@ -13,7 +13,7 @@ class AllianceGroup extends Model
     use HasFactory;
 
     protected $fillable = [
-        'seed', 'captain_team_id', 'picked_team_id', 'created_by', 'updated_by',
+        'seed', 'captain_team_id', 'picked_team_id', 'pending_team_id', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -28,6 +28,11 @@ class AllianceGroup extends Model
     public function pickedTeam(): BelongsTo
     {
         return $this->belongsTo(Team::class, 'picked_team_id');
+    }
+
+    public function pendingTeam(): BelongsTo
+    {
+        return $this->belongsTo(Team::class, 'pending_team_id');
     }
 
     public function creator(): BelongsTo

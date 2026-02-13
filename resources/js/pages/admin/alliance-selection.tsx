@@ -12,34 +12,48 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
+    useAcceptPick,
     useAllianceGroups,
     useAllianceSelectionRankings,
     useAvailableTeams,
-    usePickTeam,
+    useDeclinePick,
+    useInviteTeam,
     useResetAllianceSelection,
     useStartAllianceSelection,
 } from '@/hooks/use-alliance-selection';
 import { useCheckSeriesWinner, useEliminationBracket, useGenerateElimination, useGenerateTiebreaker, useResetElimination } from '@/hooks/use-elimination';
 import AppLayout from '@/layouts/app-layout';
-import { type AllianceGroup, type BreadcrumbItem, type EliminationSeries } from '@/types';
+import { type AllianceGroup, type BreadcrumbItem, type CompetitionMatch, type EliminationSeries } from '@/types';
 import { Head } from '@inertiajs/react';
 import { RotateCcw, Swords, Trophy, Users } from 'lucide-react';
 import { useState } from 'react';
+
+function getAllianceScore(match: CompetitionMatch, color: string): number {
+    const allianceTeams = match.match_alliances.filter((ma) => ma.alliance.color === color);
+    const teamScore = allianceTeams.reduce((sum, ma) => sum + ma.score, 0);
+
+    const allianceIds = [...new Set(allianceTeams.map((ma) => ma.alliance.id))];
+    const allianceWideScore = (match.scores || [])
+        .filter((s) => !s.team_id && allianceIds.includes(s.alliance_id ?? -1))
+        .reduce((sum, s) => sum + (s.score_type?.points || 0), 0);
+
+    return teamScore + allianceWideScore;
+}
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Admin', href: '/admin/alliance-selection' },
     { title: 'Alliance Selection', href: '/admin/alliance-selection' },
 ];
 
-function PickTeamDialog({ group }: { group: AllianceGroup }) {
+function InviteTeamDialog({ group }: { group: AllianceGroup }) {
     const [open, setOpen] = useState(false);
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const { data: availableTeams = [] } = useAvailableTeams();
-    const pickTeam = usePickTeam();
+    const inviteTeam = useInviteTeam();
 
-    const handlePick = () => {
+    const handleInvite = () => {
         if (!selectedTeamId) return;
-        pickTeam.mutate(
+        inviteTeam.mutate(
             { allianceGroupId: group.id, teamId: parseInt(selectedTeamId) },
             {
                 onSuccess: () => {
@@ -53,11 +67,11 @@ function PickTeamDialog({ group }: { group: AllianceGroup }) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button size="sm">Pick Team</Button>
+                <Button size="sm">Invite Team</Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Pick Team for Alliance #{group.seed}</DialogTitle>
+                    <DialogTitle>Invite Team for Alliance #{group.seed}</DialogTitle>
                     <DialogDescription>
                         Captain: #{group.captain_team.number} {group.captain_team.name}
                     </DialogDescription>
@@ -80,12 +94,28 @@ function PickTeamDialog({ group }: { group: AllianceGroup }) {
                     <Button variant="outline" onClick={() => setOpen(false)}>
                         Cancel
                     </Button>
-                    <Button onClick={handlePick} disabled={!selectedTeamId || pickTeam.isPending}>
-                        {pickTeam.isPending ? 'Picking...' : 'Confirm Pick'}
+                    <Button onClick={handleInvite} disabled={!selectedTeamId || inviteTeam.isPending}>
+                        {inviteTeam.isPending ? 'Inviting...' : 'Send Invite'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+    );
+}
+
+function PendingActions({ group }: { group: AllianceGroup }) {
+    const acceptPick = useAcceptPick();
+    const declinePick = useDeclinePick();
+
+    return (
+        <div className="flex items-center gap-2">
+            <Button size="sm" variant="default" onClick={() => acceptPick.mutate(group.id)} disabled={acceptPick.isPending}>
+                {acceptPick.isPending ? 'Accepting...' : 'Accept'}
+            </Button>
+            <Button size="sm" variant="destructive" onClick={() => declinePick.mutate(group.id)} disabled={declinePick.isPending}>
+                {declinePick.isPending ? 'Declining...' : 'Decline'}
+            </Button>
+        </div>
     );
 }
 
@@ -123,15 +153,15 @@ function SeriesCard({ series }: { series: EliminationSeries }) {
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
-                            Alliance #{series.alliance_group_1.seed}: #{series.alliance_group_1.captain_team.number} &{' '}
-                            #{series.alliance_group_1.picked_team?.number}
+                            Alliance #{series.alliance_group1.seed}: #{series.alliance_group1.captain_team.number} &{' '}
+                            #{series.alliance_group1.picked_team?.number}
                         </span>
                         <Badge variant="outline">{result?.group_1_wins ?? 0} wins</Badge>
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
-                            Alliance #{series.alliance_group_2.seed}: #{series.alliance_group_2.captain_team.number} &{' '}
-                            #{series.alliance_group_2.picked_team?.number}
+                            Alliance #{series.alliance_group2.seed}: #{series.alliance_group2.captain_team.number} &{' '}
+                            #{series.alliance_group2.picked_team?.number}
                         </span>
                         <Badge variant="outline">{result?.group_2_wins ?? 0} wins</Badge>
                     </div>
@@ -139,10 +169,8 @@ function SeriesCard({ series }: { series: EliminationSeries }) {
                     {/* Match results */}
                     <div className="border-t pt-2">
                         {series.matches.map((match) => {
-                            const redAlliances = match.match_alliances.filter((ma) => ma.alliance.color === 'red');
-                            const blueAlliances = match.match_alliances.filter((ma) => ma.alliance.color === 'blue');
-                            const redScore = redAlliances.reduce((sum, ma) => sum + ma.score, 0);
-                            const blueScore = blueAlliances.reduce((sum, ma) => sum + ma.score, 0);
+                            const redScore = getAllianceScore(match, 'red');
+                            const blueScore = getAllianceScore(match, 'blue');
 
                             return (
                                 <div key={match.id} className="flex items-center justify-between py-1 text-sm">
@@ -329,13 +357,18 @@ export default function AllianceSelectionPage() {
                                                     <div className="text-muted-foreground text-sm">
                                                         Pick: #{group.picked_team.number} - {group.picked_team.name}
                                                     </div>
+                                                ) : group.pending_team ? (
+                                                    <div className="text-sm text-amber-600">
+                                                        Invited: #{group.pending_team.number} - {group.pending_team.name} — Awaiting response...
+                                                    </div>
                                                 ) : (
-                                                    <div className="text-sm text-amber-600">Waiting for pick...</div>
+                                                    <div className="text-sm text-amber-600">Waiting for invite...</div>
                                                 )}
                                             </div>
                                         </div>
-                                        {!group.picked_team && <PickTeamDialog group={group} />}
                                         {group.picked_team && <Badge>Complete</Badge>}
+                                        {!group.picked_team && group.pending_team && <PendingActions group={group} />}
+                                        {!group.picked_team && !group.pending_team && <InviteTeamDialog group={group} />}
                                     </div>
                                 ))}
                             </div>
