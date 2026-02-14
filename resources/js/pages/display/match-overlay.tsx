@@ -16,9 +16,41 @@ export default function MatchOverlay() {
     const { data: match } = useMatch(activeMatch?.id ?? null, 500);
     const timer = useMatchTimer(); // No config = no audio
     const lastStartedMatchIdRef = useRef<number | null>(null);
+    const lastEndedMatchIdRef = useRef<number | null>(null);
 
-    // Use loaded match data when no active match
-    const displayMatch = match || loadedMatch;
+    // Track the running match ID BEFORE it ends (save it early!)
+    useEffect(() => {
+        if (timer.isRunning && match?.id) {
+            // Save the match ID while it's still running
+            console.log('[Save Match ID]', match.id);
+            lastEndedMatchIdRef.current = match.id;
+        }
+    }, [timer.isRunning, match?.id]);
+
+    // Log the ref value
+    useEffect(() => {
+        console.log('[Ref Value]', 'lastEndedMatchId =', lastEndedMatchIdRef.current);
+    }, [timer.phase, lastEndedMatchIdRef.current]);
+
+    // Fetch the last ended match data to show final scores
+    const { data: endedMatch } = useMatch(lastEndedMatchIdRef.current, 500);
+
+    // Use the appropriate match data based on state
+    const displayMatch = match || (timer.phase === 'post-match' && endedMatch) || loadedMatch;
+
+    // Debug logging
+    useEffect(() => {
+        console.log('[Overlay Debug]', {
+            'timer.phase': timer.phase,
+            'activeMatch': activeMatch,
+            'loadedMatch': loadedMatch,
+            'match': match,
+            'endedMatch': endedMatch,
+            'lastEndedMatchId': lastEndedMatchIdRef.current,
+            'displayMatch': displayMatch,
+            'displayMatch.match_alliances': displayMatch?.match_alliances,
+        });
+    }, [timer.phase, activeMatch, loadedMatch, match, endedMatch, displayMatch]);
 
     // Auto-resume timer when an active match exists, reset when match changes
     useEffect(() => {
@@ -33,16 +65,33 @@ export default function MatchOverlay() {
             // Reset timer when no active match (new match loaded but not started)
             timer.cancel();
         }
-    }, [activeMatch, timer]);
+
+        // Clear ended match when a new match is loaded
+        if (loadedMatch && loadedMatch.id !== lastEndedMatchIdRef.current) {
+            lastEndedMatchIdRef.current = null;
+        }
+    }, [activeMatch, timer, loadedMatch]);
 
     const phaseColors = getPhaseColors(timer.phase);
     const redScore = displayMatch ? getAllianceScore(displayMatch, 'red') : 0;
     const blueScore = displayMatch ? getAllianceScore(displayMatch, 'blue') : 0;
-    const redTeams = displayMatch?.match_alliances.filter((ma) => ma.alliance.color === 'red') ?? [];
-    const blueTeams = displayMatch?.match_alliances.filter((ma) => ma.alliance.color === 'blue') ?? [];
+    const redTeams = displayMatch?.match_alliances?.filter((ma) => ma.alliance.color === 'red') ?? [];
+    const blueTeams = displayMatch?.match_alliances?.filter((ma) => ma.alliance.color === 'blue') ?? [];
 
     // Check if match is loaded but not started
     const isMatchLoaded = loadedMatch && !activeMatch && timer.phase === 'pre-match';
+
+    // Debug teams and scores
+    useEffect(() => {
+        console.log('[Teams & Scores]', {
+            redScore,
+            blueScore,
+            'redTeams.length': redTeams.length,
+            'blueTeams.length': blueTeams.length,
+            redTeams,
+            blueTeams,
+        });
+    }, [redScore, blueScore, redTeams, blueTeams]);
 
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden">
