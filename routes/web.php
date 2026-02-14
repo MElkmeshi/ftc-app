@@ -95,6 +95,10 @@ Route::get('referee/display', function () {
     return Inertia::render('referee/display');
 })->name('referee.display');
 
+Route::get('display/match-overlay', function () {
+    return Inertia::render('display/match-overlay');
+})->name('display.match-overlay');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return Inertia::render('dashboard');

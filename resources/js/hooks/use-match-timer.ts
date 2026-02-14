@@ -186,6 +186,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             // Play start sound if match just started (within threshold)
             if (elapsed < RESUME_START_SOUND_THRESHOLD) {
                 playSoundRef.current?.('start_match.wav');
+                soundsPlayedRef.current.add('start'); // Mark immediately to prevent duplicate
             }
 
             // Mark sounds that should have already played as played (don't replay on resume)
