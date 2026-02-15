@@ -345,9 +345,13 @@ export default function MatchControl() {
                             <div className="text-[10rem] leading-none font-black text-orange-400 tabular-nums animate-pulse">
                                 {timer.phaseRemainingSeconds}
                             </div>
+                        ) : timer.phase === 'autonomous' ? (
+                            <div className="text-[10rem] leading-none font-black text-white tabular-nums">
+                                {formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))}
+                            </div>
                         ) : (
                             <div className="text-[10rem] leading-none font-black text-white tabular-nums">
-                                {formatTime(timer.remainingSeconds)}
+                                {formatTime(timer.phaseRemainingSeconds)}
                             </div>
                         )}
 
