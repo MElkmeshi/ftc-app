@@ -23,4 +23,10 @@ class DashboardController extends Controller
             'ongoing_match' => $ongoingMatch,
         ]);
     }
+
+    public function config(): JsonResponse
+    {
+        // Delegate to SettingsController to read from database
+        return app(\App\Http\Controllers\Api\SettingsController::class)->getCompetitionSettings();
+    }
 }

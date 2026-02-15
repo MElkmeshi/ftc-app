@@ -34,7 +34,11 @@
       "mcp__laravel-boost__list-available-env-vars",
       "Bash(npx tsc:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nImplement match winner screen with automatic detection\n\n- Add winner screen overlay that displays after match ends\n- Automatically detect recently completed matches \\(within 60 seconds\\)\n- Show winner announcement with alliance scores and team names\n- Clear winner screen when next match is loaded\n- Add ended_at timestamp to CompetitionMatch type\n- Update match timer durations for testing \\(10 second matches\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(mcp__laravel-boost__browser-logs:*)"
+      "Bash(mcp__laravel-boost__browser-logs:*)",
+      "Bash(find:*)",
+      "mcp__laravel-boost__list-available-config-keys",
+      "Bash(jq:*)",
+      "Bash(python3:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

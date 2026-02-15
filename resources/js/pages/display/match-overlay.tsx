@@ -1,20 +1,17 @@
 import { useActiveMatch, useLoadedMatch, useMatch } from '@/hooks/use-match';
+import { useMatchConfig } from '@/hooks/use-match-config';
 import { useMatchTimer } from '@/hooks/use-match-timer';
 import { formatTime, getAllianceScore, getPhaseColors } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { Head } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
 
-// Match timing constants
-const MATCH_DURATION = 160;
-const TRANSITION_DURATION = 10;
-const MAX_DISPLAY_TIME = MATCH_DURATION - TRANSITION_DURATION; // 160 - 10 = 150 seconds (2:30)
-
 export default function MatchOverlay() {
     const { data: activeMatch } = useActiveMatch(500);
     const { data: loadedMatch } = useLoadedMatch(500);
     const { data: match } = useMatch(activeMatch?.id ?? null, 500);
-    const timer = useMatchTimer(); // No config = no audio
+    const { config: matchConfig } = useMatchConfig();
+    const timer = useMatchTimer({ timing: matchConfig?.timing }); // No playSound = no audio
     const lastStartedMatchIdRef = useRef<number | null>(null);
     const lastEndedMatchIdRef = useRef<number | null>(null);
 
