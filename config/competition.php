@@ -3,18 +3,21 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Match Timing Configuration
+    | Match Timing Configuration (Fallback Defaults)
     |--------------------------------------------------------------------------
     |
-    | These values control the duration of each phase of a match.
+    | These are FALLBACK defaults only, used if database settings don't exist.
+    | Actual timing is stored in the database (settings table, group='competition')
+    | and can be configured via /admin/competition-settings
+    |
     | All values are in seconds.
     |
-    | FTC Standard Match Format:
+    | Default values below are FTC standard format as reference:
     | - Pre-Match Countdown: 3 seconds
     | - Autonomous: 30 seconds
-    | - Transition: 8 seconds
+    | - Transition: 8 seconds (FTC standard, but you may use 20s)
     | - Teleop: 120 seconds (2 minutes)
-    | - Total Match: 158 seconds (2 minutes 38 seconds)
+    | - Endgame Warning: 20 seconds (FTC standard, but you may use 30s)
     |
     */
 
@@ -26,16 +29,16 @@ return [
         'autonomous' => (int) env('MATCH_AUTONOMOUS_DURATION', 30),
 
         // Transition period (hand off controllers)
-        'transition' => (int) env('MATCH_TRANSITION_DURATION', 8),
+        'transition' => (int) env('MATCH_TRANSITION_DURATION', 20),
 
         // Teleop period duration
         'teleop' => (int) env('MATCH_TELEOP_DURATION', 120),
 
         // Endgame warning time (how many seconds before match end to warn)
-        'endgame_warning' => (int) env('MATCH_ENDGAME_WARNING', 20),
+        'endgame_warning' => (int) env('MATCH_ENDGAME_WARNING', 30),
 
-        // Controllers pickup warning offset (seconds before teleop starts)
-        'controllers_warning_offset' => (int) env('MATCH_CONTROLLERS_WARNING_OFFSET', 2),
+        // Not used anymore - kept for compatibility
+        'controllers_warning_offset' => (int) env('MATCH_CONTROLLERS_WARNING_OFFSET', 0),
     ],
 
     /*

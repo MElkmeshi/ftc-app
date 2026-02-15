@@ -38,7 +38,11 @@
       "Bash(find:*)",
       "mcp__laravel-boost__list-available-config-keys",
       "Bash(jq:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(npm install:*)",
+      "Bash(git restore:*)",
+      "Bash(node:*)",
+      "Bash(perl -i -0pe:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

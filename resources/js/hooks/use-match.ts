@@ -2,11 +2,13 @@ import { CompetitionMatch, ScoreType } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
 
-export function useMatches() {
+export function useMatches(refetchInterval?: number) {
     const api = useApi();
     return useQuery<CompetitionMatch[]>({
         queryKey: ['matches'],
         queryFn: api.getMatches,
+        refetchInterval: refetchInterval || 500, // Poll every 500ms by default
+        refetchIntervalInBackground: true, // Keep polling even in background tabs (like FTC Live)
     });
 }
 
@@ -26,6 +28,7 @@ export function useActiveMatch(refetchInterval?: number) {
         queryKey: ['active-match'],
         queryFn: api.getActiveMatch,
         refetchInterval: refetchInterval || false,
+        refetchIntervalInBackground: true, // Keep polling even in background tabs (like FTC Live)
     });
 }
 
@@ -167,6 +170,7 @@ export function useLoadedMatch(refetchInterval?: number) {
         queryKey: ['loaded-match'],
         queryFn: api.getLoadedMatch,
         refetchInterval: refetchInterval || false,
+        refetchIntervalInBackground: true, // Keep polling even in background tabs (like FTC Live)
     });
 }
 

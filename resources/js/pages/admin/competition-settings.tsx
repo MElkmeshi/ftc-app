@@ -53,7 +53,6 @@ export default function CompetitionSettings() {
             });
             setLoading(false);
         } catch (error) {
-            console.error('Failed to load settings:', error);
             setMessage({ type: 'error', text: 'Failed to load settings' });
             setLoading(false);
         }
@@ -69,7 +68,6 @@ export default function CompetitionSettings() {
             setMessage({ type: 'success', text: 'Settings saved successfully!' });
             await loadSettings(); // Reload to get calculated values
         } catch (error: any) {
-            console.error('Failed to save settings:', error);
             setMessage({
                 type: 'error',
                 text: error.response?.data?.message || 'Failed to save settings',
@@ -90,7 +88,6 @@ export default function CompetitionSettings() {
             setMessage({ type: 'success', text: 'Settings reset to defaults!' });
             await loadSettings();
         } catch (error) {
-            console.error('Failed to reset settings:', error);
             setMessage({ type: 'error', text: 'Failed to reset settings' });
         } finally {
             setSaving(false);

@@ -112,7 +112,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
                 case 'transition':
                     return remaining - teleopStart;
                 case 'teleop':
-                    return remaining - endgameWarning;
+                    return remaining; // Show full teleop time (includes endgame)
                 case 'endgame':
                     return remaining;
                 default:
@@ -124,46 +124,63 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
 
     /**
      * Sound cues based on REMAINING time (like FTC Live)
-     * This ensures sounds play at exact moments regardless of when timer was started
+     * All timing is dynamic from settings - NO hardcoded values
      */
     const checkSoundCues = useCallback(
         (remaining: number) => {
             const totalMatch = timing.total_match;
             const countdownTime = timing.total_with_countdown;
-            const teleopStart = timing.teleop;
-            const autoEnd = totalMatch - timing.autonomous;
-            const controllersTime = autoEnd + timing.controllers_warning_offset;
+            const teleopRemaining = timing.teleop; // When teleop starts
+            const transitionRemaining = timing.teleop + timing.transition; // When transition starts
+            const transitionCountdownStart = timing.teleop + 3; // Last 3s of transition
             const endgameWarning = timing.endgame_warning;
 
-            // Pre-match countdown (3 seconds before match at 2:41 remaining for standard FTC)
-            if (remaining <= countdownTime && remaining > totalMatch && !soundsPlayedRef.current.has('countdown')) {
-                soundsPlayedRef.current.add('countdown');
+            // Pre-match countdown (3s before match, e.g., 2:53 for your setup)
+            if (remaining <= countdownTime && remaining > totalMatch && !soundsPlayedRef.current.has('pre_countdown')) {
+                soundsPlayedRef.current.add('pre_countdown');
                 playSoundRef.current?.('countdown.wav');
             }
 
-            // Match start (at 2:38 remaining for standard FTC)
+            // Match start (e.g., at 2:50)
             if (remaining <= totalMatch && remaining > totalMatch - 1 && !soundsPlayedRef.current.has('start')) {
                 soundsPlayedRef.current.add('start');
                 playSoundRef.current?.('match_start_whistle.wav');
             }
 
-            // End of autonomous (at 2:08 remaining for standard FTC)
-            if (remaining <= autoEnd && remaining > autoEnd - 1 && !soundsPlayedRef.current.has('end_auto')) {
-                soundsPlayedRef.current.add('end_auto');
-                playSoundRef.current?.('auto_end_ftc.wav');
-            }
-
-            // Controllers warning (at 2:06 remaining for standard FTC)
+            // Transition starts / Auto ends (e.g., at 2:20)
+            // Play "pick up controllers" sound
             if (
-                remaining <= controllersTime &&
-                remaining > controllersTime - 1 &&
-                !soundsPlayedRef.current.has('controllers')
+                remaining <= transitionRemaining &&
+                remaining > transitionRemaining - 1 &&
+                !soundsPlayedRef.current.has('transition_start')
             ) {
-                soundsPlayedRef.current.add('controllers');
+                soundsPlayedRef.current.add('transition_start');
                 playSoundRef.current?.('controllers_pickup.wav');
             }
 
-            // Endgame warning (at 0:20 remaining)
+            // Last 3 seconds of transition (e.g., at 2:03)
+            // Play countdown sound
+            if (
+                remaining <= transitionCountdownStart &&
+                remaining > transitionCountdownStart - 1 &&
+                !soundsPlayedRef.current.has('transition_countdown')
+            ) {
+                soundsPlayedRef.current.add('transition_countdown');
+                playSoundRef.current?.('countdown.wav');
+            }
+
+            // Teleop starts / Transition ends (e.g., at 2:00)
+            // Play end of auto sound
+            if (
+                remaining <= teleopRemaining &&
+                remaining > teleopRemaining - 1 &&
+                !soundsPlayedRef.current.has('teleop_start')
+            ) {
+                soundsPlayedRef.current.add('teleop_start');
+                playSoundRef.current?.('auto_end_ftc.wav');
+            }
+
+            // Endgame warning (last 30s of teleop, e.g., at 0:30)
             if (
                 remaining <= endgameWarning &&
                 remaining > endgameWarning - 1 &&
@@ -268,17 +285,19 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
 
             const remaining = totalDuration - elapsed;
 
-            // Mark sounds that should have already played
+            // Mark sounds that should have already played (so we don't replay them on resume)
             const totalMatch = timing.total_match;
-            const autoEnd = totalMatch - timing.autonomous;
-            const controllersTime = autoEnd + timing.controllers_warning_offset;
+            const teleopRemaining = timing.teleop;
+            const transitionRemaining = timing.teleop + timing.transition;
+            const transitionCountdownStart = timing.teleop + 3;
 
             if (remaining <= timing.total_with_countdown && remaining > totalMatch) {
-                soundsPlayedRef.current.add('countdown');
+                soundsPlayedRef.current.add('pre_countdown');
             }
             if (remaining <= totalMatch) soundsPlayedRef.current.add('start');
-            if (remaining <= autoEnd) soundsPlayedRef.current.add('end_auto');
-            if (remaining <= controllersTime) soundsPlayedRef.current.add('controllers');
+            if (remaining <= transitionRemaining) soundsPlayedRef.current.add('transition_start');
+            if (remaining <= transitionCountdownStart) soundsPlayedRef.current.add('transition_countdown');
+            if (remaining <= teleopRemaining) soundsPlayedRef.current.add('teleop_start');
             if (remaining <= timing.endgame_warning) soundsPlayedRef.current.add('endgame');
 
             startTimeRef.current = startedAt;

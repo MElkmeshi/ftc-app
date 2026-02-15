@@ -30,7 +30,6 @@ export default function MatchControl() {
 
     // Handle match end from timer - just invalidate queries, don't show winner yet
     const handleMatchEnd = useCallback(() => {
-        console.log('[Timer End] Match timer ended, waiting for referee to submit scores');
 
         // Invalidate queries to get the latest match data
         queryClient.invalidateQueries({ queryKey: ['matches'] });
@@ -74,29 +73,24 @@ export default function MatchControl() {
     // Clear winner screen ONLY when a different match is loaded
     useEffect(() => {
         if (!winnerState) {
-            console.log('[Clear Winner] No winner state');
             return;
         }
 
         const loadedId = loadedMatch?.id;
         const winnerId = winnerState.matchId;
 
-        console.log('[Clear Winner] Check:', { loadedId, winnerId });
 
         // Clear ONLY if a different match is loaded AND loadedId is valid
         if (loadedMatch && loadedId && loadedId !== winnerId) {
-            console.log('[Clear Winner] ❌ CLEARING - different match loaded');
             setWinnerState(null);
             setLastRunningMatch(null);
         } else {
-            console.log('[Clear Winner] ✅ Keeping winner visible');
         }
     }, [loadedMatch, activeMatch, winnerState]);
 
     // Track the last running match so we can show winner even after match ends
     useEffect(() => {
         if (timer.isRunning && match && match.match_alliances.length > 0) {
-            console.log('[Track Match] Saving running match:', match.id);
             setLastRunningMatch(match);
         }
     }, [timer.isRunning, match]);
@@ -112,7 +106,6 @@ export default function MatchControl() {
             return;
         }
 
-        console.log('[Post-Match] Timer ended, waiting for match to be completed with final scores...');
 
         // Poll for the completed match with final scores
         const checkInterval = setInterval(() => {
@@ -121,17 +114,10 @@ export default function MatchControl() {
                     const completedMatch = matches.find((m) => m.id === matchId && m.status === 'completed' && m.ended_at);
 
                     if (completedMatch && completedMatch.match_alliances.length > 0) {
-                        console.log('[Post-Match] ✅ Found completed match with scores:', {
-                            matchId: completedMatch.id,
-                            matchNumber: completedMatch.number,
-                            allianceCount: completedMatch.match_alliances.length,
-                        });
-
                         const red = getAllianceScore(completedMatch, 'red');
                         const blue = getAllianceScore(completedMatch, 'blue');
                         const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
 
-                        console.log('[Post-Match] ⭐ Setting winner with matchId:', completedMatch.id, 'winner:', winner, 'scores:', red, '-', blue);
 
                         const winnerData = { winner, redScore: red, blueScore: blue, match: completedMatch, matchId: completedMatch.id };
                         setWinnerState(winnerData);
@@ -141,14 +127,12 @@ export default function MatchControl() {
                     }
                 })
                 .catch((error) => {
-                    console.error('[Post-Match] Error fetching matches:', error);
                 });
         }, 500);
 
         // Cleanup interval after 30 seconds if match never completes
         const timeout = setTimeout(() => {
             clearInterval(checkInterval);
-            console.log('[Post-Match] Timeout waiting for completed match');
         }, 30000);
 
         return () => {
@@ -161,7 +145,6 @@ export default function MatchControl() {
     useEffect(() => {
         if (activeMatch && activeMatch.status === 'ongoing' && activeMatch.started_at) {
             if (!timer.isRunning && lastStartedMatchIdRef.current !== activeMatch.id) {
-                console.log('[Timer Resume] Resuming timer for match:', activeMatch.id);
                 timer.resumeFrom(activeMatch.started_at);
                 lastStartedMatchIdRef.current = activeMatch.id; // Mark as started to prevent duplicate resumes
             }
@@ -173,13 +156,10 @@ export default function MatchControl() {
 
     // Winner detection: check for recently completed matches on every change
     useEffect(() => {
-        console.log('[Winner Detection] Effect running', { activeMatch: activeMatch?.id, winnerState: winnerState?.matchId });
 
         api.getMatches()
             .then((matches) => {
-                console.log('[Winner Detection] Got matches:', matches.length);
                 const completed = matches.filter((m) => m.status === 'completed' && m.ended_at);
-                console.log('[Winner Detection] Completed matches:', completed.length);
 
                 if (completed.length === 0) {
                     return;
@@ -190,29 +170,12 @@ export default function MatchControl() {
                 const endedAt = new Date(recentlyCompleted.ended_at!);
                 const secondsSinceEnd = (new Date().getTime() - endedAt.getTime()) / 1000;
 
-                console.log('[Winner Detection] Most recent:', {
-                    matchId: recentlyCompleted.id,
-                    matchNumber: recentlyCompleted.number,
-                    secondsSinceEnd,
-                    lastEndedMatchRef: lastEndedMatchRef.current,
-                    hasAlliances: !!recentlyCompleted.match_alliances,
-                    allianceCount: recentlyCompleted.match_alliances?.length,
-                });
-
+                
                 // Only show winner if match ended recently and it's a different match than currently shown
                 // Skip if this is the lastRunningMatch (post-match polling will handle it)
                 const isLastRunningMatch = lastRunningMatch && recentlyCompleted.id === lastRunningMatch.id;
 
-                console.log('[Winner Detection] Conditions check:', {
-                    secondsSinceEnd,
-                    withinTimeWindow: secondsSinceEnd < 60,
-                    lastEndedMatchRef: lastEndedMatchRef.current,
-                    recentlyCompletedId: recentlyCompleted.id,
-                    notAlreadyShown: lastEndedMatchRef.current !== recentlyCompleted.id,
-                    isLastRunningMatch,
-                    willShowWinner: secondsSinceEnd < 60 && lastEndedMatchRef.current !== recentlyCompleted.id && !isLastRunningMatch,
-                });
-
+                
                 if (secondsSinceEnd < 60 && lastEndedMatchRef.current !== recentlyCompleted.id && !isLastRunningMatch) {
                     lastEndedMatchRef.current = recentlyCompleted.id;
 
@@ -220,28 +183,20 @@ export default function MatchControl() {
                     const blue = getAllianceScore(recentlyCompleted, 'blue');
                     const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
 
-                    console.log('[Winner Detection] ⭐ Setting winner state - Match:', recentlyCompleted.id, 'Winner:', winner, 'Scores:', red, '-', blue);
 
                     const winnerData = { winner, redScore: red, blueScore: blue, match: recentlyCompleted, matchId: recentlyCompleted.id };
-                    console.log('[Winner Detection] ⭐ Setting winner with matchId:', recentlyCompleted.id);
                     setWinnerState(winnerData);
                 } else {
-                    console.log('[Winner Detection] Skipping - conditions not met');
                 }
             })
             .catch((error) => {
-                console.error('[Winner Detection] Error:', error);
             });
     }, [activeMatch, winnerState, api]);
 
     // WebSocket disabled - using polling instead for simplicity
     // Listen to match-control channel for sync
     // useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
-    //     console.log('[WebSocket] MatchStatusChanged event received:', {
-    //         action: event.action,
-    //         matchId: event.match?.id,
-    //     });
-
+    //     
     //     queryClient.invalidateQueries({ queryKey: ['matches'] });
     //     queryClient.invalidateQueries({ queryKey: ['active-match'] });
     //     queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
@@ -254,24 +209,13 @@ export default function MatchControl() {
     //         lastStartedMatchIdRef.current = event.match.id;
     //         timer.start();
     //     } else if (event.action === 'ended') {
-    //         console.log('[WebSocket] Match ended - full event data:', {
-    //             matchId: event.match.id,
-    //             hasAlliances: !!event.match.match_alliances,
-    //             allianceCount: event.match.match_alliances?.length || 0,
-    //             hasScores: !!event.match.scores,
-    //             scoreCount: event.match.scores?.length || 0,
-    //             scores: event.match.scores,
-    //             matchAlliances: event.match.match_alliances,
-    //         });
-    //         timer.cancel();
+    //             //         timer.cancel();
     //         if (lastEndedMatchRef.current !== event.match.id) {
     //             lastEndedMatchRef.current = event.match.id;
     //             const red = getAllianceScore(event.match, 'red');
     //             const blue = getAllianceScore(event.match, 'blue');
-    //             console.log('[WebSocket] Final calculated scores:', { red, blue });
-    //             const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
-    //             console.log('[WebSocket] Setting winner state:', { winner, redScore: red, blueScore: blue });
-    //             setWinnerState({ winner, redScore: red, blueScore: blue, match: event.match });
+    //                 //             const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+    //                 //             setWinnerState({ winner, redScore: red, blueScore: blue, match: event.match });
     //         }
     //     } else if (event.action === 'cancelled') {
     //         timer.cancel();

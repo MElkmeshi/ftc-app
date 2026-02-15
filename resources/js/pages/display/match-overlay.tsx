@@ -19,14 +19,12 @@ export default function MatchOverlay() {
     useEffect(() => {
         if (timer.isRunning && match?.id) {
             // Save the match ID while it's still running
-            console.log('[Save Match ID]', match.id);
             lastEndedMatchIdRef.current = match.id;
         }
     }, [timer.isRunning, match?.id]);
 
     // Log the ref value
     useEffect(() => {
-        console.log('[Ref Value]', 'lastEndedMatchId =', lastEndedMatchIdRef.current);
     }, [timer.phase, lastEndedMatchIdRef.current]);
 
     // Fetch the last ended match data to show final scores
@@ -37,17 +35,7 @@ export default function MatchOverlay() {
 
     // Debug logging
     useEffect(() => {
-        console.log('[Overlay Debug]', {
-            'timer.phase': timer.phase,
-            'activeMatch': activeMatch,
-            'loadedMatch': loadedMatch,
-            'match': match,
-            'endedMatch': endedMatch,
-            'lastEndedMatchId': lastEndedMatchIdRef.current,
-            'displayMatch': displayMatch,
-            'displayMatch.match_alliances': displayMatch?.match_alliances,
-        });
-    }, [timer.phase, activeMatch, loadedMatch, match, endedMatch, displayMatch]);
+            }, [timer.phase, activeMatch, loadedMatch, match, endedMatch, displayMatch]);
 
     // Auto-resume timer when an active match exists, reset when match changes
     useEffect(() => {
@@ -80,15 +68,7 @@ export default function MatchOverlay() {
 
     // Debug teams and scores
     useEffect(() => {
-        console.log('[Teams & Scores]', {
-            redScore,
-            blueScore,
-            'redTeams.length': redTeams.length,
-            'blueTeams.length': blueTeams.length,
-            redTeams,
-            blueTeams,
-        });
-    }, [redScore, blueScore, redTeams, blueTeams]);
+            }, [redScore, blueScore, redTeams, blueTeams]);
 
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden">
@@ -136,9 +116,13 @@ export default function MatchOverlay() {
                         <>
                             {timer.phase === 'transition' ? (
                                 <div className="text-8xl font-black text-orange-400 tabular-nums animate-pulse leading-none">{timer.phaseRemainingSeconds}</div>
+                            ) : timer.phase === 'autonomous' ? (
+                                <div className="text-8xl font-black text-white tabular-nums leading-none">
+                                    {formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))}
+                                </div>
                             ) : (
                                 <div className="text-8xl font-black text-white tabular-nums leading-none">
-                                    {formatTime(Math.min(MAX_DISPLAY_TIME, timer.phase === 'autonomous' ? timer.remainingSeconds - 10 : timer.remainingSeconds))}
+                                    {formatTime(timer.phaseRemainingSeconds)}
                                 </div>
                             )}
                             {/* Progress bar */}

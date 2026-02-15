@@ -27,7 +27,6 @@ export function useMatchConfig() {
                 setLoading(false);
             })
             .catch((err) => {
-                console.error('Failed to load match configuration:', err);
                 setError(err.message || 'Failed to load configuration');
                 setLoading(false);
             });
