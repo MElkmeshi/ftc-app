@@ -1,6 +1,7 @@
 import { useApi } from '@/hooks/use-api';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { useActiveMatch, useLoadedMatch, useMatch } from '@/hooks/use-match';
+import { useMatchConfig } from '@/hooks/use-match-config';
 import { useMatchTimer } from '@/hooks/use-match-timer';
 import { formatTime, getAllianceScore, getPhaseColors, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
@@ -8,11 +9,6 @@ import { type CompetitionMatch } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-// Match timing constants
-const MATCH_DURATION = 160;
-const TRANSITION_DURATION = 10;
-const MAX_DISPLAY_TIME = MATCH_DURATION - TRANSITION_DURATION; // 160 - 10 = 150 seconds (2:30)
 
 type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch; matchId: number } | null;
 
@@ -30,26 +26,24 @@ export default function MatchControl() {
     const api = useApi();
     const queryClient = useQueryClient();
     const { playSound } = useAudioEngine();
+    const { config: matchConfig } = useMatchConfig();
 
-    // Handle match end from timer
+    // Handle match end from timer - just invalidate queries, don't show winner yet
     const handleMatchEnd = useCallback(() => {
-        if (match && match.match_alliances.length > 0) {
-            // Immediately show winner when timer ends
-            const red = getAllianceScore(match, 'red');
-            const blue = getAllianceScore(match, 'blue');
-            const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+        console.log('[Timer End] Match timer ended, waiting for referee to submit scores');
 
-            console.log('[Timer End] Showing winner:', { winner, red, blue, matchId: match.id });
-            setWinnerState({ winner, redScore: red, blueScore: blue, match, matchId: match.id });
-            lastEndedMatchRef.current = match.id;
+        // Invalidate queries to get the latest match data
+        queryClient.invalidateQueries({ queryKey: ['matches'] });
+        queryClient.invalidateQueries({ queryKey: ['active-match'] });
 
-            // Also invalidate queries to get the latest match data
-            queryClient.invalidateQueries({ queryKey: ['matches'] });
-            queryClient.invalidateQueries({ queryKey: ['active-match'] });
-        }
-    }, [match, queryClient]);
+        // Don't show winner yet - wait for match status to become 'completed'
+    }, [queryClient]);
 
-    const timer = useMatchTimer({ playSound, onMatchEnd: handleMatchEnd });
+    const timer = useMatchTimer({
+        timing: matchConfig?.timing,
+        playSound,
+        onMatchEnd: handleMatchEnd,
+    });
     const lastStartedMatchIdRef = useRef<number | null>(null);
 
     // On mount, check if there's a recently completed match to show winner for
@@ -409,7 +403,7 @@ export default function MatchControl() {
                             </div>
                         ) : (
                             <div className="text-[10rem] leading-none font-black text-white tabular-nums">
-                                {formatTime(Math.min(MAX_DISPLAY_TIME, timer.phase === 'autonomous' ? timer.remainingSeconds - 10 : timer.remainingSeconds))}
+                                {formatTime(timer.remainingSeconds)}
                             </div>
                         )}
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\ScoreTypeController;
+use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\TeamController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -57,6 +58,13 @@ Route::prefix('api')->group(function () {
     });
 
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+    Route::get('/dashboard/config', [DashboardController::class, 'config']);
+
+    Route::prefix('settings')->group(function () {
+        Route::get('/competition', [SettingsController::class, 'getCompetitionSettings']);
+        Route::put('/competition', [SettingsController::class, 'updateCompetitionSettings']);
+        Route::delete('/competition/reset', [SettingsController::class, 'resetCompetitionSettings']);
+    });
 
     Route::prefix('alliance-selection')->group(function () {
         Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
@@ -140,6 +148,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('admin/alliance-selection', function () {
         return Inertia::render('admin/alliance-selection');
     })->name('admin.alliance-selection');
+
+    Route::get('admin/competition-settings', function () {
+        return Inertia::render('admin/competition-settings');
+    })->name('admin.competition-settings');
 
 });
 

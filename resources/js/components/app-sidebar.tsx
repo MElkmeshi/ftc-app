@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BarChart3, LayoutGrid, ListChecks, Monitor, Swords, Trophy, UserCheck, Users } from 'lucide-react';
+import { BarChart3, LayoutGrid, ListChecks, Monitor, Settings, Swords, Trophy, UserCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const competitionNavItems: NavItem[] = [
@@ -42,6 +42,11 @@ const competitionNavItems: NavItem[] = [
         href: '/elimination/bracket',
         icon: Swords,
     },
+    {
+        title: 'Match Overlay',
+        href: '/display/match-overlay',
+        icon: Monitor,
+    },
 ];
 
 const adminNavItems: NavItem[] = [
@@ -59,6 +64,11 @@ const adminNavItems: NavItem[] = [
         title: 'Alliance Selection',
         href: '/admin/alliance-selection',
         icon: Swords,
+    },
+    {
+        title: 'Competition Settings',
+        href: '/admin/competition-settings',
+        icon: Settings,
     },
 ];
 
