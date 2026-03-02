@@ -1,9 +1,8 @@
+import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useApi } from '@/hooks/use-api';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
-import { useActiveMatch, useLoadedMatch, useMatch } from '@/hooks/use-match';
-import { useMatchConfig } from '@/hooks/use-match-config';
-import { useMatchTimer } from '@/hooks/use-match-timer';
-import { formatTime, getAllianceScore, getPhaseColors, getPhaseLabel } from '@/lib/match-utils';
+import { useLoadedMatch, useMatch } from '@/hooks/use-match';
+import { determineWinner, formatTime, getAllianceMembers, getAllianceScore, getPhaseColors, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch } from '@/types';
 import { Head } from '@inertiajs/react';
@@ -13,9 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch; matchId: number } | null;
 
 export default function MatchControl() {
-    const { data: activeMatch } = useActiveMatch(500);
     const { data: polledLoadedMatch } = useLoadedMatch(500);
-    const { data: match } = useMatch(activeMatch?.id ?? null, 500);
     const [winnerState, setWinnerState] = useState<WinnerState>(null);
     const [echoLoadedMatch, setEchoLoadedMatch] = useState<CompetitionMatch | null>(null);
     const lastEndedMatchRef = useRef<number | null>(null);
@@ -26,29 +23,26 @@ export default function MatchControl() {
     const api = useApi();
     const queryClient = useQueryClient();
     const { playSound } = useAudioEngine();
-    const { config: matchConfig } = useMatchConfig();
 
     // Handle match end from timer - just invalidate queries, don't show winner yet
     const handleMatchEnd = useCallback(() => {
-
-        // Invalidate queries to get the latest match data
         queryClient.invalidateQueries({ queryKey: ['matches'] });
         queryClient.invalidateQueries({ queryKey: ['active-match'] });
-
-        // Don't show winner yet - wait for match status to become 'completed'
     }, [queryClient]);
 
-    const timer = useMatchTimer({
-        timing: matchConfig?.timing,
-        playSound,
-        onMatchEnd: handleMatchEnd,
-    });
-    const lastStartedMatchIdRef = useRef<number | null>(null);
+    const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound, onMatchEnd: handleMatchEnd });
+    const { data: match } = useMatch(activeMatch?.id ?? null, 500);
 
     // On mount, check if there's a recently completed match to show winner for
     useEffect(() => {
         api.getMatches()
             .then((matches) => {
+                // If any match is currently ongoing, don't show the previous winner screen
+                const hasOngoingMatch = matches.some((m) => m.status === 'ongoing');
+                if (hasOngoingMatch) {
+                    return;
+                }
+
                 const completed = matches.filter((m) => m.status === 'completed' && m.ended_at);
                 const recentlyCompleted = completed.sort((a, b) => new Date(b.ended_at!).getTime() - new Date(a.ended_at!).getTime())[0];
 
@@ -59,7 +53,7 @@ export default function MatchControl() {
                     if (secondsSinceEnd < 60) {
                         const red = getAllianceScore(recentlyCompleted, 'red');
                         const blue = getAllianceScore(recentlyCompleted, 'blue');
-                        const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+                        const winner = determineWinner(recentlyCompleted);
                         setWinnerState({ winner, redScore: red, blueScore: blue, match: recentlyCompleted, matchId: recentlyCompleted.id });
                     }
                 }
@@ -70,21 +64,25 @@ export default function MatchControl() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Clear winner screen ONLY when a different match is loaded
+    // Clear winner screen when a different match is loaded or already running
     useEffect(() => {
         if (!winnerState) {
             return;
         }
 
-        const loadedId = loadedMatch?.id;
         const winnerId = winnerState.matchId;
 
-
-        // Clear ONLY if a different match is loaded AND loadedId is valid
-        if (loadedMatch && loadedId && loadedId !== winnerId) {
+        // A different match is pre-staged (loaded but not yet started)
+        if (loadedMatch && loadedMatch.id !== winnerId) {
             setWinnerState(null);
             setLastRunningMatch(null);
-        } else {
+            return;
+        }
+
+        // A different match is already running (covers the refresh-during-active-match case)
+        if (activeMatch && activeMatch.id !== winnerId) {
+            setWinnerState(null);
+            setLastRunningMatch(null);
         }
     }, [loadedMatch, activeMatch, winnerState]);
 
@@ -116,7 +114,7 @@ export default function MatchControl() {
                     if (completedMatch && completedMatch.match_alliances.length > 0) {
                         const red = getAllianceScore(completedMatch, 'red');
                         const blue = getAllianceScore(completedMatch, 'blue');
-                        const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+                        const winner = determineWinner(completedMatch);
 
 
                         const winnerData = { winner, redScore: red, blueScore: blue, match: completedMatch, matchId: completedMatch.id };
@@ -140,19 +138,6 @@ export default function MatchControl() {
             clearTimeout(timeout);
         };
     }, [timer.phase, winnerState, lastRunningMatch, api]);
-
-    // Auto-resume timer when an active match exists, stop when no longer ongoing
-    useEffect(() => {
-        if (activeMatch && activeMatch.status === 'ongoing' && activeMatch.started_at) {
-            if (!timer.isRunning && lastStartedMatchIdRef.current !== activeMatch.id) {
-                timer.resumeFrom(activeMatch.started_at);
-                lastStartedMatchIdRef.current = activeMatch.id; // Mark as started to prevent duplicate resumes
-            }
-        } else if (timer.isRunning) {
-            // Use stop() instead of cancel() - the match ended normally, not cancelled
-            timer.stop();
-        }
-    }, [activeMatch, timer]);
 
     // Winner detection: check for recently completed matches on every change
     useEffect(() => {
@@ -181,7 +166,7 @@ export default function MatchControl() {
 
                     const red = getAllianceScore(recentlyCompleted, 'red');
                     const blue = getAllianceScore(recentlyCompleted, 'blue');
-                    const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+                    const winner = determineWinner(recentlyCompleted);
 
 
                     const winnerData = { winner, redScore: red, blueScore: blue, match: recentlyCompleted, matchId: recentlyCompleted.id };
@@ -226,13 +211,13 @@ export default function MatchControl() {
     const phaseColors = getPhaseColors(timer.phase);
     const redScore = match ? getAllianceScore(match, 'red') : 0;
     const blueScore = match ? getAllianceScore(match, 'blue') : 0;
-    const redTeams = match?.match_alliances.filter((ma) => ma.alliance.color === 'red') ?? [];
-    const blueTeams = match?.match_alliances.filter((ma) => ma.alliance.color === 'blue') ?? [];
+    const redTeams = match ? getAllianceMembers(match, 'red') : [];
+    const blueTeams = match ? getAllianceMembers(match, 'blue') : [];
 
     // Winner overlay
     if (winnerState) {
-        const winRedTeams = winnerState.match.match_alliances.filter((ma) => ma.alliance.color === 'red');
-        const winBlueTeams = winnerState.match.match_alliances.filter((ma) => ma.alliance.color === 'blue');
+        const winRedTeams = getAllianceMembers(winnerState.match, 'red');
+        const winBlueTeams = getAllianceMembers(winnerState.match, 'blue');
 
         return (
             <div

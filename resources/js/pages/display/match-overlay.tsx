@@ -1,61 +1,35 @@
-import { useActiveMatch, useLoadedMatch, useMatch } from '@/hooks/use-match';
-import { useMatchConfig } from '@/hooks/use-match-config';
-import { useMatchTimer } from '@/hooks/use-match-timer';
+import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
+import { useLoadedMatch, useMatch } from '@/hooks/use-match';
 import { formatTime, getAllianceScore, getPhaseColors } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { Head } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
 
 export default function MatchOverlay() {
-    const { data: activeMatch } = useActiveMatch(500);
+    const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ resetOnIdle: true });
     const { data: loadedMatch } = useLoadedMatch(500);
     const { data: match } = useMatch(activeMatch?.id ?? null, 500);
-    const { config: matchConfig } = useMatchConfig();
-    const timer = useMatchTimer({ timing: matchConfig?.timing }); // No playSound = no audio
-    const lastStartedMatchIdRef = useRef<number | null>(null);
     const lastEndedMatchIdRef = useRef<number | null>(null);
 
-    // Track the running match ID BEFORE it ends (save it early!)
+    // Track the running match ID before it ends so we can show final scores
     useEffect(() => {
         if (timer.isRunning && match?.id) {
-            // Save the match ID while it's still running
             lastEndedMatchIdRef.current = match.id;
         }
     }, [timer.isRunning, match?.id]);
 
-    // Log the ref value
+    // Clear ended match ref when a new match is loaded
     useEffect(() => {
-    }, [timer.phase, lastEndedMatchIdRef.current]);
+        if (loadedMatch && loadedMatch.id !== lastEndedMatchIdRef.current) {
+            lastEndedMatchIdRef.current = null;
+        }
+    }, [loadedMatch]);
 
     // Fetch the last ended match data to show final scores
     const { data: endedMatch } = useMatch(lastEndedMatchIdRef.current, 500);
 
     // Use the appropriate match data based on state
     const displayMatch = match || (timer.phase === 'post-match' && endedMatch) || loadedMatch;
-
-    // Debug logging
-    useEffect(() => {
-            }, [timer.phase, activeMatch, loadedMatch, match, endedMatch, displayMatch]);
-
-    // Auto-resume timer when an active match exists, reset when match changes
-    useEffect(() => {
-        if (activeMatch && activeMatch.status === 'ongoing' && activeMatch.started_at) {
-            if (!timer.isRunning && lastStartedMatchIdRef.current !== activeMatch.id) {
-                timer.resumeFrom(activeMatch.started_at);
-                lastStartedMatchIdRef.current = activeMatch.id;
-            }
-        } else if (timer.isRunning) {
-            timer.stop();
-        } else if (!activeMatch && timer.phase === 'post-match') {
-            // Reset timer when no active match (new match loaded but not started)
-            timer.cancel();
-        }
-
-        // Clear ended match when a new match is loaded
-        if (loadedMatch && loadedMatch.id !== lastEndedMatchIdRef.current) {
-            lastEndedMatchIdRef.current = null;
-        }
-    }, [activeMatch, timer, loadedMatch]);
 
     const phaseColors = getPhaseColors(timer.phase);
     const redScore = displayMatch ? getAllianceScore(displayMatch, 'red') : 0;

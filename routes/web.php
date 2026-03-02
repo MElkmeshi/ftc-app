@@ -137,6 +137,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('referee/scoring');
     })->name('referee.scoring');
 
+    Route::get('referee/scoring2', function () {
+        return Inertia::render('referee/scoring-v2');
+    })->name('referee.scoring2');
+
+    Route::get('referee/scoring3', function () {
+        return Inertia::render('referee/scoring-v3');
+    })->name('referee.scoring3');
+
+    Route::get('referee/scoring4', function () {
+        return Inertia::render('referee/scoring-v4');
+    })->name('referee.scoring4');
+
+    Route::get('referee/scoring5', function () {
+        return Inertia::render('referee/scoring-v5');
+    })->name('referee.scoring5');
+
+    Route::get('referee/scoring6', function () {
+        return Inertia::render('referee/scoring-v6');
+    })->name('referee.scoring6');
+
+    Route::get('referee/scoring7', function () {
+        return Inertia::render('referee/scoring-v7');
+    })->name('referee.scoring7');
+
     Route::get('admin/teams', function () {
         return Inertia::render('admin/teams');
     })->name('admin.teams');
