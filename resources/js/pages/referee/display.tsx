@@ -1,32 +1,11 @@
 import { useTeamsDisplay } from '@/hooks/use-match';
+import { getAllianceColorClasses } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { Head } from '@inertiajs/react';
 import { Trophy } from 'lucide-react';
 
 export default function RefereeDisplay() {
     const { data: teams = [], isLoading } = useTeamsDisplay(3000);
-
-    const getAllianceColorClasses = (color: string) => {
-        if (color === 'red') {
-            return {
-                bg: 'bg-red-600',
-                text: 'text-red-600',
-                border: 'border-red-500',
-            };
-        }
-        if (color === 'blue') {
-            return {
-                bg: 'bg-blue-600',
-                text: 'text-blue-600',
-                border: 'border-blue-500',
-            };
-        }
-        return {
-            bg: 'bg-gray-600',
-            text: 'text-gray-600',
-            border: 'border-gray-500',
-        };
-    };
 
     if (isLoading) {
         return (

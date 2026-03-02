@@ -1,20 +1,9 @@
 import { useEliminationBracket } from '@/hooks/use-elimination';
+import { getAllianceScore } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
-import { type CompetitionMatch, type EliminationSeries } from '@/types';
+import { type EliminationSeries } from '@/types';
 import { Head } from '@inertiajs/react';
 import { Swords, Trophy } from 'lucide-react';
-
-function getAllianceScore(match: CompetitionMatch, color: string): number {
-    const allianceTeams = match.match_alliances.filter((ma) => ma.alliance.color === color);
-    const teamScore = allianceTeams.reduce((sum, ma) => sum + ma.score, 0);
-
-    const allianceIds = [...new Set(allianceTeams.map((ma) => ma.alliance.id))];
-    const allianceWideScore = (match.scores || [])
-        .filter((s) => !s.team_id && allianceIds.includes(s.alliance_id ?? -1))
-        .reduce((sum, s) => sum + (s.score_type?.points || 0), 0);
-
-    return teamScore + allianceWideScore;
-}
 
 function getRoundLabel(round: string): string {
     const labels: Record<string, string> = {

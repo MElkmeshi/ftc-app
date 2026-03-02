@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useApi } from '@/hooks/use-api';
 import { useCancelMatch, useEndMatch, useLoadMatch, useMatches, useStartMatch } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
@@ -205,6 +206,9 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                     </div>
                 </CardHeader>
                 <CardContent>
+                    <div className="mb-4">
+                        <MatchTimerBanner />
+                    </div>
                     {isLoading ? (
                         <div className="flex items-center justify-center py-12">
                             <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-r-transparent" />

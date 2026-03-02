@@ -59,9 +59,11 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     const soundsPlayedRef = useRef<Set<string>>(new Set());
     const onMatchEndRef = useRef(onMatchEnd);
     const playSoundRef = useRef(playSound);
+    const timingRef = useRef(timing);
 
     onMatchEndRef.current = onMatchEnd;
     playSoundRef.current = playSound;
+    timingRef.current = timing;
 
     /**
      * Calculate the current phase based on REMAINING time (countdown timer)
@@ -253,6 +255,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             intervalRef.current = null;
         }
         setIsRunning(false);
+        setElapsedSeconds(timingRef.current.total_with_countdown);
         setPhase('post-match');
     }, []);
 
@@ -325,7 +328,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     const totalDuration = timing.total_with_countdown;
     const remaining = Math.max(0, totalDuration - elapsedSeconds);
     const phaseRemaining = getPhaseRemaining(remaining, phase);
-    const progressPercent = totalDuration > 0 ? (elapsedSeconds / totalDuration) * 100 : 0;
+    const progressPercent = phase === 'post-match' ? 100 : totalDuration > 0 ? (elapsedSeconds / totalDuration) * 100 : 0;
 
     return {
         elapsedSeconds,
