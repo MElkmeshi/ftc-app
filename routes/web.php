@@ -109,7 +109,16 @@ Route::get('display/match-overlay', function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
+        return Inertia::render('dashboard', [
+            'stats' => Inertia::defer(fn () => [
+                'total_teams' => \App\Models\Team::count(),
+                'total_matches' => \App\Models\CompetitionMatch::count(),
+                'completed_matches' => \App\Models\CompetitionMatch::where('status', \App\Enums\MatchStatus::COMPLETED)->count(),
+                'ongoing_match' => \App\Models\CompetitionMatch::query()
+                    ->where('status', \App\Enums\MatchStatus::ONGOING)
+                    ->first(['id', 'number']),
+            ]),
+        ]);
     })->name('dashboard');
 
     Route::get('competition-matches', function () {
@@ -174,7 +183,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('admin.alliance-selection');
 
     Route::get('admin/competition-settings', function () {
-        return Inertia::render('admin/competition-settings');
+        return Inertia::render('admin/competition-settings', [
+            'settings' => Inertia::defer(fn () => app(\App\Http\Controllers\Api\SettingsController::class)->getCompetitionSettings()->getData(true)),
+        ]);
     })->name('admin.competition-settings');
 
 });
