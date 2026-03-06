@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
+import { usePage } from '@inertiajs/react';
 import type { MatchTimingConfig } from './use-match-timer';
 
 interface CompetitionConfig {
@@ -11,26 +10,15 @@ interface CompetitionConfig {
 }
 
 /**
- * Hook to fetch match timing configuration from the server
- * Configuration is stored in config/competition.php
+ * Hook to get match timing configuration from Inertia shared props.
+ * Configuration is shared via HandleInertiaRequests middleware.
  */
 export function useMatchConfig() {
-    const [config, setConfig] = useState<CompetitionConfig | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { matchConfig } = usePage<{ matchConfig: CompetitionConfig }>().props;
 
-    useEffect(() => {
-        axios
-            .get<CompetitionConfig>('/api/dashboard/config')
-            .then((response) => {
-                setConfig(response.data);
-                setLoading(false);
-            })
-            .catch((err) => {
-                setError(err.message || 'Failed to load configuration');
-                setLoading(false);
-            });
-    }, []);
-
-    return { config, loading, error };
+    return {
+        config: matchConfig ?? null,
+        loading: false,
+        error: null,
+    };
 }
