@@ -42,7 +42,8 @@
       "Bash(npm install:*)",
       "Bash(git restore:*)",
       "Bash(node:*)",
-      "Bash(perl -i -0pe:*)"
+      "Bash(perl -i -0pe:*)",
+      "WebFetch(domain:inertiajs.com)"
     ]
   },
   "enableAllProjectMcpServers": true,
