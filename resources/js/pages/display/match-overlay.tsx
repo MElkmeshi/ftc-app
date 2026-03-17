@@ -3,7 +3,7 @@ import { useLoadedMatch, useMatch } from '@/hooks/use-match';
 import { formatTime, getAllianceScore, getPhaseColors } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { Head } from '@inertiajs/react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 export default function MatchOverlay() {
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ resetOnIdle: true });
@@ -31,18 +31,18 @@ export default function MatchOverlay() {
     // Use the appropriate match data based on state
     const displayMatch = match || (timer.phase === 'post-match' && endedMatch) || loadedMatch;
 
-    const phaseColors = getPhaseColors(timer.phase);
-    const redScore = displayMatch ? getAllianceScore(displayMatch, 'red') : 0;
-    const blueScore = displayMatch ? getAllianceScore(displayMatch, 'blue') : 0;
-    const redTeams = displayMatch?.match_alliances?.filter((ma) => ma.alliance.color === 'red') ?? [];
-    const blueTeams = displayMatch?.match_alliances?.filter((ma) => ma.alliance.color === 'blue') ?? [];
+    const phaseColors = useMemo(() => getPhaseColors(timer.phase), [timer.phase]);
+    const redScore = useMemo(() => (displayMatch ? getAllianceScore(displayMatch, 'red') : 0), [displayMatch]);
+    const blueScore = useMemo(() => (displayMatch ? getAllianceScore(displayMatch, 'blue') : 0), [displayMatch]);
+    const redTeams = useMemo(() => displayMatch?.match_alliances?.filter((ma) => ma.alliance.color === 'red') ?? [], [displayMatch]);
+    const blueTeams = useMemo(() => displayMatch?.match_alliances?.filter((ma) => ma.alliance.color === 'blue') ?? [], [displayMatch]);
 
     // Check if match is loaded but not started
     const isMatchLoaded = loadedMatch && !activeMatch && timer.phase === 'pre-match';
 
     // Debug teams and scores
     useEffect(() => {
-            }, [redScore, blueScore, redTeams, blueTeams]);
+            }, [timer.phase, redScore, blueScore]);
 
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden">

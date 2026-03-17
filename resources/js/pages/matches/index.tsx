@@ -253,7 +253,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                                 ))}
                                                 <td className="px-4 py-2 print:hidden">
                                                     <div className="flex justify-end gap-2">
-                                                        {match.status === 'upcoming' && loadedMatchId !== match.id && (
+                                                        {match.status === 'upcoming' && loadedMatchId !== match.id ? (
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
@@ -266,8 +266,8 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                                                 <Eye className="mr-1 h-4 w-4" />
                                                                 Load
                                                             </Button>
-                                                        )}
-                                                        {match.status === 'upcoming' && loadedMatchId === match.id && (
+                                                        ) : null}
+                                                        {match.status === 'upcoming' && loadedMatchId === match.id ? (
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
@@ -281,8 +281,8 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                                                 <Play className="mr-1 h-4 w-4" />
                                                                 Start
                                                             </Button>
-                                                        )}
-                                                        {match.status === 'ongoing' && (
+                                                        ) : null}
+                                                        {match.status === 'ongoing' ? (
                                                             <>
                                                                 <Button
                                                                     size="sm"
@@ -305,7 +305,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                                                     Cancel
                                                                 </Button>
                                                             </>
-                                                        )}
+                                                        ) : null}
                                                     </div>
                                                 </td>
                                             </tr>

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { type CompetitionMatch } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch; matchId: number } | null;
 
@@ -84,7 +84,7 @@ export default function MatchControl() {
             setWinnerState(null);
             setLastRunningMatch(null);
         }
-    }, [loadedMatch, activeMatch, winnerState]);
+    }, [loadedMatch?.id, activeMatch?.id, winnerState?.matchId]);
 
     // Track the last running match so we can show winner even after match ends
     useEffect(() => {
@@ -137,7 +137,8 @@ export default function MatchControl() {
             clearInterval(checkInterval);
             clearTimeout(timeout);
         };
-    }, [timer.phase, winnerState, lastRunningMatch, api]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [timer.phase, winnerState?.matchId, lastRunningMatch?.id]);
 
     // Winner detection: check for recently completed matches on every change
     useEffect(() => {
@@ -176,7 +177,8 @@ export default function MatchControl() {
             })
             .catch((error) => {
             });
-    }, [activeMatch, winnerState, api]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeMatch?.id, winnerState?.matchId]);
 
     // WebSocket disabled - using polling instead for simplicity
     // Listen to match-control channel for sync
@@ -208,11 +210,11 @@ export default function MatchControl() {
     //     }
     // });
 
-    const phaseColors = getPhaseColors(timer.phase);
-    const redScore = match ? getAllianceScore(match, 'red') : 0;
-    const blueScore = match ? getAllianceScore(match, 'blue') : 0;
-    const redTeams = match ? getAllianceMembers(match, 'red') : [];
-    const blueTeams = match ? getAllianceMembers(match, 'blue') : [];
+    const phaseColors = useMemo(() => getPhaseColors(timer.phase), [timer.phase]);
+    const redScore = useMemo(() => (match ? getAllianceScore(match, 'red') : 0), [match]);
+    const blueScore = useMemo(() => (match ? getAllianceScore(match, 'blue') : 0), [match]);
+    const redTeams = useMemo(() => (match ? getAllianceMembers(match, 'red') : []), [match]);
+    const blueTeams = useMemo(() => (match ? getAllianceMembers(match, 'blue') : []), [match]);
 
     // Winner overlay
     if (winnerState) {
@@ -316,14 +318,14 @@ export default function MatchControl() {
 
             {/* Timer Section */}
             <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8">
-                {timer.phase !== 'pre-match' && (
+                {timer.phase !== 'pre-match' ? (
                     <>
                         {/* Phase Label - hidden during transition */}
-                        {timer.phase !== 'transition' && (
+                        {timer.phase !== 'transition' ? (
                             <div className={cn('text-3xl font-black tracking-[0.3em]', phaseColors.text, timer.phase === 'endgame' && 'animate-pulse')}>
                                 {getPhaseLabel(timer.phase)}
                             </div>
-                        )}
+                        ) : null}
 
                         {/* Main Timer */}
                         {timer.phase === 'transition' ? (
@@ -341,11 +343,11 @@ export default function MatchControl() {
                         )}
 
                         {/* Phase Time - hidden during transition */}
-                        {timer.isRunning && timer.phase !== 'transition' && (
+                        {timer.isRunning && timer.phase !== 'transition' ? (
                             <div className="text-xl text-white/60">Phase time remaining: {formatTime(timer.phaseRemainingSeconds)}</div>
-                        )}
+                        ) : null}
                     </>
-                )}
+                ) : null}
 
                 {/* Progress Bar */}
                 <div className="h-4 w-full max-w-2xl overflow-hidden rounded-full bg-white/10">
@@ -356,7 +358,7 @@ export default function MatchControl() {
                 </div>
 
                 {/* Alliance Scores */}
-                {match && match.match_alliances.length > 0 && (
+                {match && match.match_alliances.length > 0 ? (
                     <div className="mt-4 flex w-full max-w-2xl gap-6">
                         <div className="flex flex-1 flex-col items-center rounded-2xl border-2 border-red-500 bg-red-500/10 p-6">
                             <span className="mb-2 text-lg font-semibold text-red-400">Red Alliance</span>
@@ -381,12 +383,11 @@ export default function MatchControl() {
                             </div>
                         </div>
                     </div>
-                )}
+                ) : null}
 
                 {/* Loaded match preview or waiting message */}
-                {!match &&
-                    !timer.isRunning &&
-                    (loadedMatch?.match_alliances ? (
+                {!match && !timer.isRunning ? (
+                    loadedMatch?.match_alliances ? (
                         <div className="mt-4 flex w-full max-w-2xl flex-col items-center gap-6">
                             <p className="text-2xl font-bold text-white">NEXT UP - Match #{loadedMatch.number}</p>
                             <div className="flex w-full gap-6">
@@ -419,7 +420,8 @@ export default function MatchControl() {
                         </div>
                     ) : (
                         <p className="mt-4 text-xl text-white/40">Waiting for a match to be loaded...</p>
-                    ))}
+                    )
+                ) : null}
             </div>
         </div>
     );

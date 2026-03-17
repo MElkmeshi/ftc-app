@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { type EliminationSeries } from '@/types';
 import { Head } from '@inertiajs/react';
 import { Swords, Trophy } from 'lucide-react';
+import { memo, useMemo } from 'react';
 
 function getRoundLabel(round: string): string {
     const labels: Record<string, string> = {
@@ -17,7 +18,7 @@ function getRoundLabel(round: string): string {
     return labels[round] ?? round.toUpperCase();
 }
 
-function SeriesBox({ series }: { series: EliminationSeries }) {
+const SeriesBox = memo(function SeriesBox({ series }: { series: EliminationSeries }) {
     const result = series.result;
     const group1IsWinner = series.winner_alliance_group_id === series.alliance_group1.id;
     const group2IsWinner = series.winner_alliance_group_id === series.alliance_group2.id;
@@ -171,7 +172,7 @@ function SeriesBox({ series }: { series: EliminationSeries }) {
             </div>
         </div>
     );
-}
+});
 
 export default function EliminationBracketDisplay() {
     const { data: bracket, isLoading } = useEliminationBracket(3000);
@@ -201,17 +202,18 @@ export default function EliminationBracketDisplay() {
         );
     }
 
-    const semifinals = bracket.series.filter(
-        (s) => s.round === 'semifinal_1' || s.round === 'semifinal_2',
+    const semifinals = useMemo(
+        () => bracket.series.filter((s) => s.round === 'semifinal_1' || s.round === 'semifinal_2'),
+        [bracket.series],
     );
-    const finals = bracket.series.filter(
-        (s) => s.round === 'final' || s.round === 'tiebreaker_final',
+    const finals = useMemo(
+        () => bracket.series.filter((s) => s.round === 'final' || s.round === 'tiebreaker_final'),
+        [bracket.series],
     );
     const hasSemifinals = semifinals.length > 0;
 
     // Find the overall winner
-    const finalSeries = bracket.series.find((s) => s.round === 'final');
-    const overallWinner = finalSeries?.winner;
+    const overallWinner = useMemo(() => bracket.series.find((s) => s.round === 'final')?.winner, [bracket.series]);
 
     return (
         <div className="h-screen w-screen overflow-auto bg-gradient-to-br from-slate-900 to-slate-800">

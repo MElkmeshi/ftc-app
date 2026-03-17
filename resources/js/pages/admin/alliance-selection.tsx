@@ -377,7 +377,7 @@ export default function AllianceSelectionPage() {
                 </Card>
 
                 {/* Elimination Bracket */}
-                {allPicked && (
+                {allPicked ? (
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="flex items-center gap-2">
@@ -385,15 +385,15 @@ export default function AllianceSelectionPage() {
                                 Elimination Bracket
                             </CardTitle>
                             <div className="flex items-center gap-2">
-                                {!hasBracket && (
+                                {!hasBracket ? (
                                     <Button
                                         onClick={() => generateElimination.mutate()}
                                         disabled={generateElimination.isPending}
                                     >
                                         {generateElimination.isPending ? 'Generating...' : 'Generate Bracket'}
                                     </Button>
-                                )}
-                                {hasBracket && (
+                                ) : null}
+                                {hasBracket ? (
                                     <Button
                                         size="sm"
                                         variant="outline"
@@ -403,7 +403,7 @@ export default function AllianceSelectionPage() {
                                         <RotateCcw className="mr-1 h-4 w-4" />
                                         Reset Bracket
                                     </Button>
-                                )}
+                                ) : null}
                             </div>
                         </CardHeader>
                         <CardContent>
@@ -420,7 +420,7 @@ export default function AllianceSelectionPage() {
                             )}
                         </CardContent>
                     </Card>
-                )}
+                ) : null}
             </div>
         </AppLayout>
     );
