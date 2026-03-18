@@ -7,26 +7,25 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "dyrynda/laravel-cascade-soft-deletes": "^4.5",
+        "dyrynda/laravel-cascade-soft-deletes": "dev-l13-compatibility",
         "inertiajs/inertia-laravel": "^3.0@beta",
-        "laravel/framework": "^12.0",
+        "laravel/framework": "^13.0",
         "laravel/reverb": "^1.0",
         "laravel/telescope": "^5.7",
-        "laravel/tinker": "^2.10.1",
+        "laravel/tinker": "^3.0",
         "tightenco/ziggy": "^2.4",
-        "wildside/userstamps": "^3.0"
+        "wildside/userstamps": "dev-feature/laravel-13"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
-        "laradumps/laradumps": "^4.0",
-        "laravel/boost": "^2.0",
+"laravel/boost": "^2.0",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.18",
         "laravel/sail": "^1.41",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "pestphp/pest": "^3.8",
-        "pestphp/pest-plugin-laravel": "^3.2"
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0"
     },
     "autoload": {
         "psr-4": {
@@ -83,6 +82,16 @@
             "php-http/discovery": true
         }
     },
-    "minimum-stability": "stable",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/JulianGlueck/Laravel-Userstamps"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/laravel-shift/laravel-cascade-soft-deletes"
+        }
+    ],
+    "minimum-stability": "dev",
     "prefer-stable": true
 }
