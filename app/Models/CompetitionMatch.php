@@ -24,7 +24,7 @@ class CompetitionMatch extends Model
     protected $table = 'matches';
 
     protected $fillable = [
-        'number', 'type', 'round', 'elimination_series_id', 'start_time', 'status', 'started_at', 'ended_at', 'cancelled_at', 'created_by', 'updated_by',
+        'number', 'type', 'round', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'ended_at', 'cancelled_at', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -37,6 +37,7 @@ class CompetitionMatch extends Model
             'status' => MatchStatus::class,
             'type' => MatchType::class,
             'started_at' => 'datetime',
+            'duration_ms' => 'integer',
             'ended_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];

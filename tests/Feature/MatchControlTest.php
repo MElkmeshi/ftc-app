@@ -36,6 +36,30 @@ it('starts an upcoming match', function () {
     });
 });
 
+it('persists a duration snapshot when starting a match, and broadcasts it', function () {
+    Event::fake();
+
+    $match = CompetitionMatch::factory()->create([
+        'status' => MatchStatus::UPCOMING,
+    ]);
+
+    $timing = config('competition.timing');
+    $expectedMs = ($timing['autonomous'] + $timing['transition'] + $timing['teleop'] + $timing['pre_match_countdown']) * 1000;
+
+    $response = $this->postJson('/api/matches/start', [
+        'match_id' => $match->id,
+    ]);
+
+    $response->assertSuccessful();
+
+    $match->refresh();
+    expect($match->duration_ms)->toBe($expectedMs);
+
+    Event::assertDispatched(MatchStatusChanged::class, function ($event) use ($expectedMs) {
+        return $event->match->duration_ms === $expectedMs;
+    });
+});
+
 it('cannot start a match when another is ongoing', function () {
     CompetitionMatch::factory()->create([
         'status' => MatchStatus::ONGOING,

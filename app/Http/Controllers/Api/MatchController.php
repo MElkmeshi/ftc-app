@@ -13,6 +13,7 @@ use App\Models\EliminationSeries;
 use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Services\MatchScheduler;
+use App\Services\MatchTimingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +60,7 @@ class MatchController extends Controller
         return response()->json($match);
     }
 
-    public function startMatch(Request $request): JsonResponse
+    public function startMatch(Request $request, MatchTimingService $matchTiming): JsonResponse
     {
         $request->validate([
             'match_id' => 'required|exists:matches,id',
@@ -84,6 +85,7 @@ class MatchController extends Controller
         $match->update([
             'status' => MatchStatus::ONGOING,
             'started_at' => now(),
+            'duration_ms' => $matchTiming->currentDurationMs(),
         ]);
 
         cache()->forget('loaded_match_id');

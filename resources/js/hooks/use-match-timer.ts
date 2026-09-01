@@ -32,7 +32,14 @@ interface MatchTimerActions {
     start: () => void;
     stop: () => void;
     cancel: () => void;
-    resumeFrom: (startedAtIso: string) => void;
+    /**
+     * Resume a running match. When `durationMs` is provided (the server's fixed
+     * snapshot taken when the match started), it is frozen for the life of this
+     * run and used instead of `timing.total_with_countdown` — so a later change
+     * to `timing` (e.g. an admin editing competition settings) can never pull the
+     * remaining-time math out from under an already-running match.
+     */
+    resumeFrom: (startedAtIso: string, durationMs?: number) => void;
 }
 
 // Default values matching FTC standards (fallback if config not loaded)
@@ -60,10 +67,22 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     const onMatchEndRef = useRef(onMatchEnd);
     const playSoundRef = useRef(playSound);
     const timingRef = useRef(timing);
+    // Frozen total match duration (seconds) for the current run. Synced to
+    // timing.total_with_countdown while idle; pinned by start()/resumeFrom()
+    // for the duration of an active run so a mid-match config change can't
+    // desync the remaining-time math.
+    const durationSecondsRef = useRef<number>(timing.total_with_countdown);
 
     onMatchEndRef.current = onMatchEnd;
     playSoundRef.current = playSound;
     timingRef.current = timing;
+
+    // While idle, mirror the live config directly (no effect needed — this is
+    // derived state computed during render). start()/resumeFrom() take over
+    // and freeze this ref once a run begins.
+    if (!isRunning) {
+        durationSecondsRef.current = timing.total_with_countdown;
+    }
 
     /**
      * Calculate the current phase based on REMAINING time (countdown timer)
@@ -71,7 +90,6 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
      */
     const getPhase = useCallback(
         (remaining: number): MatchPhase => {
-            const totalWithCountdown = timing.total_with_countdown;
             const totalMatch = timing.total_match;
             const teleopStart = timing.teleop;
             const endgameWarning = timing.endgame_warning;
@@ -104,7 +122,6 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
         (remaining: number, currentPhase: MatchPhase): number => {
             const totalMatch = timing.total_match;
             const teleopStart = timing.teleop;
-            const endgameWarning = timing.endgame_warning;
 
             switch (currentPhase) {
                 case 'pre-match':
@@ -206,7 +223,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
 
         const now = Date.now();
         const elapsed = Math.floor((now - startTimeRef.current) / 1000);
-        const totalDuration = timing.total_with_countdown;
+        const totalDuration = durationSecondsRef.current;
         const clamped = Math.min(elapsed, totalDuration);
 
         // Calculate REMAINING time (countdown approach like FTC Live)
@@ -225,7 +242,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             setPhase('post-match');
             onMatchEndRef.current?.();
         }
-    }, [timing, getPhase, checkSoundCues]);
+    }, [getPhase, checkSoundCues]);
 
     // Keep tick in a ref so setInterval always calls the latest version
     const tickRef = useRef(tick);
@@ -233,6 +250,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
 
     const start = useCallback(() => {
         soundsPlayedRef.current.clear();
+        durationSecondsRef.current = timingRef.current.total_with_countdown;
         startTimeRef.current = Date.now();
         setElapsedSeconds(0);
         setPhase('pre-match');
@@ -255,7 +273,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             intervalRef.current = null;
         }
         setIsRunning(false);
-        setElapsedSeconds(timingRef.current.total_with_countdown);
+        setElapsedSeconds(durationSecondsRef.current);
         setPhase('post-match');
     }, []);
 
@@ -273,11 +291,12 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     }, []);
 
     const resumeFrom = useCallback(
-        (startedAtIso: string) => {
+        (startedAtIso: string, durationMs?: number) => {
             const startedAt = new Date(startedAtIso).getTime();
             const now = Date.now();
             const elapsed = Math.floor((now - startedAt) / 1000);
-            const totalDuration = timing.total_with_countdown;
+            const totalDuration = durationMs ? Math.round(durationMs / 1000) : timing.total_with_countdown;
+            durationSecondsRef.current = totalDuration;
 
             if (elapsed >= totalDuration) {
                 setElapsedSeconds(totalDuration);
@@ -294,7 +313,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             const transitionRemaining = timing.teleop + timing.transition;
             const transitionCountdownStart = timing.teleop + 3;
 
-            if (remaining <= timing.total_with_countdown && remaining > totalMatch) {
+            if (remaining <= totalDuration && remaining > totalMatch) {
                 soundsPlayedRef.current.add('pre_countdown');
             }
             if (remaining <= totalMatch) soundsPlayedRef.current.add('start');
@@ -325,7 +344,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
         };
     }, []);
 
-    const totalDuration = timing.total_with_countdown;
+    const totalDuration = durationSecondsRef.current;
     const remaining = Math.max(0, totalDuration - elapsedSeconds);
     const phaseRemaining = getPhaseRemaining(remaining, phase);
     const progressPercent = phase === 'post-match' ? 100 : totalDuration > 0 ? (elapsedSeconds / totalDuration) * 100 : 0;

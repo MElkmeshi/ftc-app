@@ -96,6 +96,7 @@ export interface CompetitionMatch {
     elimination_series_id: number | null;
     start_time: string;
     started_at: string | null;
+    duration_ms: number | null;
     ended_at: string | null;
     status: string;
     match_alliances: MatchAlliance[];
