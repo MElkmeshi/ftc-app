@@ -4,40 +4,44 @@ import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { useLoadedMatch, useMatch } from '@/hooks/use-match';
 import { determineWinner, formatTime, getAllianceMembers, getAllianceScore, getPhaseColors, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
-import { type CompetitionMatch } from '@/types';
+import { type CompetitionMatch, type MatchStatusChangedEvent } from '@/types';
 import { Head } from '@inertiajs/react';
+import { useEcho } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch; matchId: number } | null;
 
-export default function MatchControl() {
-    const { data: polledLoadedMatch } = useLoadedMatch(500);
-    const [winnerState, setWinnerState] = useState<WinnerState>(null);
-    const [echoLoadedMatch, setEchoLoadedMatch] = useState<CompetitionMatch | null>(null);
-    const lastEndedMatchRef = useRef<number | null>(null);
-    const [lastRunningMatch, setLastRunningMatch] = useState<CompetitionMatch | null>(null);
+function winnerStateFrom(match: CompetitionMatch): WinnerState {
+    return {
+        winner: determineWinner(match),
+        redScore: getAllianceScore(match, 'red'),
+        blueScore: getAllianceScore(match, 'blue'),
+        match,
+        matchId: match.id,
+    };
+}
 
-    const loadedMatch = echoLoadedMatch ?? polledLoadedMatch ?? null;
+export default function MatchControl() {
+    // Safety-net poll — MatchStatusChanged (below) is the primary sync path; this only
+    // covers a missed broadcast (e.g. a dropped Reverb connection).
+    const { data: loadedMatch } = useLoadedMatch(5000);
+    const [winnerState, setWinnerState] = useState<WinnerState>(null);
+    const lastEndedMatchRef = useRef<number | null>(null);
 
     const api = useApi();
     const queryClient = useQueryClient();
     const { playSound } = useAudioEngine();
 
-    // Handle match end from timer - just invalidate queries, don't show winner yet
-    const handleMatchEnd = useCallback(() => {
-        queryClient.invalidateQueries({ queryKey: ['matches'] });
-        queryClient.invalidateQueries({ queryKey: ['active-match'] });
-    }, [queryClient]);
-
-    const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound, onMatchEnd: handleMatchEnd });
-    const { data: match } = useMatch(activeMatch?.id ?? null, 500);
+    const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound });
+    const { data: match } = useMatch(activeMatch?.id ?? null, 5000);
 
     // On mount, check if there's a recently completed match to show winner for
+    // (covers a page load that lands right after a match ended, before any broadcast
+    // could reach this client). One-off authoritative snapshot fetch, not polling.
     useEffect(() => {
         api.getMatches()
             .then((matches) => {
-                // If any match is currently ongoing, don't show the previous winner screen
                 const hasOngoingMatch = matches.some((m) => m.status === 'ongoing');
                 if (hasOngoingMatch) {
                     return;
@@ -46,16 +50,14 @@ export default function MatchControl() {
                 const completed = matches.filter((m) => m.status === 'completed' && m.ended_at);
                 const recentlyCompleted = completed.sort((a, b) => new Date(b.ended_at!).getTime() - new Date(a.ended_at!).getTime())[0];
 
-                if (recentlyCompleted) {
-                    const endedAt = new Date(recentlyCompleted.ended_at!);
-                    const secondsSinceEnd = (new Date().getTime() - endedAt.getTime()) / 1000;
+                if (!recentlyCompleted) {
+                    return;
+                }
 
-                    if (secondsSinceEnd < 60) {
-                        const red = getAllianceScore(recentlyCompleted, 'red');
-                        const blue = getAllianceScore(recentlyCompleted, 'blue');
-                        const winner = determineWinner(recentlyCompleted);
-                        setWinnerState({ winner, redScore: red, blueScore: blue, match: recentlyCompleted, matchId: recentlyCompleted.id });
-                    }
+                const secondsSinceEnd = (Date.now() - new Date(recentlyCompleted.ended_at!).getTime()) / 1000;
+                if (secondsSinceEnd < 60) {
+                    lastEndedMatchRef.current = recentlyCompleted.id;
+                    setWinnerState(winnerStateFrom(recentlyCompleted));
                 }
             })
             .catch(() => {
@@ -64,151 +66,44 @@ export default function MatchControl() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Clear winner screen when a different match is loaded or already running
+    // Clear the winner screen once a different match is staged or already running.
     useEffect(() => {
         if (!winnerState) {
             return;
         }
 
-        const winnerId = winnerState.matchId;
-
-        // A different match is pre-staged (loaded but not yet started)
-        if (loadedMatch && loadedMatch.id !== winnerId) {
+        if ((loadedMatch && loadedMatch.id !== winnerState.matchId) || (activeMatch && activeMatch.id !== winnerState.matchId)) {
             setWinnerState(null);
-            setLastRunningMatch(null);
-            return;
         }
+    }, [loadedMatch, activeMatch, winnerState]);
 
-        // A different match is already running (covers the refresh-during-active-match case)
-        if (activeMatch && activeMatch.id !== winnerId) {
-            setWinnerState(null);
-            setLastRunningMatch(null);
-        }
-    }, [loadedMatch?.id, activeMatch?.id, winnerState?.matchId]);
+    // Primary sync path: the server broadcasts every match-control action as it
+    // happens, carrying the full match (final scores included on 'ended'), so the
+    // client never needs to poll or guess at state — it just applies the event.
+    useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
+        queryClient.invalidateQueries({ queryKey: ['matches'] });
+        queryClient.invalidateQueries({ queryKey: ['active-match'] });
 
-    // Track the last running match so we can show winner even after match ends
-    useEffect(() => {
-        if (timer.isRunning && match && match.match_alliances.length > 0) {
-            setLastRunningMatch(match);
-        }
-    }, [timer.isRunning, match]);
-
-    // When timer reaches post-match, wait for match to be completed and show winner with final scores
-    useEffect(() => {
-        if (timer.phase !== 'post-match' || winnerState) {
-            return;
-        }
-
-        const matchId = lastRunningMatch?.id;
-        if (!matchId || lastEndedMatchRef.current === matchId) {
-            return;
-        }
-
-
-        // Poll for the completed match with final scores
-        const checkInterval = setInterval(() => {
-            api.getMatches()
-                .then((matches) => {
-                    const completedMatch = matches.find((m) => m.id === matchId && m.status === 'completed' && m.ended_at);
-
-                    if (completedMatch && completedMatch.match_alliances.length > 0) {
-                        const red = getAllianceScore(completedMatch, 'red');
-                        const blue = getAllianceScore(completedMatch, 'blue');
-                        const winner = determineWinner(completedMatch);
-
-
-                        const winnerData = { winner, redScore: red, blueScore: blue, match: completedMatch, matchId: completedMatch.id };
-                        setWinnerState(winnerData);
-                        lastEndedMatchRef.current = completedMatch.id;
-
-                        clearInterval(checkInterval);
-                    }
-                })
-                .catch((error) => {
-                });
-        }, 500);
-
-        // Cleanup interval after 30 seconds if match never completes
-        const timeout = setTimeout(() => {
-            clearInterval(checkInterval);
-        }, 30000);
-
-        return () => {
-            clearInterval(checkInterval);
-            clearTimeout(timeout);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timer.phase, winnerState?.matchId, lastRunningMatch?.id]);
-
-    // Winner detection: check for recently completed matches on every change
-    useEffect(() => {
-
-        api.getMatches()
-            .then((matches) => {
-                const completed = matches.filter((m) => m.status === 'completed' && m.ended_at);
-
-                if (completed.length === 0) {
-                    return;
+        switch (event.action) {
+            case 'loaded':
+                queryClient.setQueryData(['loaded-match'], event.match);
+                break;
+            case 'started':
+                queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
+                setWinnerState(null);
+                break;
+            case 'ended':
+                if (lastEndedMatchRef.current !== event.match.id) {
+                    lastEndedMatchRef.current = event.match.id;
+                    setWinnerState(winnerStateFrom(event.match));
                 }
-
-                const recentlyCompleted = completed.sort((a, b) => new Date(b.ended_at!).getTime() - new Date(a.ended_at!).getTime())[0];
-
-                const endedAt = new Date(recentlyCompleted.ended_at!);
-                const secondsSinceEnd = (new Date().getTime() - endedAt.getTime()) / 1000;
-
-                
-                // Only show winner if match ended recently and it's a different match than currently shown
-                // Skip if this is the lastRunningMatch (post-match polling will handle it)
-                const isLastRunningMatch = lastRunningMatch && recentlyCompleted.id === lastRunningMatch.id;
-
-                
-                if (secondsSinceEnd < 60 && lastEndedMatchRef.current !== recentlyCompleted.id && !isLastRunningMatch) {
-                    lastEndedMatchRef.current = recentlyCompleted.id;
-
-                    const red = getAllianceScore(recentlyCompleted, 'red');
-                    const blue = getAllianceScore(recentlyCompleted, 'blue');
-                    const winner = determineWinner(recentlyCompleted);
-
-
-                    const winnerData = { winner, redScore: red, blueScore: blue, match: recentlyCompleted, matchId: recentlyCompleted.id };
-                    setWinnerState(winnerData);
-                } else {
-                }
-            })
-            .catch((error) => {
-            });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeMatch?.id, winnerState?.matchId]);
-
-    // WebSocket disabled - using polling instead for simplicity
-    // Listen to match-control channel for sync
-    // useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
-    //     
-    //     queryClient.invalidateQueries({ queryKey: ['matches'] });
-    //     queryClient.invalidateQueries({ queryKey: ['active-match'] });
-    //     queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
-
-    //     if (event.action === 'loaded') {
-    //         setEchoLoadedMatch(event.match);
-    //     } else if (event.action === 'started' && event.match.started_at) {
-    //         setEchoLoadedMatch(null);
-    //         setWinnerState(null);
-    //         lastStartedMatchIdRef.current = event.match.id;
-    //         timer.start();
-    //     } else if (event.action === 'ended') {
-    //             //         timer.cancel();
-    //         if (lastEndedMatchRef.current !== event.match.id) {
-    //             lastEndedMatchRef.current = event.match.id;
-    //             const red = getAllianceScore(event.match, 'red');
-    //             const blue = getAllianceScore(event.match, 'blue');
-    //                 //             const winner = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
-    //                 //             setWinnerState({ winner, redScore: red, blueScore: blue, match: event.match });
-    //         }
-    //     } else if (event.action === 'cancelled') {
-    //         timer.cancel();
-    //         setWinnerState(null);
-    //     }
-    // });
+                break;
+            case 'cancelled':
+                queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
+                setWinnerState(null);
+                break;
+        }
+    });
 
     const phaseColors = useMemo(() => getPhaseColors(timer.phase), [timer.phase]);
     const redScore = useMemo(() => (match ? getAllianceScore(match, 'red') : 0), [match]);

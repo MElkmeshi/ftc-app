@@ -2,14 +2,31 @@ import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useLoadedMatch, useMatch } from '@/hooks/use-match';
 import { formatTime, getAllianceScore, getPhaseColors } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
+import { type MatchStatusChangedEvent } from '@/types';
 import { Head } from '@inertiajs/react';
+import { useEcho } from '@laravel/echo-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 
 export default function MatchOverlay() {
+    const queryClient = useQueryClient();
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ resetOnIdle: true });
-    const { data: loadedMatch } = useLoadedMatch(500);
-    const { data: match } = useMatch(activeMatch?.id ?? null, 500);
+    // Safety-net poll — MatchStatusChanged (below) is the primary sync path; this only
+    // covers a missed broadcast (e.g. a dropped Reverb connection).
+    const { data: loadedMatch } = useLoadedMatch(5000);
+    const { data: match } = useMatch(activeMatch?.id ?? null, 5000);
     const lastEndedMatchIdRef = useRef<number | null>(null);
+
+    useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
+        queryClient.invalidateQueries({ queryKey: ['matches'] });
+        queryClient.invalidateQueries({ queryKey: ['active-match'] });
+
+        if (event.action === 'loaded') {
+            queryClient.setQueryData(['loaded-match'], event.match);
+        } else {
+            queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
+        }
+    });
 
     // Track the running match ID before it ends so we can show final scores
     useEffect(() => {
@@ -26,7 +43,7 @@ export default function MatchOverlay() {
     }, [loadedMatch]);
 
     // Fetch the last ended match data to show final scores
-    const { data: endedMatch } = useMatch(lastEndedMatchIdRef.current, 500);
+    const { data: endedMatch } = useMatch(lastEndedMatchIdRef.current, 5000);
 
     // Use the appropriate match data based on state
     const displayMatch = match || (timer.phase === 'post-match' && endedMatch) || loadedMatch;
@@ -39,10 +56,6 @@ export default function MatchOverlay() {
 
     // Check if match is loaded but not started
     const isMatchLoaded = loadedMatch && !activeMatch && timer.phase === 'pre-match';
-
-    // Debug teams and scores
-    useEffect(() => {
-            }, [timer.phase, redScore, blueScore]);
 
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden">
