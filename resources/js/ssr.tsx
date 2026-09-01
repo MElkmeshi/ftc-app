@@ -11,6 +11,7 @@ createServer((page) =>
         page,
         render: ReactDOMServer.renderToString,
         title: (title) => `${title} - ${appName}`,
+        // @ts-expect-error -- @inertiajs/react's beta SSR types don't resolve this generic overload correctly.
         setup: ({ App, props }) => {
             /* eslint-disable */
             // @ts-expect-error

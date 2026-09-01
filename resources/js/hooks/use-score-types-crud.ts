@@ -1,4 +1,3 @@
-import { ScoreType } from '@/types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
 

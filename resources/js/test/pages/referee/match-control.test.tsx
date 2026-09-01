@@ -39,7 +39,7 @@ vi.mock('@/hooks/use-api', () => ({ useApi: () => api }));
 vi.mock('@inertiajs/react', () => ({ Head: () => null }));
 
 // Import after mocks so the mocked modules are in place before module init.
-const { default: MatchControl } = await import('./match-control');
+const { default: MatchControl } = await import('@/pages/referee/match-control');
 
 function makeMatch(overrides: Partial<CompetitionMatch> = {}): CompetitionMatch {
     return {

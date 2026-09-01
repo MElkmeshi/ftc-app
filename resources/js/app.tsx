@@ -22,6 +22,10 @@ const queryClient = new QueryClient();
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     setup({ el, App, props }) {
+        if (!el) {
+            throw new Error('Target element for Inertia app not found');
+        }
+
         const root = createRoot(el);
 
         root.render(

@@ -105,7 +105,7 @@ function ScoreTypeFormDialog({
                         </div>
                         <div className="grid gap-2">
                             <Label>Target</Label>
-                            <Select value={target} onValueChange={setTarget}>
+                            <Select value={target} onValueChange={(value) => setTarget(value as 'team' | 'alliance')}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>

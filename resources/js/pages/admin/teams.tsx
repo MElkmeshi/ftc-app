@@ -63,7 +63,7 @@ function TeamFormDialog({
                 setOpen(false);
                 onClose?.();
             },
-            onError: (error: any) => {
+            onError: (error: { response?: { data?: { errors?: Record<string, string[]> } } }) => {
                 if (error.response?.data?.errors) {
                     setErrors(error.response.data.errors);
                 }

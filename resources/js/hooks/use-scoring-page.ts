@@ -1,13 +1,16 @@
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
 import { getAllianceColorClasses } from '@/lib/match-utils';
+import { type ScoreUpdatedEvent } from '@/types';
 import { useEcho } from '@laravel/echo-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export function useScoringPage() {
     const [selectedAllianceId, setSelectedAllianceId] = useState<number | null>(null);
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
+    const queryClient = useQueryClient();
     const addScore = useAddScore();
     const deleteScore = useDeleteScore();
     const endMatch = useEndMatch();
@@ -34,7 +37,11 @@ export function useScoringPage() {
         }
     }, [match, selectedAllianceId, ongoingMatches.length]);
 
-    useEcho(match?.id ? `matches.${match.id}` : '', 'ScoreUpdated', () => {});
+    // Another referee (or an admin correction) may score this same match concurrently --
+    // pick up their changes instead of silently overwriting them with stale local data.
+    useEcho<ScoreUpdatedEvent>(match?.id ? `matches.${match.id}` : '', 'ScoreUpdated', () => {
+        queryClient.invalidateQueries({ queryKey: ['matches', match?.id] });
+    });
 
     const selectedAlliance = match?.match_alliances.find((ma) => ma.alliance.id === selectedAllianceId);
     const teamsInAlliance = useMemo(

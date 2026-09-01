@@ -34,7 +34,7 @@ vi.mock('@/hooks/use-api', () => ({ useApi: () => api }));
 
 vi.mock('@inertiajs/react', () => ({ Head: () => null }));
 
-const { default: MatchOverlay } = await import('./match-overlay');
+const { default: MatchOverlay } = await import('@/pages/display/match-overlay');
 
 function makeMatch(overrides: Partial<CompetitionMatch> = {}): CompetitionMatch {
     return {

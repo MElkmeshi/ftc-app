@@ -29,7 +29,7 @@ export function useAudioEngine(): AudioEngine {
                 preload: true,
                 html5: false, // Use Web Audio API for better background support
                 volume: 1.0,
-                onplayerror: (_id, _err) => {
+                onplayerror: () => {
                     // Try to unlock and play again
                     howl.once('unlock', () => {
                         howl.play();

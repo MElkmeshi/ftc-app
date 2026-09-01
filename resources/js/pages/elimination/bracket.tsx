@@ -177,6 +177,15 @@ const SeriesBox = memo(function SeriesBox({ series }: { series: EliminationSerie
 export default function EliminationBracketDisplay() {
     const { data: bracket, isLoading } = useEliminationBracket(3000);
 
+    // Hooks must run unconditionally on every render -- compute these before the
+    // early returns below instead of after them (a prior version called useMemo
+    // after early returns, which changes the hook-call order across renders and
+    // crashes React the first time isLoading flips from true to false).
+    const series = useMemo(() => bracket?.series ?? [], [bracket]);
+    const semifinals = useMemo(() => series.filter((s) => s.round === 'semifinal_1' || s.round === 'semifinal_2'), [series]);
+    const finals = useMemo(() => series.filter((s) => s.round === 'final' || s.round === 'tiebreaker_final'), [series]);
+    const overallWinner = useMemo(() => series.find((s) => s.round === 'final')?.winner, [series]);
+
     if (isLoading) {
         return (
             <div className="flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
@@ -202,18 +211,7 @@ export default function EliminationBracketDisplay() {
         );
     }
 
-    const semifinals = useMemo(
-        () => bracket.series.filter((s) => s.round === 'semifinal_1' || s.round === 'semifinal_2'),
-        [bracket.series],
-    );
-    const finals = useMemo(
-        () => bracket.series.filter((s) => s.round === 'final' || s.round === 'tiebreaker_final'),
-        [bracket.series],
-    );
     const hasSemifinals = semifinals.length > 0;
-
-    // Find the overall winner
-    const overallWinner = useMemo(() => bracket.series.find((s) => s.round === 'final')?.winner, [bracket.series]);
 
     return (
         <div className="h-screen w-screen overflow-auto bg-gradient-to-br from-slate-900 to-slate-800">
