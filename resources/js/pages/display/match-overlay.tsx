@@ -1,4 +1,6 @@
+import { AudioUnlockPrompt } from '@/components/audio-unlock-prompt';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
+import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { useLoadedMatch, useMatch } from '@/hooks/use-match';
 import { formatTime, getAllianceScore, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
@@ -25,7 +27,8 @@ const PHASE_STYLE: Record<MatchPhase, { icon: typeof Bot; accent: string; bar: s
 
 export default function MatchOverlay() {
     const queryClient = useQueryClient();
-    const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ resetOnIdle: true });
+    const { playSound, unlocked } = useAudioEngine();
+    const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ resetOnIdle: true, playSound });
     // Safety-net poll — MatchStatusChanged (below) is the primary sync path; this only
     // covers a missed broadcast (e.g. a dropped Reverb connection).
     const { data: loadedMatch } = useLoadedMatch(5000);
@@ -81,8 +84,10 @@ export default function MatchOverlay() {
               : formatTime(timer.phaseRemainingSeconds);
 
     return (
-        <div className="flex h-screen w-screen flex-col overflow-hidden bg-black">
+        <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-black">
             <Head title="Match Overlay" />
+
+            {!unlocked && <AudioUnlockPrompt />}
 
             {/* Chroma key field — keep this region pure #00ff00, nothing opaque may sit inside it */}
             <div className="relative h-[75vh] w-full bg-[#00ff00]">

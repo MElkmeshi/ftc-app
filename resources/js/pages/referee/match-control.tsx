@@ -1,3 +1,4 @@
+import { AudioUnlockPrompt } from '@/components/audio-unlock-prompt';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useApi } from '@/hooks/use-api';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
@@ -31,7 +32,7 @@ export default function MatchControl() {
 
     const api = useApi();
     const queryClient = useQueryClient();
-    const { playSound } = useAudioEngine();
+    const { playSound, unlocked } = useAudioEngine();
 
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound });
     const { data: match } = useMatch(activeMatch?.id ?? null, 5000);
@@ -119,13 +120,15 @@ export default function MatchControl() {
         return (
             <div
                 className={cn(
-                    'flex h-screen w-screen flex-col items-center justify-center overflow-hidden',
+                    'relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden',
                     winnerState.winner === 'red' && 'bg-gradient-to-br from-red-900 via-red-800 to-red-950',
                     winnerState.winner === 'blue' && 'bg-gradient-to-br from-blue-900 via-blue-800 to-blue-950',
                     winnerState.winner === 'tie' && 'bg-gradient-to-br from-purple-900 via-purple-800 to-purple-950',
                 )}
             >
                 <Head title="Match Result" />
+
+                {!unlocked && <AudioUnlockPrompt />}
 
                 {/* Animated background glow */}
                 <div
@@ -203,8 +206,10 @@ export default function MatchControl() {
     }
 
     return (
-        <div className="flex h-screen w-screen flex-col overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+        <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
             <Head title="Match Display" />
+
+            {!unlocked && <AudioUnlockPrompt />}
 
             {/* Header */}
             <div className="border-b border-white/10 bg-white/5 px-8 py-4">

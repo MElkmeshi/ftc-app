@@ -23,6 +23,10 @@ vi.mock('@/hooks/use-match-config', () => ({
     useMatchConfig: () => ({ config: { timing: TEST_TIMING, sounds: { enabled: false, files: {} } }, loading: false, error: null }),
 }));
 
+vi.mock('@/hooks/use-audio-engine', () => ({
+    useAudioEngine: () => ({ playSound: vi.fn(), unlocked: true }),
+}));
+
 const api = vi.hoisted(() => ({
     getMatches: vi.fn(async () => []),
     getActiveMatch: vi.fn(async () => null),
