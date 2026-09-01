@@ -1,0 +1,15 @@
+.git
+node_modules
+vendor
+.env
+.env.*
+!.env.example
+!.env.docker.example
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+bootstrap/cache/*.php
+database/*.sqlite
+.playwright-mcp
+*.log
