@@ -25,3 +25,4 @@ yarn-error.log
 laradumps.yaml
 /.claude
 /FTCLive
+/storage/reverb-tls

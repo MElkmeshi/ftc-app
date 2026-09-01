@@ -32,9 +32,18 @@ return [
             'host' => env('REVERB_SERVER_HOST', '0.0.0.0'),
             'port' => env('REVERB_SERVER_PORT', 8080),
             'path' => env('REVERB_SERVER_PATH', ''),
-            'hostname' => env('REVERB_HOST'),
+            // Distinct from REVERB_HOST (the client-facing host used for the API/JS SDK):
+            // this feeds Reverb's automatic Valet/Herd certificate lookup for the server's
+            // own socket. Leave unset to keep the server plain and terminate TLS with a
+            // separate reverse proxy instead (see storage/reverb-tls) -- Reverb's own
+            // TLS server didn't complete a WebSocket upgrade handshake with a real browser
+            // in local testing, even though the same certificate validated fine otherwise.
+            'hostname' => env('REVERB_SERVER_HOSTNAME'),
             'options' => [
-                'tls' => [],
+                'tls' => array_filter([
+                    'local_cert' => env('REVERB_TLS_CERT'),
+                    'local_pk' => env('REVERB_TLS_KEY'),
+                ]),
             ],
             'max_request_size' => env('REVERB_MAX_REQUEST_SIZE', 10_000),
             'scaling' => [
