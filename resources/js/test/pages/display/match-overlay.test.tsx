@@ -86,7 +86,7 @@ describe('MatchOverlay', () => {
 
         // Let the initial (safety-net) fetches settle before the broadcast lands, so we're
         // proving the broadcast's data wins, not racing an in-flight request that resolves late.
-        await screen.findByText('Waiting for match...');
+        await screen.findByText('Waiting for match…');
 
         const loaded = makeMatch({ id: 5, number: 7, status: 'upcoming' });
 
@@ -94,7 +94,8 @@ describe('MatchOverlay', () => {
             echo.emit('match-control', 'MatchStatusChanged', { match: loaded, action: 'loaded' } satisfies MatchStatusChangedEvent);
         });
 
-        expect(await screen.findByText('Match Loaded')).toBeInTheDocument();
+        expect(await screen.findByText('Ready')).toBeInTheDocument();
+        expect(screen.getByText('On deck')).toBeInTheDocument();
         expect(screen.getByText('Red Team')).toBeInTheDocument();
         expect(screen.getByText('Blue Team')).toBeInTheDocument();
     });

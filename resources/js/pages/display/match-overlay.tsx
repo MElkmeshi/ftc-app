@@ -1,12 +1,27 @@
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useLoadedMatch, useMatch } from '@/hooks/use-match';
-import { formatTime, getAllianceScore, getPhaseColors } from '@/lib/match-utils';
+import { formatTime, getAllianceScore, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
-import { type MatchStatusChangedEvent } from '@/types';
+import { type MatchPhase, type MatchStatusChangedEvent } from '@/types';
 import { Head } from '@inertiajs/react';
 import { useEcho } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Bot, Hand, Joystick, Radio, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
+
+/**
+ * Broadcast-style phase treatment: icon + accent color per match phase.
+ * Kept local to the overlay (distinct from the admin-facing getPhaseColors)
+ * since this needs a richer palette (glow color, ring color) for the HUD look.
+ */
+const PHASE_STYLE: Record<MatchPhase, { icon: typeof Bot; accent: string; bar: string; ring: string; glow: string }> = {
+    'pre-match': { icon: Radio, accent: 'text-slate-300', bar: 'bg-slate-400', ring: 'ring-slate-500/40', glow: 'shadow-slate-500/20' },
+    autonomous: { icon: Bot, accent: 'text-amber-300', bar: 'bg-amber-400', ring: 'ring-amber-400/60', glow: 'shadow-amber-400/40' },
+    transition: { icon: Hand, accent: 'text-orange-300', bar: 'bg-orange-400', ring: 'ring-orange-400/60', glow: 'shadow-orange-400/40' },
+    teleop: { icon: Joystick, accent: 'text-cyan-300', bar: 'bg-cyan-400', ring: 'ring-cyan-400/60', glow: 'shadow-cyan-400/40' },
+    endgame: { icon: Zap, accent: 'text-rose-300', bar: 'bg-rose-500', ring: 'ring-rose-400/70', glow: 'shadow-rose-400/50' },
+    'post-match': { icon: Radio, accent: 'text-white/60', bar: 'bg-white/50', ring: 'ring-white/30', glow: 'shadow-white/10' },
+};
 
 export default function MatchOverlay() {
     const queryClient = useQueryClient();
@@ -48,7 +63,8 @@ export default function MatchOverlay() {
     // Use the appropriate match data based on state
     const displayMatch = match || (timer.phase === 'post-match' && endedMatch) || loadedMatch;
 
-    const phaseColors = useMemo(() => getPhaseColors(timer.phase), [timer.phase]);
+    const phaseStyle = PHASE_STYLE[timer.phase];
+    const PhaseIcon = phaseStyle.icon;
     const redScore = useMemo(() => (displayMatch ? getAllianceScore(displayMatch, 'red') : 0), [displayMatch]);
     const blueScore = useMemo(() => (displayMatch ? getAllianceScore(displayMatch, 'blue') : 0), [displayMatch]);
     const redTeams = useMemo(() => displayMatch?.match_alliances?.filter((ma) => ma.alliance.color === 'red') ?? [], [displayMatch]);
@@ -57,87 +73,140 @@ export default function MatchOverlay() {
     // Check if match is loaded but not started
     const isMatchLoaded = loadedMatch && !activeMatch && timer.phase === 'pre-match';
 
+    const displayTime =
+        timer.phase === 'transition'
+            ? String(timer.phaseRemainingSeconds)
+            : timer.phase === 'autonomous'
+              ? formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))
+              : formatTime(timer.phaseRemainingSeconds);
+
     return (
-        <div className="flex h-screen w-screen flex-col overflow-hidden">
+        <div className="flex h-screen w-screen flex-col overflow-hidden bg-black">
             <Head title="Match Overlay" />
 
-            {/* Top 75% - Chroma Key Green Screen */}
-            <div className="h-[75vh] w-full bg-[#00ff00]" />
-
-            {/* Bottom 25% - Scorebug */}
-            <div className="h-[25vh] w-full bg-slate-900/95 flex items-center justify-between px-12 gap-8">
-                {/* Left: Red Alliance */}
-                <div className="flex items-center gap-6 flex-1">
-                    {/* Red Score Box */}
-                    <div className="flex flex-col items-center justify-center bg-red-600/90 rounded-2xl px-10 py-6 min-w-[120px]">
-                        <span className="text-sm font-bold text-red-200 uppercase tracking-wider mb-1">Red</span>
-                        <span className="text-7xl font-black text-white tabular-nums leading-none">{redScore}</span>
+            {/* Chroma key field — keep this region pure #00ff00, nothing opaque may sit inside it */}
+            <div className="relative h-[75vh] w-full bg-[#00ff00]">
+                {/* Match tag straddles the seam so it reads as one HUD, not two stacked boxes */}
+                {displayMatch && (
+                    <div className="absolute bottom-0 left-1/2 z-10 -translate-x-1/2 translate-y-1/2">
+                        <div
+                            className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950 px-6 py-1.5 shadow-[0_0_24px_rgba(0,0,0,0.6)]"
+                            style={{ fontFamily: 'var(--font-scoreboard)' }}
+                        >
+                            <span className={cn('inline-block h-2 w-2 rounded-full', timer.isRunning && 'animate-pulse', phaseStyle.accent.replace('text-', 'bg-'))} />
+                            <span className="text-sm font-semibold tracking-[0.2em] text-white/90 uppercase">Match {displayMatch.number}</span>
+                        </div>
                     </div>
-                    {/* Red Teams */}
-                    <div className="flex flex-col gap-3">
+                )}
+            </div>
+
+            {/* Scorebug — the only opaque UI, everything above must stay keyable */}
+            <div className="relative flex h-[25vh] w-full items-stretch justify-between overflow-hidden bg-gradient-to-b from-[#0b0f1a] to-[#020306]">
+                {/* HUD seam light: a thin tri-color glow marking the field/scorebug boundary */}
+                <div className="absolute top-0 right-0 left-0 h-px bg-gradient-to-r from-red-500/0 via-white/40 to-blue-500/0" />
+
+                {/* Red panel — angled trailing edge leaning toward center */}
+                <div
+                    className="relative flex flex-1 items-center gap-5 bg-gradient-to-br from-red-600 via-red-700 to-red-900 py-4 pr-16 pl-10 shadow-[inset_0_0_60px_rgba(0,0,0,0.35)]"
+                    style={{ clipPath: 'polygon(0 0, 100% 0, calc(100% - 3.5rem) 100%, 0 100%)' }}
+                >
+                    <div
+                        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+                        style={{ backgroundImage: 'repeating-linear-gradient(115deg, #fff 0 2px, transparent 2px 14px)' }}
+                    />
+                    <span
+                        className="text-8xl leading-none font-semibold text-white tabular-nums drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]"
+                        style={{ fontFamily: 'var(--font-scoreboard-display)' }}
+                    >
+                        {redScore}
+                    </span>
+                    <div className="flex flex-col gap-1.5">
                         {redTeams.map((ma) => (
-                            <div key={ma.id} className="bg-red-900/40 rounded-lg px-5 py-3 border-2 border-red-500/50">
-                                <span className="text-xl font-black text-red-100">{ma.team.number}</span>
-                                <span className="text-base text-red-300 ml-3 font-medium">{ma.team.name}</span>
+                            <div key={ma.id} className="flex items-baseline gap-2">
+                                <span className="rounded bg-black/25 px-2 py-0.5 text-lg font-bold text-white tabular-nums">{ma.team.number}</span>
+                                <span className="truncate text-sm font-medium text-red-100/80">{ma.team.name}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* Center: Timer and Match Info */}
-                <div className="flex flex-col items-center gap-2 min-w-[320px]">
-                    {displayMatch && <span className="text-sm font-bold text-white/60 uppercase tracking-widest mb-1">Match #{displayMatch.number}</span>}
+                {/* Center: phase + timer */}
+                <div className="relative z-10 flex w-[26rem] shrink-0 flex-col items-center justify-center gap-1 px-4 pt-3">
+                    <div
+                        className={cn(
+                            'flex items-center gap-2 rounded-full bg-white/5 px-4 py-1 ring-1 backdrop-blur-sm transition-colors duration-300',
+                            phaseStyle.ring,
+                        )}
+                    >
+                        <PhaseIcon className={cn('h-4 w-4', phaseStyle.accent, timer.phase === 'endgame' && 'animate-pulse')} />
+                        <span className={cn('text-xs font-bold tracking-[0.25em] uppercase', phaseStyle.accent)}>
+                            {isMatchLoaded ? 'Ready' : timer.phase === 'post-match' ? 'Final' : getPhaseLabel(timer.phase)}
+                        </span>
+                    </div>
+
                     {timer.phase === 'post-match' ? (
-                        /* Match Ended - Show Final Results */
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="text-6xl font-black text-red-400 uppercase tracking-wider animate-pulse leading-none">Final</div>
-                            <div className="text-3xl font-bold text-white/70 uppercase tracking-widest">Match Over</div>
+                        <div
+                            className="animate-in fade-in zoom-in-95 text-7xl leading-none font-semibold text-white/90 duration-500"
+                            style={{ fontFamily: 'var(--font-scoreboard-display)' }}
+                        >
+                            {redScore === blueScore ? 'TIE' : redScore > blueScore ? 'RED WINS' : 'BLUE WINS'}
                         </div>
                     ) : isMatchLoaded ? (
-                        /* Match Loaded - Ready to Start */
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="text-6xl font-black text-green-400 uppercase tracking-wider animate-pulse leading-none">Ready</div>
-                            <div className="text-2xl font-bold text-white/70 uppercase tracking-widest">Match Loaded</div>
-                        </div>
-                    ) : timer.phase !== 'pre-match' ? (
-                        <>
-                            {timer.phase === 'transition' ? (
-                                <div className="text-8xl font-black text-orange-400 tabular-nums animate-pulse leading-none">{timer.phaseRemainingSeconds}</div>
-                            ) : timer.phase === 'autonomous' ? (
-                                <div className="text-8xl font-black text-white tabular-nums leading-none">
-                                    {formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))}
-                                </div>
-                            ) : (
-                                <div className="text-8xl font-black text-white tabular-nums leading-none">
-                                    {formatTime(timer.phaseRemainingSeconds)}
-                                </div>
-                            )}
-                            {/* Progress bar */}
-                            <div className="h-3 w-80 overflow-hidden rounded-full bg-white/20 mt-2">
-                                <div className={cn('h-full rounded-full transition-all duration-300', phaseColors.bg)} style={{ width: `${timer.progressPercent}%` }} />
+                        <div className="mt-1 flex flex-col items-center gap-0.5">
+                            <div className="text-5xl leading-none font-semibold text-emerald-300 tabular-nums" style={{ fontFamily: 'var(--font-scoreboard-display)' }}>
+                                0:00
                             </div>
-                        </>
+                            <span className="text-xs font-medium text-white/40">On deck</span>
+                        </div>
+                    ) : displayMatch ? (
+                        <div
+                            className={cn(
+                                'text-8xl leading-none font-semibold tabular-nums transition-colors duration-300',
+                                timer.phase === 'endgame' ? 'text-rose-300' : 'text-white',
+                            )}
+                            style={{ fontFamily: 'var(--font-scoreboard-display)' }}
+                        >
+                            {displayTime}
+                        </div>
                     ) : (
-                        !displayMatch && !timer.isRunning && <span className="text-lg text-white/50">Waiting for match...</span>
+                        <span className="mt-3 text-sm font-medium tracking-wide text-white/40">Waiting for match…</span>
                     )}
+
+                    {/* Progress rail */}
+                    <div className="mt-1 h-2 w-64 overflow-hidden rounded-full bg-white/15">
+                        <div
+                            className={cn('h-full rounded-full transition-[width] duration-300 ease-linear', phaseStyle.bar)}
+                            style={{
+                                width: `${isMatchLoaded ? 0 : timer.progressPercent}%`,
+                                backgroundImage: 'repeating-linear-gradient(115deg, rgba(0,0,0,0.25) 0 4px, transparent 4px 10px)',
+                            }}
+                        />
+                    </div>
                 </div>
 
-                {/* Right: Blue Alliance */}
-                <div className="flex items-center gap-6 flex-1 justify-end">
-                    {/* Blue Teams */}
-                    <div className="flex flex-col gap-3">
+                {/* Blue panel — mirrored angle */}
+                <div
+                    className="relative flex flex-1 items-center justify-end gap-5 bg-gradient-to-bl from-blue-600 via-blue-700 to-blue-900 py-4 pr-10 pl-16 text-right shadow-[inset_0_0_60px_rgba(0,0,0,0.35)]"
+                    style={{ clipPath: 'polygon(3.5rem 0, 100% 0, 100% 100%, 0 100%)' }}
+                >
+                    <div
+                        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+                        style={{ backgroundImage: 'repeating-linear-gradient(65deg, #fff 0 2px, transparent 2px 14px)' }}
+                    />
+                    <div className="flex flex-col items-end gap-1.5">
                         {blueTeams.map((ma) => (
-                            <div key={ma.id} className="bg-blue-900/40 rounded-lg px-5 py-3 border-2 border-blue-500/50">
-                                <span className="text-xl font-black text-blue-100">{ma.team.number}</span>
-                                <span className="text-base text-blue-300 ml-3 font-medium">{ma.team.name}</span>
+                            <div key={ma.id} className="flex items-baseline gap-2">
+                                <span className="truncate text-sm font-medium text-blue-100/80">{ma.team.name}</span>
+                                <span className="rounded bg-black/25 px-2 py-0.5 text-lg font-bold text-white tabular-nums">{ma.team.number}</span>
                             </div>
                         ))}
                     </div>
-                    {/* Blue Score Box */}
-                    <div className="flex flex-col items-center justify-center bg-blue-600/90 rounded-2xl px-10 py-6 min-w-[120px]">
-                        <span className="text-sm font-bold text-blue-200 uppercase tracking-wider mb-1">Blue</span>
-                        <span className="text-7xl font-black text-white tabular-nums leading-none">{blueScore}</span>
-                    </div>
+                    <span
+                        className="text-8xl leading-none font-semibold text-white tabular-nums drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]"
+                        style={{ fontFamily: 'var(--font-scoreboard-display)' }}
+                    >
+                        {blueScore}
+                    </span>
                 </div>
             </div>
         </div>
