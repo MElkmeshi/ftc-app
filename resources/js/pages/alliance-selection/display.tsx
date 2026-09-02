@@ -1,17 +1,25 @@
-import { useAllianceGroups, useAllianceSelectionRankings } from '@/hooks/use-alliance-selection';
+import { useAllianceGroups, useAllianceSelectionEcho, useAllianceSelectionRankings, useDeclinedTeams } from '@/hooks/use-alliance-selection';
 import { cn } from '@/lib/utils';
 import { Head } from '@inertiajs/react';
-import { Trophy, Users } from 'lucide-react';
+import { Ban, Trophy, Users } from 'lucide-react';
 
+/**
+ * Unattended venue screen: state arrives over the broadcast, and the slow polls
+ * are only a safety net for a socket that dropped without firing a reconnect.
+ */
 export default function AllianceSelectionDisplay() {
-    const { data: rankings = [], isLoading: rankingsLoading } = useAllianceSelectionRankings();
-    const { data: groups = [], isLoading: groupsLoading } = useAllianceGroups(3000);
+    useAllianceSelectionEcho();
+
+    const { data: rankings = [], isLoading: rankingsLoading } = useAllianceSelectionRankings(30000);
+    const { data: groups = [], isLoading: groupsLoading } = useAllianceGroups(15000);
+    const { data: declinedTeams = [] } = useDeclinedTeams();
 
     const isLoading = rankingsLoading || groupsLoading;
     const hasGroups = groups.length > 0;
+    const declinedIds = new Set(declinedTeams.map((team) => team.id));
 
-    // Find the next group that needs a pick (no pick and no pending invite)
-    const currentPickIndex = hasGroups ? groups.findIndex((g) => g.picked_team === null && g.pending_team === null) : -1;
+    // Picking runs strictly in seed order: the lowest unfilled seed is on the clock.
+    const currentPickIndex = hasGroups ? groups.findIndex((g) => g.picked_team === null) : -1;
     const pendingIndex = hasGroups ? groups.findIndex((g) => g.pending_team !== null) : -1;
 
     if (isLoading) {
@@ -65,8 +73,8 @@ export default function AllianceSelectionDisplay() {
                             {hasGroups ? (
                                 <div className="space-y-4">
                                     {groups.map((group, index) => {
-                                        const isCurrentPick = index === currentPickIndex;
                                         const isPending = group.pending_team !== null;
+                                        const isCurrentPick = index === currentPickIndex && !isPending;
                                         return (
                                             <div
                                                 key={group.id}
@@ -127,6 +135,25 @@ export default function AllianceSelectionDisplay() {
                                     <p className="text-2xl text-white/50">Selection not started</p>
                                 </div>
                             )}
+
+                            {declinedTeams.length > 0 && (
+                                <div className="mt-6 rounded-2xl border-2 border-rose-500/30 bg-rose-500/5 p-6">
+                                    <h3 className="mb-3 flex items-center gap-2 text-xl font-bold text-rose-300">
+                                        <Ban className="h-5 w-5" />
+                                        Declined — out of selection
+                                    </h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {declinedTeams.map((team) => (
+                                            <span
+                                                key={team.id}
+                                                className="rounded-lg bg-rose-500/20 px-3 py-1 text-lg font-semibold text-rose-200"
+                                            >
+                                                #{team.number}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Rankings */}
@@ -149,7 +176,8 @@ export default function AllianceSelectionDisplay() {
                                             const isCaptain = groups.some((g) => g.captain_team.id === team.team_id);
                                             const isPicked = groups.some((g) => g.picked_team?.id === team.team_id);
                                             const isInvited = groups.some((g) => g.pending_team?.id === team.team_id);
-                                            const isTaken = isCaptain || isPicked || isInvited;
+                                            const isDeclined = declinedIds.has(team.team_id);
+                                            const isTaken = isCaptain || isPicked || isInvited || isDeclined;
 
                                             return (
                                                 <tr
@@ -188,6 +216,11 @@ export default function AllianceSelectionDisplay() {
                                                         {isInvited && (
                                                             <span className="ml-2 rounded bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
                                                                 INVITED
+                                                            </span>
+                                                        )}
+                                                        {isDeclined && (
+                                                            <span className="ml-2 rounded bg-rose-600 px-2 py-0.5 text-xs font-bold text-white">
+                                                                DECLINED
                                                             </span>
                                                         )}
                                                     </td>

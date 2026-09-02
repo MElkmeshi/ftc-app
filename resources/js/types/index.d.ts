@@ -159,7 +159,17 @@ export interface EliminationBracket {
 export interface AllianceSelectionStatus {
     started: boolean;
     complete: boolean;
+    current_pick_seed: number | null;
     groups: AllianceGroup[];
+    declined_teams: Team[];
+}
+
+export interface AllianceSelectionUpdatedEvent {
+    action: 'started' | 'invited' | 'accepted' | 'declined' | 'reset';
+    groups: AllianceGroup[];
+    declined_teams: Team[];
+    complete: boolean;
+    current_pick_seed: number | null;
 }
 
 export interface DashboardStats {

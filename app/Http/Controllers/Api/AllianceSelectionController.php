@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\AllianceSelectionUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AcceptPickRequest;
 use App\Http\Requests\DeclinePickRequest;
 use App\Http\Requests\InviteTeamRequest;
 use App\Http\Requests\StartAllianceSelectionRequest;
+use App\Models\AllianceGroup;
 use App\Services\AllianceSelectionService;
 use Illuminate\Http\JsonResponse;
 
@@ -30,6 +32,8 @@ class AllianceSelectionController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        $this->broadcastState('started');
+
         return response()->json($groups);
     }
 
@@ -43,6 +47,11 @@ class AllianceSelectionController extends Controller
         return response()->json($this->service->getAvailableTeams());
     }
 
+    public function declinedTeams(): JsonResponse
+    {
+        return response()->json($this->service->getDeclinedTeams());
+    }
+
     public function invite(InviteTeamRequest $request): JsonResponse
     {
         try {
@@ -54,6 +63,8 @@ class AllianceSelectionController extends Controller
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
+
+        $this->broadcastState('invited');
 
         return response()->json($group);
     }
@@ -69,6 +80,8 @@ class AllianceSelectionController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        $this->broadcastState('accepted');
+
         return response()->json($group);
     }
 
@@ -83,22 +96,47 @@ class AllianceSelectionController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        $this->broadcastState('declined');
+
         return response()->json($group);
     }
 
     public function status(): JsonResponse
     {
         return response()->json([
-            'started' => \App\Models\AllianceGroup::exists(),
+            'started' => AllianceGroup::exists(),
             'complete' => $this->service->isComplete(),
+            'current_pick_seed' => $this->service->getCurrentPickingGroup()?->seed,
             'groups' => $this->service->getGroups(),
+            'declined_teams' => $this->service->getDeclinedTeams(),
         ]);
     }
 
     public function reset(): JsonResponse
     {
-        $this->service->reset();
+        try {
+            $this->service->reset();
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $this->broadcastState('reset');
 
         return response()->json(['message' => 'Alliance selection reset successfully.']);
+    }
+
+    /**
+     * Push the full selection state to every connected display, mirroring the
+     * "server is the source of truth" model the rest of the app uses.
+     */
+    private function broadcastState(string $action): void
+    {
+        broadcast(new AllianceSelectionUpdated(
+            action: $action,
+            groups: $this->service->getGroups(),
+            declinedTeams: $this->service->getDeclinedTeams(),
+            complete: $this->service->isComplete(),
+            currentPickSeed: $this->service->getCurrentPickingGroup()?->seed,
+        ));
     }
 }

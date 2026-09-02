@@ -178,6 +178,10 @@ export const useApi = () => {
         return post('/api/alliance-selection/decline', { alliance_group_id: allianceGroupId });
     }, []);
 
+    const getDeclinedTeams = useCallback(async (): Promise<Team[]> => {
+        return get('/api/alliance-selection/declined-teams');
+    }, []);
+
     const getAllianceSelectionStatus = useCallback(async (): Promise<AllianceSelectionStatus> => {
         return get('/api/alliance-selection/status');
     }, []);
@@ -248,6 +252,7 @@ export const useApi = () => {
         startAllianceSelection,
         getAllianceGroups,
         getAvailableTeams,
+        getDeclinedTeams,
         inviteTeam,
         acceptPick,
         declinePick,

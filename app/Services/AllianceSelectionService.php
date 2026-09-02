@@ -4,13 +4,18 @@ namespace App\Services;
 
 use App\Enums\MatchStatus;
 use App\Models\AllianceGroup;
+use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
+use App\Models\MatchAlliance;
 use App\Models\Team;
 use Exception;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class AllianceSelectionService
 {
+    public function __construct(private EliminationScheduler $eliminationScheduler) {}
+
     /**
      * Get team rankings from completed qualification matches.
      *
@@ -35,6 +40,15 @@ class AllianceSelectionService
                     continue;
                 }
 
+                /**
+                 * Teams are soft-deleted, so a team that withdrew mid-event still
+                 * has match_alliances rows but no loadable team. Skip them rather
+                 * than fataling on a null relation.
+                 */
+                if ($ma->team === null) {
+                    continue;
+                }
+
                 $teamId = $ma->team->id;
 
                 if (! isset($teamScores[$teamId])) {
@@ -46,7 +60,7 @@ class AllianceSelectionService
                     ];
                 }
 
-                $teamScores[$teamId]['total_score'] += $ma->score;
+                $teamScores[$teamId]['total_score'] += $ma->score ?? 0;
 
                 $allianceWideScore = $match->scores
                     ->where('alliance_id', $ma->alliance_id)
@@ -58,7 +72,10 @@ class AllianceSelectionService
         }
 
         return collect($teamScores)
-            ->sortByDesc('total_score')
+            ->sortBy([
+                ['total_score', 'desc'],
+                ['team_number', 'asc'],
+            ])
             ->values()
             ->map(function ($team, $index) {
                 $team['rank'] = $index + 1;
@@ -69,15 +86,13 @@ class AllianceSelectionService
 
     /**
      * Start alliance selection by creating alliance groups for top N teams.
+     *
+     * @return Collection<int, AllianceGroup>
      */
     public function startSelection(int $numberOfAlliances, int $createdBy): Collection
     {
         if ($numberOfAlliances % 2 !== 0) {
             throw new Exception('Number of alliances must be even.');
-        }
-
-        if (AllianceGroup::exists()) {
-            throw new Exception('Alliance selection has already been started. Reset first.');
         }
 
         $rankings = $this->getRankings();
@@ -86,19 +101,36 @@ class AllianceSelectionService
             throw new Exception("Not enough ranked teams. Need at least {$numberOfAlliances} but found {$rankings->count()}.");
         }
 
-        $groups = collect();
+        return DB::transaction(function () use ($numberOfAlliances, $createdBy, $rankings) {
+            if (AllianceGroup::exists()) {
+                throw new Exception('Alliance selection has already been started. Reset first.');
+            }
 
-        for ($i = 0; $i < $numberOfAlliances; $i++) {
-            $groups->push(AllianceGroup::create([
-                'seed' => $i + 1,
-                'captain_team_id' => $rankings[$i]['team_id'],
-                'picked_team_id' => null,
-                'created_by' => $createdBy,
-                'updated_by' => $createdBy,
-            ]));
-        }
+            $groups = collect();
 
-        return $groups->each(fn (AllianceGroup $g) => $g->load('captainTeam'));
+            for ($i = 0; $i < $numberOfAlliances; $i++) {
+                $groups->push(AllianceGroup::create([
+                    'seed' => $i + 1,
+                    'captain_team_id' => $rankings[$i]['team_id'],
+                    'picked_team_id' => null,
+                    'created_by' => $createdBy,
+                    'updated_by' => $createdBy,
+                ]));
+            }
+
+            return $groups->each(fn (AllianceGroup $g) => $g->load('captainTeam'));
+        });
+    }
+
+    /**
+     * The alliance whose turn it is to pick: the lowest unfilled seed. Returns
+     * null when every alliance has picked.
+     */
+    public function getCurrentPickingGroup(): ?AllianceGroup
+    {
+        return AllianceGroup::whereNull('picked_team_id')
+            ->orderBy('seed')
+            ->first();
     }
 
     /**
@@ -106,42 +138,49 @@ class AllianceSelectionService
      */
     public function inviteTeam(int $allianceGroupId, int $teamId, int $updatedBy): AllianceGroup
     {
-        $group = AllianceGroup::findOrFail($allianceGroupId);
+        return DB::transaction(function () use ($allianceGroupId, $teamId, $updatedBy) {
+            $group = AllianceGroup::lockForUpdate()->findOrFail($allianceGroupId);
 
-        if ($group->picked_team_id !== null) {
-            throw new Exception('This alliance group has already picked a team.');
-        }
+            if ($group->picked_team_id !== null) {
+                throw new Exception('This alliance group has already picked a team.');
+            }
 
-        if ($group->pending_team_id !== null) {
-            throw new Exception('This alliance group already has a pending invite.');
-        }
+            if ($group->pending_team_id !== null) {
+                throw new Exception('This alliance group already has a pending invite.');
+            }
 
-        $isCaptain = AllianceGroup::where('captain_team_id', $teamId)->exists();
-        if ($isCaptain) {
-            throw new Exception('Cannot pick a team that is already a captain.');
-        }
+            $currentSeed = AllianceGroup::whereNull('picked_team_id')->min('seed');
+            if ($currentSeed !== null && $group->seed > $currentSeed) {
+                throw new Exception("It is alliance #{$currentSeed}'s turn to pick.");
+            }
 
-        $isPicked = AllianceGroup::where('picked_team_id', $teamId)->exists();
-        if ($isPicked) {
-            throw new Exception('This team has already been picked by another alliance.');
-        }
+            if (! Team::whereKey($teamId)->exists()) {
+                throw new Exception('Team not found.');
+            }
 
-        $isPending = AllianceGroup::where('pending_team_id', $teamId)->exists();
-        if ($isPending) {
-            throw new Exception('This team already has a pending invite from another alliance.');
-        }
+            if (AllianceGroup::where('captain_team_id', $teamId)->exists()) {
+                throw new Exception('Cannot pick a team that is already a captain.');
+            }
 
-        $teamExists = Team::where('id', $teamId)->exists();
-        if (! $teamExists) {
-            throw new Exception('Team not found.');
-        }
+            if (AllianceGroup::where('picked_team_id', $teamId)->exists()) {
+                throw new Exception('This team has already been picked by another alliance.');
+            }
 
-        $group->update([
-            'pending_team_id' => $teamId,
-            'updated_by' => $updatedBy,
-        ]);
+            if (AllianceGroup::where('pending_team_id', $teamId)->exists()) {
+                throw new Exception('This team already has a pending invite from another alliance.');
+            }
 
-        return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+            if (AllianceSelectionDecline::where('team_id', $teamId)->exists()) {
+                throw new Exception('This team declined an invitation and is out of alliance selection.');
+            }
+
+            $group->update([
+                'pending_team_id' => $teamId,
+                'updated_by' => $updatedBy,
+            ]);
+
+            return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+        });
     }
 
     /**
@@ -149,42 +188,54 @@ class AllianceSelectionService
      */
     public function acceptPick(int $allianceGroupId, int $updatedBy): AllianceGroup
     {
-        $group = AllianceGroup::findOrFail($allianceGroupId);
+        return DB::transaction(function () use ($allianceGroupId, $updatedBy) {
+            $group = AllianceGroup::lockForUpdate()->findOrFail($allianceGroupId);
 
-        if ($group->pending_team_id === null) {
-            throw new Exception('No pending invite to accept.');
-        }
+            if ($group->pending_team_id === null) {
+                throw new Exception('No pending invite to accept.');
+            }
 
-        $group->update([
-            'picked_team_id' => $group->pending_team_id,
-            'pending_team_id' => null,
-            'updated_by' => $updatedBy,
-        ]);
+            $group->update([
+                'picked_team_id' => $group->pending_team_id,
+                'pending_team_id' => null,
+                'updated_by' => $updatedBy,
+            ]);
 
-        return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+            return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+        });
     }
 
     /**
-     * Decline a pending invite (clears pending).
+     * Decline a pending invite. Per FTC selection rules a team that declines is
+     * out of selection entirely — it cannot be invited again by anyone.
      */
     public function declinePick(int $allianceGroupId, int $updatedBy): AllianceGroup
     {
-        $group = AllianceGroup::findOrFail($allianceGroupId);
+        return DB::transaction(function () use ($allianceGroupId, $updatedBy) {
+            $group = AllianceGroup::lockForUpdate()->findOrFail($allianceGroupId);
 
-        if ($group->pending_team_id === null) {
-            throw new Exception('No pending invite to decline.');
-        }
+            if ($group->pending_team_id === null) {
+                throw new Exception('No pending invite to decline.');
+            }
 
-        $group->update([
-            'pending_team_id' => null,
-            'updated_by' => $updatedBy,
-        ]);
+            AllianceSelectionDecline::firstOrCreate(
+                ['team_id' => $group->pending_team_id],
+                ['alliance_group_id' => $group->id, 'created_by' => $updatedBy],
+            );
 
-        return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+            $group->update([
+                'pending_team_id' => null,
+                'updated_by' => $updatedBy,
+            ]);
+
+            return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+        });
     }
 
     /**
      * Get all alliance groups with their teams.
+     *
+     * @return Collection<int, AllianceGroup>
      */
     public function getGroups(): Collection
     {
@@ -194,15 +245,28 @@ class AllianceSelectionService
     }
 
     /**
-     * Get teams available for picking (not captain or already picked).
+     * Teams that declined an invitation and are out of selection.
+     *
+     * @return Collection<int, Team>
+     */
+    public function getDeclinedTeams(): Collection
+    {
+        return Team::whereIn('id', AllianceSelectionDecline::pluck('team_id'))
+            ->orderBy('number')
+            ->get();
+    }
+
+    /**
+     * Get teams available for picking (not captain, picked, pending or declined).
+     *
+     * @return Collection<int, Team>
      */
     public function getAvailableTeams(): Collection
     {
-        $captainIds = AllianceGroup::pluck('captain_team_id');
-        $pickedIds = AllianceGroup::whereNotNull('picked_team_id')->pluck('picked_team_id');
-        $pendingIds = AllianceGroup::whereNotNull('pending_team_id')->pluck('pending_team_id');
-
-        $excludedIds = $captainIds->merge($pickedIds)->merge($pendingIds);
+        $excludedIds = AllianceGroup::pluck('captain_team_id')
+            ->merge(AllianceGroup::whereNotNull('picked_team_id')->pluck('picked_team_id'))
+            ->merge(AllianceGroup::whereNotNull('pending_team_id')->pluck('pending_team_id'))
+            ->merge(AllianceSelectionDecline::pluck('team_id'));
 
         return Team::whereNotIn('id', $excludedIds)->orderBy('number')->get();
     }
@@ -220,10 +284,23 @@ class AllianceSelectionService
     }
 
     /**
-     * Reset alliance selection (delete all alliance groups).
+     * Reset alliance selection.
+     *
+     * alliance_groups is referenced by elimination_series and match_alliances, so
+     * those references have to go first — a bare truncate/delete fails on the
+     * foreign key. Resetting selection necessarily resets the bracket built on it.
      */
     public function reset(): void
     {
-        AllianceGroup::truncate();
+        DB::transaction(function () {
+            $this->eliminationScheduler->reset();
+
+            MatchAlliance::withTrashed()
+                ->whereNotNull('alliance_group_id')
+                ->update(['alliance_group_id' => null]);
+
+            AllianceSelectionDecline::query()->delete();
+            AllianceGroup::query()->delete();
+        });
     }
 }

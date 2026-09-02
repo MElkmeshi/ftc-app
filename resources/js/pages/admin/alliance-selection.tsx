@@ -14,8 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
     useAcceptPick,
     useAllianceGroups,
+    useAllianceSelectionEcho,
     useAllianceSelectionRankings,
     useAvailableTeams,
+    useDeclinedTeams,
     useDeclinePick,
     useInviteTeam,
     useResetAllianceSelection,
@@ -23,10 +25,31 @@ import {
 } from '@/hooks/use-alliance-selection';
 import { useCheckSeriesWinner, useEliminationBracket, useGenerateElimination, useGenerateTiebreaker, useResetElimination } from '@/hooks/use-elimination';
 import AppLayout from '@/layouts/app-layout';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { type AllianceGroup, type BreadcrumbItem, type CompetitionMatch, type EliminationSeries } from '@/types';
 import { Head } from '@inertiajs/react';
-import { RotateCcw, Swords, Trophy, Users } from 'lucide-react';
+import { AlertCircle, Ban, RotateCcw, Swords, Trophy, Users } from 'lucide-react';
 import { useState } from 'react';
+
+/**
+ * Every mutation here can fail on a rule the operator can't see coming ("it is
+ * alliance #1's turn", "that team declined"). Silence at a live event is worse
+ * than the error itself, so surface the server's message verbatim.
+ */
+function ApiError({ error }: { error: unknown }) {
+    const message = getApiErrorMessage(error);
+
+    if (!message) {
+        return null;
+    }
+
+    return (
+        <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{message}</span>
+        </div>
+    );
+}
 
 function getAllianceScore(match: CompetitionMatch, color: string): number {
     const allianceTeams = match.match_alliances.filter((ma) => ma.alliance.color === color);
@@ -90,6 +113,11 @@ function InviteTeamDialog({ group }: { group: AllianceGroup }) {
                         </SelectContent>
                     </Select>
                 </div>
+                {inviteTeam.isError && (
+                    <div className="pb-2">
+                        <ApiError error={inviteTeam.error} />
+                    </div>
+                )}
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>
                         Cancel
@@ -108,13 +136,22 @@ function PendingActions({ group }: { group: AllianceGroup }) {
     const declinePick = useDeclinePick();
 
     return (
-        <div className="flex items-center gap-2">
-            <Button size="sm" variant="default" onClick={() => acceptPick.mutate(group.id)} disabled={acceptPick.isPending}>
-                {acceptPick.isPending ? 'Accepting...' : 'Accept'}
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => declinePick.mutate(group.id)} disabled={declinePick.isPending}>
-                {declinePick.isPending ? 'Declining...' : 'Decline'}
-            </Button>
+        <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+                <Button size="sm" variant="default" onClick={() => acceptPick.mutate(group.id)} disabled={acceptPick.isPending}>
+                    {acceptPick.isPending ? 'Accepting...' : 'Accept'}
+                </Button>
+                <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => declinePick.mutate(group.id)}
+                    disabled={declinePick.isPending}
+                    title="A declining team is out of alliance selection for the rest of the event"
+                >
+                    {declinePick.isPending ? 'Declining...' : 'Decline'}
+                </Button>
+            </div>
+            <ApiError error={acceptPick.error ?? declinePick.error} />
         </div>
     );
 }
@@ -229,9 +266,12 @@ function SeriesCard({ series }: { series: EliminationSeries }) {
 }
 
 export default function AllianceSelectionPage() {
+    useAllianceSelectionEcho();
+
     const [numberOfAlliances, setNumberOfAlliances] = useState<string>('2');
-    const { data: rankings = [], isLoading: rankingsLoading } = useAllianceSelectionRankings();
-    const { data: groups = [], isLoading: groupsLoading } = useAllianceGroups(3000);
+    const { data: rankings = [], isLoading: rankingsLoading } = useAllianceSelectionRankings(30000);
+    const { data: groups = [], isLoading: groupsLoading } = useAllianceGroups(15000);
+    const { data: declinedTeams = [] } = useDeclinedTeams();
     const { data: bracket } = useEliminationBracket(3000);
     const startSelection = useStartAllianceSelection();
     const resetSelection = useResetAllianceSelection();
@@ -241,6 +281,10 @@ export default function AllianceSelectionPage() {
     const hasGroups = groups.length > 0;
     const allPicked = hasGroups && groups.every((g) => g.picked_team !== null);
     const hasBracket = bracket && bracket.series.length > 0;
+
+    // Picking runs strictly in seed order — only the alliance on the clock may invite.
+    const currentPickGroupId = groups.find((g) => g.picked_team === null)?.id ?? null;
+    const maxAlliances = rankings.length >= 8 ? 8 : rankings.length >= 4 ? 4 : 2;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -304,8 +348,13 @@ export default function AllianceSelectionPage() {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="2">2 Alliances</SelectItem>
-                                            <SelectItem value="4">4 Alliances</SelectItem>
+                                            {[2, 4, 8]
+                                                .filter((count) => count <= maxAlliances)
+                                                .map((count) => (
+                                                    <SelectItem key={count} value={String(count)}>
+                                                        {count} Alliances
+                                                    </SelectItem>
+                                                ))}
                                         </SelectContent>
                                     </Select>
                                     <Button
@@ -320,11 +369,16 @@ export default function AllianceSelectionPage() {
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => resetSelection.mutate()}
+                                    onClick={() => {
+                                        if (hasBracket && !confirm('Resetting alliance selection also deletes the elimination bracket and its matches. Continue?')) {
+                                            return;
+                                        }
+                                        resetSelection.mutate();
+                                    }}
                                     disabled={resetSelection.isPending}
                                 >
                                     <RotateCcw className="mr-1 h-4 w-4" />
-                                    Reset
+                                    {resetSelection.isPending ? 'Resetting...' : 'Reset'}
                                 </Button>
                             )}
                         </div>
@@ -368,9 +422,36 @@ export default function AllianceSelectionPage() {
                                         </div>
                                         {group.picked_team && <Badge>Complete</Badge>}
                                         {!group.picked_team && group.pending_team && <PendingActions group={group} />}
-                                        {!group.picked_team && !group.pending_team && <InviteTeamDialog group={group} />}
+                                        {!group.picked_team && !group.pending_team && group.id === currentPickGroupId && (
+                                            <InviteTeamDialog group={group} />
+                                        )}
+                                        {!group.picked_team && !group.pending_team && group.id !== currentPickGroupId && (
+                                            <Badge variant="outline">Waiting for earlier seeds</Badge>
+                                        )}
                                     </div>
                                 ))}
+
+                                {declinedTeams.length > 0 && (
+                                    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                                        <div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
+                                            <Ban className="h-4 w-4" />
+                                            Declined — out of selection
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {declinedTeams.map((team) => (
+                                                <Badge key={team.id} variant="outline">
+                                                    #{team.number} - {team.name}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {(startSelection.isError || resetSelection.isError) && (
+                            <div className="mt-4">
+                                <ApiError error={startSelection.error ?? resetSelection.error} />
                             </div>
                         )}
                     </CardContent>

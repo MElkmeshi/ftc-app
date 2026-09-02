@@ -1,13 +1,19 @@
 <?php
 
+use App\Enums\MatchStatus;
 use App\Http\Controllers\Api\AllianceSelectionController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\MatchController;
+use App\Http\Controllers\Api\ScoreController;
 use App\Http\Controllers\Api\ScoreTypeController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\TeamController;
+use App\Models\Alliance;
+use App\Models\CompetitionMatch;
+use App\Models\MatchAlliance;
+use App\Models\Team;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -39,8 +45,8 @@ Route::prefix('api')->group(function () {
     });
 
     Route::prefix('scores')->group(function () {
-        Route::post('/', [\App\Http\Controllers\Api\ScoreController::class, 'store']);
-        Route::delete('/{score}', [\App\Http\Controllers\Api\ScoreController::class, 'destroy']);
+        Route::post('/', [ScoreController::class, 'store']);
+        Route::delete('/{score}', [ScoreController::class, 'destroy']);
     });
 
     Route::prefix('teams')->group(function () {
@@ -68,14 +74,23 @@ Route::prefix('api')->group(function () {
 
     Route::prefix('alliance-selection')->group(function () {
         Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
-        Route::post('/start', [AllianceSelectionController::class, 'start']);
         Route::get('/groups', [AllianceSelectionController::class, 'groups']);
         Route::get('/available-teams', [AllianceSelectionController::class, 'availableTeams']);
-        Route::post('/invite', [AllianceSelectionController::class, 'invite']);
-        Route::post('/accept', [AllianceSelectionController::class, 'accept']);
-        Route::post('/decline', [AllianceSelectionController::class, 'decline']);
+        Route::get('/declined-teams', [AllianceSelectionController::class, 'declinedTeams']);
         Route::get('/status', [AllianceSelectionController::class, 'status']);
-        Route::delete('/reset', [AllianceSelectionController::class, 'reset']);
+
+        /**
+         * Reads stay open so the unauthenticated audience display can render.
+         * Anything that mutates the selection is operator-only — on a venue LAN
+         * an open reset endpoint is a footgun.
+         */
+        Route::middleware('auth')->group(function () {
+            Route::post('/start', [AllianceSelectionController::class, 'start']);
+            Route::post('/invite', [AllianceSelectionController::class, 'invite']);
+            Route::post('/accept', [AllianceSelectionController::class, 'accept']);
+            Route::post('/decline', [AllianceSelectionController::class, 'decline']);
+            Route::delete('/reset', [AllianceSelectionController::class, 'reset']);
+        });
     });
 
     Route::prefix('elimination')->group(function () {
@@ -111,29 +126,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
         return Inertia::render('dashboard', [
             'stats' => Inertia::defer(fn () => [
-                'total_teams' => \App\Models\Team::count(),
-                'total_matches' => \App\Models\CompetitionMatch::count(),
-                'completed_matches' => \App\Models\CompetitionMatch::where('status', \App\Enums\MatchStatus::COMPLETED)->count(),
-                'ongoing_match' => \App\Models\CompetitionMatch::query()
-                    ->where('status', \App\Enums\MatchStatus::ONGOING)
+                'total_teams' => Team::count(),
+                'total_matches' => CompetitionMatch::count(),
+                'completed_matches' => CompetitionMatch::where('status', MatchStatus::COMPLETED)->count(),
+                'ongoing_match' => CompetitionMatch::query()
+                    ->where('status', MatchStatus::ONGOING)
                     ->first(['id', 'number']),
             ]),
         ]);
     })->name('dashboard');
 
     Route::get('competition-matches', function () {
-        $matches = \App\Models\CompetitionMatch::query()
+        $matches = CompetitionMatch::query()
             ->with(['matchAlliances.team', 'matchAlliances.alliance'])
             ->orderBy('number')
             ->get();
 
-        $positions = \App\Models\MatchAlliance::select('alliance_id', 'alliance_pos')
+        $positions = MatchAlliance::select('alliance_id', 'alliance_pos')
             ->distinct()
             ->orderBy('alliance_id')
             ->orderBy('alliance_pos')
             ->get();
 
-        $allianceLabels = \App\Models\Alliance::pluck('color', 'id')->all();
+        $allianceLabels = Alliance::pluck('color', 'id')->all();
 
         return Inertia::render('matches/index', [
             'matches' => $matches,
@@ -184,7 +199,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('admin/competition-settings', function () {
         return Inertia::render('admin/competition-settings', [
-            'settings' => Inertia::defer(fn () => app(\App\Http\Controllers\Api\SettingsController::class)->getCompetitionSettings()->getData(true)),
+            'settings' => Inertia::defer(fn () => app(SettingsController::class)->getCompetitionSettings()->getData(true)),
         ]);
     })->name('admin.competition-settings');
 

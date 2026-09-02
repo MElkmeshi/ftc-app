@@ -12,7 +12,7 @@ class StartAllianceSelectionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'number_of_alliances' => ['required', 'integer', 'in:2,4'],
+            'number_of_alliances' => ['required', 'integer', 'in:2,4,8'],
         ];
     }
 }

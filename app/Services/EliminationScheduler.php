@@ -10,6 +10,7 @@ use App\Models\AllianceGroup;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
 use App\Models\MatchAlliance;
+use App\Models\Score;
 use Exception;
 use Illuminate\Support\Collection;
 
@@ -410,10 +411,10 @@ class EliminationScheduler
         // Delete elimination matches and their match_alliances
         $eliminationMatchIds = CompetitionMatch::elimination()->pluck('id');
 
-        \App\Models\Score::whereIn('match_id', $eliminationMatchIds)->forceDelete();
+        Score::whereIn('match_id', $eliminationMatchIds)->forceDelete();
         MatchAlliance::whereIn('match_id', $eliminationMatchIds)->forceDelete();
         CompetitionMatch::elimination()->forceDelete();
 
-        EliminationSeries::truncate();
+        EliminationSeries::query()->delete();
     }
 }
