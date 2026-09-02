@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type CompetitionMatch, type ScoreType, type ScoreUpdatedEvent } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { useEcho } from '@laravel/echo-react';
+import { useEchoPublic } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle, Minus, Plus, Trophy, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -227,7 +227,7 @@ export default function RefereeFoulsBoth() {
 
     // Another referee (or an admin correction) may score this same match concurrently --
     // pick up their changes instead of silently overwriting them with stale local data.
-    useEcho<ScoreUpdatedEvent>(match?.id ? `matches.${match.id}` : '', 'ScoreUpdated', () => {
+    useEchoPublic<ScoreUpdatedEvent>(match?.id ? `matches.${match.id}` : '', 'ScoreUpdated', () => {
         queryClient.invalidateQueries({ queryKey: ['matches', match?.id] });
     });
 

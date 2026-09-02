@@ -17,7 +17,7 @@ const echo = vi.hoisted(() => {
     };
 });
 
-vi.mock('@laravel/echo-react', () => ({ useEcho: echo.useEcho }));
+vi.mock('@laravel/echo-react', () => ({ useEchoPublic: echo.useEcho }));
 
 vi.mock('@/hooks/use-audio-engine', () => ({
     useAudioEngine: () => ({ playSound: vi.fn(), unlocked: true }),

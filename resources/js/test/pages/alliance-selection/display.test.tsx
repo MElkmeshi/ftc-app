@@ -18,7 +18,7 @@ const echo = vi.hoisted(() => {
     };
 });
 
-vi.mock('@laravel/echo-react', () => ({ useEcho: echo.useEcho }));
+vi.mock('@laravel/echo-react', () => ({ useEchoPublic: echo.useEcho }));
 
 const api = vi.hoisted(() => ({
     getAllianceSelectionRankings: vi.fn(async () => []),

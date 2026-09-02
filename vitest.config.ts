@@ -13,5 +13,7 @@ export default defineConfig({
         environment: 'jsdom',
         globals: true,
         setupFiles: ['./resources/js/test/setup.ts'],
+        // tests/e2e belongs to Playwright (`npm run test:e2e`), not jsdom.
+        include: ['resources/js/**/*.{test,spec}.{ts,tsx}'],
     },
 });

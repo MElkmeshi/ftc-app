@@ -6,7 +6,7 @@ import { formatTime, getAllianceScore, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type MatchPhase, type MatchStatusChangedEvent } from '@/types';
 import { Head } from '@inertiajs/react';
-import { useEcho } from '@laravel/echo-react';
+import { useEchoPublic } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Hand, Joystick, Radio, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -35,7 +35,7 @@ export default function MatchOverlay() {
     const { data: match } = useMatch(activeMatch?.id ?? null, 5000);
     const lastEndedMatchIdRef = useRef<number | null>(null);
 
-    useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
+    useEchoPublic<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
         queryClient.invalidateQueries({ queryKey: ['matches'] });
         queryClient.invalidateQueries({ queryKey: ['active-match'] });
 

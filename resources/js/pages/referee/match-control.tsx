@@ -7,7 +7,7 @@ import { determineWinner, formatTime, getAllianceMembers, getAllianceScore, getP
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type MatchStatusChangedEvent } from '@/types';
 import { Head } from '@inertiajs/react';
-import { useEcho } from '@laravel/echo-react';
+import { useEchoPublic } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -81,7 +81,7 @@ export default function MatchControl() {
     // Primary sync path: the server broadcasts every match-control action as it
     // happens, carrying the full match (final scores included on 'ended'), so the
     // client never needs to poll or guess at state — it just applies the event.
-    useEcho<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
+    useEchoPublic<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
         queryClient.invalidateQueries({ queryKey: ['matches'] });
         queryClient.invalidateQueries({ queryKey: ['active-match'] });
 

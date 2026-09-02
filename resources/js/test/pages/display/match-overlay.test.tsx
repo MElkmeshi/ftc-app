@@ -17,7 +17,7 @@ const echo = vi.hoisted(() => {
     };
 });
 
-vi.mock('@laravel/echo-react', () => ({ useEcho: echo.useEcho }));
+vi.mock('@laravel/echo-react', () => ({ useEchoPublic: echo.useEcho }));
 
 vi.mock('@/hooks/use-match-config', () => ({
     useMatchConfig: () => ({ config: { timing: TEST_TIMING, sounds: { enabled: false, files: {} } }, loading: false, error: null }),

@@ -27,3 +27,9 @@ laradumps.yaml
 /.claude
 /FTCLive
 /storage/reverb-tls
+
+# Playwright
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
