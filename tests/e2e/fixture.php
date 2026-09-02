@@ -40,13 +40,20 @@ function cleanup(): void
         ->pluck('id');
 
     AllianceSelectionDecline::query()->delete();
-    EliminationSeries::query()->delete();
 
+    /**
+     * Order matters: matches reference elimination_series, and match_alliances
+     * reference alliance_groups. Unwind from the leaves inwards or SQLite's
+     * foreign keys reject the delete.
+     */
     $elimMatchIds = CompetitionMatch::withTrashed()->where('type', MatchType::ELIMINATION)->pluck('id');
     Score::whereIn('match_id', $elimMatchIds)->forceDelete();
     MatchAlliance::withTrashed()->whereIn('match_id', $elimMatchIds)->forceDelete();
     CompetitionMatch::withTrashed()->where('type', MatchType::ELIMINATION)->forceDelete();
 
+    EliminationSeries::query()->delete();
+
+    MatchAlliance::withTrashed()->whereNotNull('alliance_group_id')->update(['alliance_group_id' => null]);
     AllianceGroup::query()->delete();
 
     Score::whereIn('match_id', $matchIds)->forceDelete();
@@ -62,8 +69,11 @@ function seed(): void
 
     $operator = User::firstOrCreate(
         ['email' => E2E_EMAIL],
-        ['name' => 'Playwright Operator', 'password' => bcrypt(E2E_PASSWORD), 'email_verified_at' => now()],
+        ['name' => 'Playwright Operator', 'password' => bcrypt(E2E_PASSWORD)],
     );
+
+    /** `email_verified_at` isn't mass-assignable, so it has to be forced on. */
+    $operator->forceFill(['email_verified_at' => now()])->save();
 
     $teams = collect(E2E_TEAM_NUMBERS)->map(fn (int $number) => Team::create([
         'number' => $number,
