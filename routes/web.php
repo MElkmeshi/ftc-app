@@ -1,11 +1,17 @@
 <?php
 
 use App\Enums\MatchStatus;
+use App\Events\AllianceSelectionUpdated;
+use App\Events\EliminationBracketUpdated;
+use App\Events\MatchStatusChanged;
+use App\Events\ScoreUpdated;
 use App\Http\Controllers\Api\SettingsController;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\MatchAlliance;
 use App\Models\Team;
+use App\Services\AllianceSelectionService;
+use App\Services\EliminationScheduler;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -23,12 +29,23 @@ Route::get('alliance-selection/display', function () {
     return Inertia::render('alliance-selection/display');
 })->name('alliance-selection.display');
 
-Route::get('elimination/bracket', function () {
-    return Inertia::render('elimination/bracket');
+Route::get('elimination/bracket', function (EliminationScheduler $scheduler) {
+    return Inertia::render('elimination/bracket', [
+        'bracket' => Inertia::live(fn () => $scheduler->getBracket(), on: EliminationBracketUpdated::class)
+            ->live(on: [MatchStatusChanged::class, ScoreUpdated::class], channel: 'match-control')
+            ->live(on: AllianceSelectionUpdated::class, channel: 'alliance-selection'),
+    ]);
 })->name('elimination.bracket');
 
-Route::get('referee/display', function () {
-    return Inertia::render('referee/display');
+Route::get('referee/display', function (AllianceSelectionService $selection) {
+    return Inertia::render('referee/display', [
+        'rankings' => Inertia::live(
+            fn () => $selection->getRankings(),
+            on: [MatchStatusChanged::class, ScoreUpdated::class],
+            channel: 'match-control',
+            throttle: 3000,
+        ),
+    ]);
 })->name('referee.display');
 
 Route::get('display/match-overlay', function () {
@@ -45,7 +62,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 'ongoing_match' => CompetitionMatch::query()
                     ->where('status', MatchStatus::ONGOING)
                     ->first(['id', 'number']),
-            ]),
+            ])->live(on: MatchStatusChanged::class, channel: 'match-control', throttle: 3000),
         ]);
     })->name('dashboard');
 

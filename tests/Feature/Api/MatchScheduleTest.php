@@ -1,5 +1,6 @@
 <?php
 
+use App\Events\EliminationBracketUpdated;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\MatchAlliance;
@@ -9,6 +10,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\AllianceSelectionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 
 uses(RefreshDatabase::class);
 
@@ -72,6 +74,7 @@ it('returns error when no teams exist', function () {
 });
 
 it('deletes all matches and related data', function () {
+    Event::fake([EliminationBracketUpdated::class]);
     $team1 = Team::factory()->create();
     $team2 = Team::factory()->create();
 
@@ -92,6 +95,7 @@ it('deletes all matches and related data', function () {
     expect(CompetitionMatch::count())->toBe(0);
     expect(MatchAlliance::count())->toBe(0);
     expect(Score::count())->toBe(0);
+    Event::assertDispatched(EliminationBracketUpdated::class);
 });
 
 it('returns dashboard stats', function () {

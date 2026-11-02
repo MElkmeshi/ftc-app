@@ -8,7 +8,7 @@
     "require": {
         "php": "^8.2",
         "dyrynda/laravel-cascade-soft-deletes": "dev-l13-compatibility",
-        "inertiajs/inertia-laravel": "^3.0@beta",
+        "inertiajs/inertia-laravel": "^3.7",
         "laravel/framework": "^13.0",
         "laravel/reverb": "^1.0",
         "laravel/telescope": "^5.7",

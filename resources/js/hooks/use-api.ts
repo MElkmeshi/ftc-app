@@ -1,4 +1,14 @@
-import { AllianceGroup, AllianceSelectionStatus, CompetitionMatch, DashboardStats, EliminationBracket, Group, ScoreType, Team, TeamDisplay } from '@/types';
+import {
+    AllianceGroup,
+    AllianceSelectionStatus,
+    CompetitionMatch,
+    DashboardStats,
+    EliminationBracket,
+    Group,
+    ScoreType,
+    Team,
+    TeamDisplay,
+} from '@/types';
 import { http } from '@inertiajs/react';
 import { useCallback } from 'react';
 
@@ -62,10 +72,6 @@ export const useApi = () => {
 
     const deleteScore = useCallback(async (scoreId: number) => {
         return del<{ match: CompetitionMatch }>(`/api/scores/${scoreId}`);
-    }, []);
-
-    const getTeamsDisplay = useCallback(async (): Promise<TeamDisplay[]> => {
-        return get('/api/matches/teams-display');
     }, []);
 
     const loadMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
@@ -133,12 +139,9 @@ export const useApi = () => {
         return post('/api/groups', data);
     }, []);
 
-    const updateGroup = useCallback(
-        async (id: number, data: { name: string; description: string | null; display_order: number }): Promise<Group> => {
-            return put(`/api/groups/${id}`, data);
-        },
-        [],
-    );
+    const updateGroup = useCallback(async (id: number, data: { name: string; description: string | null; display_order: number }): Promise<Group> => {
+        return put(`/api/groups/${id}`, data);
+    }, []);
 
     const deleteGroup = useCallback(async (id: number): Promise<void> => {
         await del(`/api/groups/${id}`);
@@ -228,7 +231,6 @@ export const useApi = () => {
         getScoreTypes,
         addScore,
         deleteScore,
-        getTeamsDisplay,
         loadMatch,
         getLoadedMatch,
         startMatch,

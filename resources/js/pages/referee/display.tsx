@@ -1,23 +1,13 @@
-import { useTeamsDisplay } from '@/hooks/use-match';
 import { getAllianceColorClasses } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
-import { Head } from '@inertiajs/react';
+import { type TeamDisplay } from '@/types';
+import { Head, useProp } from '@inertiajs/react';
 import { Trophy } from 'lucide-react';
 
 export default function RefereeDisplay() {
-    const { data: teams = [], isLoading } = useTeamsDisplay(3000);
-
-    if (isLoading) {
-        return (
-            <div className="flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-                <Head title="Teams Display" />
-                <div className="text-center">
-                    <div className="mb-4 inline-block h-16 w-16 animate-spin rounded-full border-8 border-solid border-white border-r-transparent motion-reduce:animate-[spin_1.5s_linear_infinite]" />
-                    <p className="text-2xl text-white">Loading teams...</p>
-                </div>
-            </div>
-        );
-    }
+    // Live prop: the server reloads it when a match ends or a score changes
+    // (see routes/web.php), so there's no polling here.
+    const { value: teams = [] } = useProp<TeamDisplay[]>('rankings');
 
     if (teams.length === 0) {
         return (

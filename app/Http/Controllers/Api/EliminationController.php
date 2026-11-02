@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\EliminationBracketUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\EliminationSeries;
 use App\Services\EliminationScheduler;
@@ -19,6 +20,8 @@ class EliminationController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        broadcast(new EliminationBracketUpdated);
+
         return response()->json(['message' => 'Elimination bracket generated successfully.']);
     }
 
@@ -34,6 +37,8 @@ class EliminationController extends Controller
         if ($winner) {
             // Try to advance bracket (for semifinal -> final)
             $this->scheduler->advanceBracket($series, auth()->id() ?? 1);
+
+            broadcast(new EliminationBracketUpdated);
 
             return response()->json([
                 'winner' => $winner->load(['captainTeam', 'pickedTeam']),
@@ -62,12 +67,16 @@ class EliminationController extends Controller
 
         $match->load(['matchAlliances.team', 'matchAlliances.alliance']);
 
+        broadcast(new EliminationBracketUpdated);
+
         return response()->json($match);
     }
 
     public function reset(): JsonResponse
     {
         $this->scheduler->reset();
+
+        broadcast(new EliminationBracketUpdated);
 
         return response()->json(['message' => 'Elimination data reset successfully.']);
     }

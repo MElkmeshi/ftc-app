@@ -258,3 +258,9 @@ it('retains alliance point snapshots including zero and negative values', functi
     $this->deleteJson('/api/scores/'.$scoreId)->assertSuccessful();
     expect($this->matchAlliance->fresh()->score)->toBe(0);
 })->with([0, -10]);
+
+it('broadcasts score updates on the match channel and the match-control channel', function () {
+    $channels = collect((new ScoreUpdated($this->match))->broadcastOn())->map->name->all();
+
+    expect($channels)->toBe(['matches.'.$this->match->id, 'match-control']);
+});

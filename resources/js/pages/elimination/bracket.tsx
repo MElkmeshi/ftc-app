@@ -1,8 +1,7 @@
-import { useEliminationBracket } from '@/hooks/use-elimination';
 import { getAllianceScore } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
-import { type EliminationSeries } from '@/types';
-import { Head } from '@inertiajs/react';
+import { type EliminationBracket, type EliminationSeries } from '@/types';
+import { Head, useProp } from '@inertiajs/react';
 import { Swords, Trophy } from 'lucide-react';
 import { memo, useMemo } from 'react';
 
@@ -35,9 +34,7 @@ const SeriesBox = memo(function SeriesBox({ series }: { series: EliminationSerie
                 <span
                     className={cn(
                         'rounded-full px-4 py-1 text-lg font-bold',
-                        series.round === 'final' || series.round === 'tiebreaker_final'
-                            ? 'bg-yellow-400 text-slate-900'
-                            : 'bg-white/20 text-white',
+                        series.round === 'final' || series.round === 'tiebreaker_final' ? 'bg-yellow-400 text-slate-900' : 'bg-white/20 text-white',
                     )}
                 >
                     {getRoundLabel(series.round)}
@@ -126,29 +123,20 @@ const SeriesBox = memo(function SeriesBox({ series }: { series: EliminationSerie
                         return (
                             <div
                                 key={match.id}
-                                className={cn(
-                                    'flex items-center justify-between rounded-lg px-4 py-2',
-                                    isComplete ? 'bg-white/10' : 'bg-white/5',
-                                )}
+                                className={cn('flex items-center justify-between rounded-lg px-4 py-2', isComplete ? 'bg-white/10' : 'bg-white/5')}
                             >
                                 <span className="text-sm text-white/60">
                                     M#{match.number} {isTiebreaker ? '(TB)' : ''}
                                 </span>
                                 <div className="flex items-center gap-3">
                                     <span
-                                        className={cn(
-                                            'text-lg font-bold',
-                                            isComplete && redScore > blueScore ? 'text-red-400' : 'text-red-400/60',
-                                        )}
+                                        className={cn('text-lg font-bold', isComplete && redScore > blueScore ? 'text-red-400' : 'text-red-400/60')}
                                     >
                                         {redScore}
                                     </span>
                                     <span className="text-white/30">-</span>
                                     <span
-                                        className={cn(
-                                            'text-lg font-bold',
-                                            isComplete && blueScore > redScore ? 'text-blue-400' : 'text-blue-400/60',
-                                        )}
+                                        className={cn('text-lg font-bold', isComplete && blueScore > redScore ? 'text-blue-400' : 'text-blue-400/60')}
                                     >
                                         {blueScore}
                                     </span>
@@ -159,8 +147,8 @@ const SeriesBox = memo(function SeriesBox({ series }: { series: EliminationSerie
                                         isComplete
                                             ? 'bg-green-500/20 text-green-400'
                                             : match.status === 'ongoing'
-                                                ? 'bg-yellow-500/20 text-yellow-400'
-                                                : 'bg-white/10 text-white/50',
+                                              ? 'bg-yellow-500/20 text-yellow-400'
+                                              : 'bg-white/10 text-white/50',
                                     )}
                                 >
                                     {match.status}
@@ -175,28 +163,16 @@ const SeriesBox = memo(function SeriesBox({ series }: { series: EliminationSerie
 });
 
 export default function EliminationBracketDisplay() {
-    const { data: bracket, isLoading } = useEliminationBracket(3000);
+    // Live prop: the server reloads it whenever the bracket, a match status, or a
+    // score changes (see routes/web.php), so there's no polling here.
+    const { value: bracket } = useProp<EliminationBracket>('bracket');
 
     // Hooks must run unconditionally on every render -- compute these before the
-    // early returns below instead of after them (a prior version called useMemo
-    // after early returns, which changes the hook-call order across renders and
-    // crashes React the first time isLoading flips from true to false).
+    // early return below instead of after it.
     const series = useMemo(() => bracket?.series ?? [], [bracket]);
     const semifinals = useMemo(() => series.filter((s) => s.round === 'semifinal_1' || s.round === 'semifinal_2'), [series]);
     const finals = useMemo(() => series.filter((s) => s.round === 'final' || s.round === 'tiebreaker_final'), [series]);
     const overallWinner = useMemo(() => series.find((s) => s.round === 'final')?.winner, [series]);
-
-    if (isLoading) {
-        return (
-            <div className="flex h-screen w-screen items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-                <Head title="Elimination Bracket" />
-                <div className="text-center">
-                    <div className="mb-4 inline-block h-16 w-16 animate-spin rounded-full border-8 border-solid border-white border-r-transparent" />
-                    <p className="text-2xl text-white">Loading bracket...</p>
-                </div>
-            </div>
-        );
-    }
 
     if (!bracket || bracket.series.length === 0) {
         return (
@@ -229,8 +205,8 @@ export default function EliminationBracketDisplay() {
                             <div className="mt-4 inline-flex items-center gap-3 rounded-2xl border-2 border-yellow-400 bg-yellow-400/20 px-8 py-4">
                                 <Trophy className="h-10 w-10 text-yellow-400" />
                                 <span className="text-3xl font-bold text-yellow-400">
-                                    CHAMPION: Alliance #{overallWinner.seed} (#{overallWinner.captain_team.number} &{' '}
-                                    #{overallWinner.picked_team?.number})
+                                    CHAMPION: Alliance #{overallWinner.seed} (#{overallWinner.captain_team.number} & #
+                                    {overallWinner.picked_team?.number})
                                 </span>
                             </div>
                         )}
@@ -277,9 +253,7 @@ export default function EliminationBracketDisplay() {
 
                     {/* Footer */}
                     <div className="mt-8 text-center">
-                        <p className="text-lg text-white/40">
-                            {bracket.alliance_groups.length} alliances competing
-                        </p>
+                        <p className="text-lg text-white/40">{bracket.alliance_groups.length} alliances competing</p>
                     </div>
                 </div>
             </div>

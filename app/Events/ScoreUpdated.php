@@ -20,9 +20,18 @@ class ScoreUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
         $this->match = $match->loadMissing('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
     }
 
-    public function broadcastOn(): Channel
+    /**
+     * The match-control channel lets pages that aggregate every match (rankings,
+     * bracket) refresh their live props without knowing which match changed.
+     *
+     * @return array<Channel>
+     */
+    public function broadcastOn(): array
     {
-        return new Channel('matches.'.$this->match->id);
+        return [
+            new Channel('matches.'.$this->match->id),
+            new Channel('match-control'),
+        ];
     }
 
     public function broadcastWith(): array

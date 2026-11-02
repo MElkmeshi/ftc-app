@@ -248,12 +248,3 @@ export function useCancelMatch() {
         },
     });
 }
-
-export function useTeamsDisplay(refetchInterval?: number) {
-    const api = useApi();
-    return useQuery({
-        queryKey: ['teams-display'],
-        queryFn: api.getTeamsDisplay,
-        refetchInterval: refetchInterval || false,
-    });
-}

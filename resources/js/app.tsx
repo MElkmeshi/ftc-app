@@ -1,6 +1,7 @@
 import '../css/app.css';
 
 import { createInertiaApp } from '@inertiajs/react';
+import { echo } from '@inertiajs/react/echo';
 import { configureEcho } from '@laravel/echo-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
@@ -28,6 +29,7 @@ const queryClient = new QueryClient();
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
+    live: echo(),
     setup({ el, App, props }) {
         if (!el) {
             throw new Error('Target element for Inertia app not found');

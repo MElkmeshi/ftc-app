@@ -1,11 +1,13 @@
 <?php
 
+use App\Events\EliminationBracketUpdated;
 use App\Models\Alliance;
 use App\Models\AllianceGroup;
 use App\Models\EliminationSeries;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 
 uses(RefreshDatabase::class);
 
@@ -20,6 +22,7 @@ beforeEach(function () {
 });
 
 it('generates elimination bracket via API', function () {
+    Event::fake([EliminationBracketUpdated::class]);
     $teams = Team::factory()->count(4)->create();
 
     AllianceGroup::create([
@@ -42,6 +45,7 @@ it('generates elimination bracket via API', function () {
 
     $response->assertSuccessful();
     expect(EliminationSeries::count())->toBe(1);
+    Event::assertDispatchedTimes(EliminationBracketUpdated::class, 1);
 });
 
 it('returns elimination bracket via API', function () {
@@ -52,12 +56,15 @@ it('returns elimination bracket via API', function () {
 });
 
 it('rejects generating elimination without alliance groups', function () {
+    Event::fake([EliminationBracketUpdated::class]);
     $response = $this->postJson('/api/elimination/generate');
 
     $response->assertStatus(422);
+    Event::assertNotDispatched(EliminationBracketUpdated::class);
 });
 
 it('resets elimination data via API', function () {
+    Event::fake([EliminationBracketUpdated::class]);
     $teams = Team::factory()->count(4)->create();
 
     AllianceGroup::create([
@@ -82,4 +89,5 @@ it('resets elimination data via API', function () {
 
     $response->assertSuccessful();
     expect(EliminationSeries::count())->toBe(0);
+    Event::assertDispatchedTimes(EliminationBracketUpdated::class, 2);
 });

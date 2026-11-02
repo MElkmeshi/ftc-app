@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\MatchStatus;
+use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
 use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
@@ -218,6 +219,8 @@ class MatchController extends Controller
         } elseif ($driver === 'sqlite') {
             DB::statement('PRAGMA foreign_keys = ON;');
         }
+
+        broadcast(new EliminationBracketUpdated);
 
         return response()->json(['message' => 'All matches deleted successfully.']);
     }
