@@ -7,10 +7,8 @@ import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import { type BreadcrumbItem, type CompetitionMatch, type ScoreType, type ScoreUpdatedEvent } from '@/types';
+import { type BreadcrumbItem, type CompetitionMatch, type ScoreType } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { useEchoPublic } from '@laravel/echo-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle, Minus, Plus, Trophy, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -32,13 +30,13 @@ function getFoulTotal(match: CompetitionMatch, color: string): number {
     const teamIds = getTeamsForAlliance(match, color).map((ma) => ma.team.id);
     return (match.scores ?? [])
         .filter((s) => {
-            const pts = s.score_type?.points ?? 0;
+            const pts = s.points ?? s.score_type?.points ?? 0;
             if (pts >= 0) return false;
             if (!s.team_id && s.alliance_id === allianceId) return true;
             if (s.team_id) return teamIds.includes(s.team_id);
             return false;
         })
-        .reduce((sum, s) => sum + (s.score_type?.points ?? 0), 0);
+        .reduce((sum, s) => sum + (s.points ?? s.score_type?.points ?? 0), 0);
 }
 
 function getAllianceScoreTypeCount(match: CompetitionMatch, scoreTypeId: number, allianceId: number): number {
@@ -207,14 +205,13 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
 export default function RefereeFoulsBoth() {
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
-    const queryClient = useQueryClient();
     const addScore = useAddScore();
     const deleteScore = useDeleteScore();
     const endMatch = useEndMatch();
 
     const { data: matches = [] } = useMatches();
     const { activeMatch } = useActiveMatchTimer();
-    const { data: match, isLoading } = useMatch(selectedMatchId, 3000);
+    const { data: match, isLoading } = useMatch(selectedMatchId, 15000);
     const { data: scoreTypes = [] } = useScoreTypes();
 
     const ongoingMatches = matches.filter((m) => m.status === 'ongoing');
@@ -224,12 +221,6 @@ export default function RefereeFoulsBoth() {
             setSelectedMatchId(activeMatch.id);
         }
     }, [activeMatch, selectedMatchId]);
-
-    // Another referee (or an admin correction) may score this same match concurrently --
-    // pick up their changes instead of silently overwriting them with stale local data.
-    useEchoPublic<ScoreUpdatedEvent>(match?.id ? `matches.${match.id}` : '', 'ScoreUpdated', () => {
-        queryClient.invalidateQueries({ queryKey: ['matches', match?.id] });
-    });
 
     // Only negative-point score types, sorted into groups
     const foulGroups = (() => {

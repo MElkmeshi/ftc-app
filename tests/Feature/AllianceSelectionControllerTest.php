@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Event;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    User::factory()->create(['id' => 1]);
+    User::factory()->admin()->create(['id' => 1]);
 
     if (Alliance::count() < 2) {
         Alliance::create(['name' => 'Red Alliance', 'color' => 'red']);

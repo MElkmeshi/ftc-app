@@ -1,23 +1,19 @@
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
 import { getAllianceColorClasses } from '@/lib/match-utils';
-import { type ScoreUpdatedEvent } from '@/types';
-import { useEchoPublic } from '@laravel/echo-react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export function useScoringPage() {
     const [selectedAllianceId, setSelectedAllianceId] = useState<number | null>(null);
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
-    const queryClient = useQueryClient();
     const addScore = useAddScore();
     const deleteScore = useDeleteScore();
     const endMatch = useEndMatch();
 
     const { data: matches = [] } = useMatches();
     const { activeMatch } = useActiveMatchTimer();
-    const { data: match, isLoading } = useMatch(selectedMatchId, 3000);
+    const { data: match, isLoading } = useMatch(selectedMatchId, 15000);
     const { data: scoreTypes = [] } = useScoreTypes();
 
     const ongoingMatches = useMemo(() => matches.filter((m) => m.status === 'ongoing'), [matches]);
@@ -36,12 +32,6 @@ export function useScoringPage() {
             }
         }
     }, [match, selectedAllianceId, ongoingMatches.length]);
-
-    // Another referee (or an admin correction) may score this same match concurrently --
-    // pick up their changes instead of silently overwriting them with stale local data.
-    useEchoPublic<ScoreUpdatedEvent>(match?.id ? `matches.${match.id}` : '', 'ScoreUpdated', () => {
-        queryClient.invalidateQueries({ queryKey: ['matches', match?.id] });
-    });
 
     const selectedAlliance = match?.match_alliances.find((ma) => ma.alliance.id === selectedAllianceId);
     const teamsInAlliance = useMemo(
@@ -97,9 +87,7 @@ export function useScoringPage() {
         const matchScores = match?.scores ?? [];
         const index = new Map<string, (typeof matchScores)[number][]>();
         matchScores.forEach((score) => {
-            const key = score.team_id
-                ? `t_${score.score_type_id}_${score.team_id}`
-                : `a_${score.score_type_id}_${score.alliance_id}`;
+            const key = score.team_id ? `t_${score.score_type_id}_${score.team_id}` : `a_${score.score_type_id}_${score.alliance_id}`;
             const arr = index.get(key);
             if (arr) {
                 arr.push(score);
@@ -115,7 +103,7 @@ export function useScoringPage() {
         const teamTotal = teamsInAlliance.reduce((sum, ma) => sum + ma.score, 0);
         const allianceTotal = (match?.scores ?? [])
             .filter((s) => s.alliance_id === selectedAllianceId && !s.team_id)
-            .reduce((sum, s) => sum + (s.score_type?.points ?? 0), 0);
+            .reduce((sum, s) => sum + (s.points ?? s.score_type?.points ?? 0), 0);
         return teamTotal + allianceTotal;
     }, [teamsInAlliance, match, selectedAllianceId]);
 
@@ -138,9 +126,7 @@ export function useScoringPage() {
     const getLatestScoreId = useCallback(
         (scoreTypeId: number, options: { allianceId?: number; teamId?: number }) => {
             if (!match) return null;
-            const key = options.teamId
-                ? `t_${scoreTypeId}_${options.teamId}`
-                : `a_${scoreTypeId}_${options.allianceId}`;
+            const key = options.teamId ? `t_${scoreTypeId}_${options.teamId}` : `a_${scoreTypeId}_${options.allianceId}`;
             return scoresIndex.get(key)?.[0]?.id ?? null;
         },
         [match, scoresIndex],

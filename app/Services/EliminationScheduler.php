@@ -214,25 +214,12 @@ class EliminationScheduler
     {
         $scoreByGroup = [];
 
-        foreach ($match->matchAlliances as $ma) {
-            $groupId = $ma->alliance_group_id;
-            if (! $groupId) {
-                continue;
-            }
-
-            if (! isset($scoreByGroup[$groupId])) {
-                $scoreByGroup[$groupId] = 0;
-            }
-
-            $scoreByGroup[$groupId] += $ma->score;
-
-            // Add alliance-wide scores
-            $allianceWideScore = $match->scores
-                ->where('alliance_id', $ma->alliance_id)
+        foreach ($match->matchAlliances->whereNotNull('alliance_group_id')->groupBy('alliance_group_id') as $groupId => $members) {
+            $allianceIds = $members->pluck('alliance_id')->unique();
+            $scoreByGroup[$groupId] = $members->sum('score') + $match->scores
+                ->whereIn('alliance_id', $allianceIds)
                 ->whereNull('team_id')
-                ->sum(fn ($score) => $score->scoreType->points ?? 0);
-
-            $scoreByGroup[$groupId] += $allianceWideScore;
+                ->sum('points');
         }
 
         $group1Score = $scoreByGroup[$series->alliance_group_1_id] ?? 0;

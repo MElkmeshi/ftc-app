@@ -20,8 +20,8 @@ interface UseActiveMatchTimerOptions {
 export function useActiveMatchTimer(options: UseActiveMatchTimerOptions = {}) {
     const { playSound, onMatchEnd, resetOnIdle = false } = options;
 
-    const { data: activeMatch } = useActiveMatch(500);
-    const { data: matches = [] } = useMatches(500);
+    const { data: activeMatch } = useActiveMatch(15000);
+    const { data: matches = [] } = useMatches(15000);
     const { config: matchConfig } = useMatchConfig();
 
     const lastStartedMatchIdRef = useRef<number | null>(null);
@@ -31,9 +31,7 @@ export function useActiveMatchTimer(options: UseActiveMatchTimerOptions = {}) {
 
     useEffect(() => {
         if (activeMatch && activeMatch.status === 'ongoing' && activeMatch.started_at) {
-            const isNewStart =
-                lastStartedMatchIdRef.current !== activeMatch.id ||
-                lastStartedAtRef.current !== activeMatch.started_at;
+            const isNewStart = lastStartedMatchIdRef.current !== activeMatch.id || lastStartedAtRef.current !== activeMatch.started_at;
 
             if (!timer.isRunning && isNewStart) {
                 timer.resumeFrom(activeMatch.started_at, activeMatch.duration_ms ?? undefined);

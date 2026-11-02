@@ -4,98 +4,80 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreScoreRequest;
 use App\Models\CompetitionMatch;
 use App\Models\Score;
 use App\Models\ScoreType;
-use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class ScoreController extends Controller
 {
-    public function index()
+    public function store(StoreScoreRequest $request): JsonResponse
     {
-        $scoreTypes = ScoreType::with('group')
-            ->orderBy('group_id')
-            ->orderBy('name')
-            ->get();
+        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request): CompetitionMatch {
+            $validated = $request->validated();
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($validated['match_id']);
+            $scoreType = ScoreType::query()->findOrFail($validated['score_type_id']);
+            $teamId = $validated['team_id'] ?? null;
+            $allianceId = $validated['alliance_id'] ?? null;
+            $target = $teamId !== null ? 'team' : 'alliance';
 
-        return response()->json($scoreTypes);
-    }
-
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'match_id' => 'required|exists:matches,id',
-            'team_id' => 'nullable|exists:teams,id|required_without:alliance_id',
-            'alliance_id' => 'nullable|exists:alliances,id|required_without:team_id',
-            'score_type_id' => 'required|exists:score_types,id',
-        ]);
-
-        // Load the match with relationships once
-        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance'])
-            ->findOrFail($validated['match_id']);
-
-        $scoreType = ScoreType::findOrFail($validated['score_type_id']);
-
-        // Create the score record (team_id will be null for alliance-wide scores)
-        Score::create([
-            'match_id' => $validated['match_id'],
-            'team_id' => $validated['team_id'] ?? null,
-            'alliance_id' => $validated['alliance_id'] ?? null,
-            'score_type_id' => $validated['score_type_id'],
-            'created_by' => auth()->id() ?? 1,
-        ]);
-
-        // Only update match_alliances score for team-specific scores
-        if (isset($validated['team_id'])) {
-            $matchAlliance = $match->matchAlliances->firstWhere('team_id', $validated['team_id']);
-            if ($matchAlliance) {
-                $matchAlliance->score += $scoreType->points;
-                $matchAlliance->save();
+            if ($scoreType->target->value !== $target) {
+                throw ValidationException::withMessages(['score_type_id' => 'This score type does not apply to the selected target.']);
             }
-        }
-        // Alliance-wide scores are stored in the scores table only, not added to team scores
 
-        // Reload the match with fresh data including scores
-        $match->refresh();
-        $match->load(['matchAlliances.team', 'matchAlliances.alliance']);
+            $matchAlliance = $match->matchAlliances()
+                ->where($target === 'team' ? 'team_id' : 'alliance_id', $teamId ?? $allianceId)
+                ->first();
 
-        // Broadcast the update asynchronously
+            if (! $matchAlliance) {
+                throw ValidationException::withMessages([$target.'_id' => 'The selected target is not assigned to this match.']);
+            }
+
+            $match->scores()->create([
+                'team_id' => $teamId,
+                'alliance_id' => $matchAlliance->alliance_id,
+                'score_type_id' => $scoreType->id,
+                'points' => $scoreType->points,
+                'created_by' => $request->user()->id,
+            ]);
+
+            if ($teamId !== null) {
+                $matchAlliance->increment('score', $scoreType->points);
+            }
+
+            return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+        }, 3);
+
         broadcast(new ScoreUpdated($match))->toOthers();
 
-        return response()->json([
-            'match' => $match,
-        ], 201);
+        return response()->json(['match' => $match], 201);
     }
 
-    public function destroy(Score $score)
+    public function destroy(Score $score): JsonResponse
     {
-        // Load the match with relationships
-        $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance'])
-            ->findOrFail($score->match_id);
+        $match = $score->getConnection()->transaction(function () use ($score): CompetitionMatch {
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($score->match_id);
+            $currentScore = $match->scores()->lockForUpdate()->findOrFail($score->id);
 
-        $scoreType = $score->scoreType;
-
-        // If it's a team-specific score, update the match_alliance score
-        if ($score->team_id) {
-            $matchAlliance = $match->matchAlliances->firstWhere('team_id', $score->team_id);
-            if ($matchAlliance) {
-                $matchAlliance->score -= $scoreType->points;
-                $matchAlliance->save();
+            if ($currentScore->score_type_id === null) {
+                Gate::authorize('control-matches');
             }
-        }
 
-        // Delete the score record
-        $score->delete();
+            if ($currentScore->team_id !== null) {
+                $match->matchAlliances()->where('team_id', $currentScore->team_id)
+                    ->decrement('score', $currentScore->points);
+            }
 
-        // Reload the match with fresh data
-        $match->refresh();
-        $match->load(['matchAlliances.team', 'matchAlliances.alliance']);
+            $currentScore->delete();
 
-        // Broadcast the update asynchronously
+            return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+        }, 3);
+
         broadcast(new ScoreUpdated($match))->toOthers();
 
-        return response()->json([
-            'match' => $match,
-        ], 200);
+        return response()->json(['match' => $match]);
     }
 }

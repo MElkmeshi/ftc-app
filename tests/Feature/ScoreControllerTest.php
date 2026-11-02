@@ -2,20 +2,24 @@
 
 use App\Enums\MatchStatus;
 use App\Enums\MatchType;
+use App\Enums\UserRole;
 use App\Events\ScoreUpdated;
+use App\Http\Controllers\Api\ScoreController;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\MatchAlliance;
+use App\Models\Score;
 use App\Models\ScoreType;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    User::factory()->create(['id' => 1]);
+    User::factory()->admin()->create(['id' => 1]);
     $this->actingAs(User::find(1));
 
     $this->red = Alliance::create(['name' => 'Red Alliance', 'color' => 'red']);
@@ -43,7 +47,7 @@ beforeEach(function () {
         'updated_by' => 1,
     ]);
 
-    $this->scoreType = ScoreType::factory()->create(['points' => 10]);
+    $this->scoreType = ScoreType::factory()->create(['points' => 10, 'target' => 'team']);
 });
 
 it('adds a team score and broadcasts the updated match', function () {
@@ -67,6 +71,7 @@ it('adds a team score and broadcasts the updated match', function () {
 
 it('adds an alliance-wide score without affecting team scores', function () {
     Event::fake();
+    $this->scoreType->update(['target' => 'alliance']);
 
     $this->postJson('/api/scores', [
         'match_id' => $this->match->id,
@@ -104,3 +109,152 @@ it('deletes a team score and subtracts its points back off the alliance', functi
 
     Event::assertDispatched(ScoreUpdated::class);
 });
+
+it('preserves awarded points when a score type changes and undo uses the snapshot', function () {
+    $scoreId = $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertCreated()->json('match.scores.0.id');
+    $this->scoreType->update(['points' => 25]);
+
+    $this->getJson('/api/matches/'.$this->match->id)->assertJsonPath('scores.0.points', 10);
+    $this->deleteJson('/api/scores/'.$scoreId)->assertSuccessful();
+    expect($this->matchAlliance->fresh()->score)->toBe(0);
+});
+
+it('rejects scores for teams and alliances outside the match', function () {
+    $otherTeam = Team::factory()->create();
+    $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $otherTeam->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertUnprocessable()->assertJsonValidationErrors('team_id');
+
+    $this->scoreType->update(['target' => 'alliance']);
+    $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'alliance_id' => $this->blue->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertUnprocessable()->assertJsonValidationErrors('alliance_id');
+    expect($this->match->scores()->count())->toBe(0);
+});
+
+it('rejects ambiguous targets and mismatched score types', function () {
+    $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'alliance_id' => $this->red->id,
+        'score_type_id' => $this->scoreType->id,
+    ])->assertUnprocessable();
+    $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'alliance_id' => $this->red->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertUnprocessable()->assertJsonValidationErrors('score_type_id');
+});
+
+it('rolls back score history when the total update fails', function () {
+    Event::listen('eloquent.updating: '.MatchAlliance::class, function (): void {
+        throw new RuntimeException('Simulated write failure');
+    });
+    $this->withoutExceptionHandling();
+
+    try {
+        $this->postJson('/api/scores', [
+            'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,
+        ]);
+        $this->fail('The simulated write failure must be raised.');
+    } catch (RuntimeException $exception) {
+        expect($exception->getMessage())->toBe('Simulated write failure');
+    }
+
+    expect($this->match->scores()->count())->toBe(0);
+    expect($this->matchAlliance->fresh()->score)->toBe(0);
+});
+
+it('does not subtract twice when deletion receives a stale score model', function () {
+    $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertCreated();
+    $score = $this->match->scores()->firstOrFail();
+    $controller = app(ScoreController::class);
+    $controller->destroy($score);
+
+    expect(fn () => $controller->destroy($score))->toThrow(ModelNotFoundException::class);
+    expect($this->matchAlliance->fresh()->score)->toBe(0);
+});
+
+it('records manual corrections and keeps subsequent score additions and undo consistent', function () {
+    $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertCreated();
+    $this->postJson('/api/matches/'.$this->match->id.'/update-score', [
+        'match_alliances' => [['id' => $this->matchAlliance->id, 'score' => 17]],
+    ])->assertSuccessful()->assertJsonPath('match_alliances.0.score', 17);
+    $correction = $this->match->scores()->whereNull('score_type_id')->firstOrFail();
+    expect($correction->points)->toBe(7);
+    expect((int) $this->match->scores()->sum('points'))->toBe(17);
+
+    $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertCreated()->assertJsonPath('match.match_alliances.0.score', 27);
+    $this->deleteJson('/api/scores/'.$correction->id)->assertSuccessful();
+    expect($this->matchAlliance->fresh()->score)->toBe(20);
+    expect((int) $this->match->scores()->sum('points'))->toBe(20);
+});
+
+it('validates manual corrections before applying any of them', function () {
+    $this->postJson('/api/matches/'.$this->match->id.'/update-score', [
+        'match_alliances' => [['id' => $this->matchAlliance->id, 'score' => 50], ['id' => 99999, 'score' => 10]],
+    ])->assertUnprocessable();
+    expect($this->matchAlliance->fresh()->score)->toBe(0);
+    expect($this->match->scores()->count())->toBe(0);
+});
+
+it('broadcasts the complete score history and score types', function () {
+    Event::fake([ScoreUpdated::class]);
+    $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertCreated()->assertJsonPath('match.scores.0.points', 10);
+
+    Event::assertDispatched(ScoreUpdated::class, function (ScoreUpdated $event): bool {
+        $payload = $event->broadcastWith()['match']->toArray();
+
+        return $payload['scores'][0]['points'] === 10 && $payload['scores'][0]['score_type']['id'] === $this->scoreType->id;
+    });
+});
+
+it('rolls back the total when deleting a score fails', function () {
+    $scoreId = $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertCreated()->json('match.scores.0.id');
+    Event::listen('eloquent.deleting: '.Score::class, function (): void {
+        throw new RuntimeException('Simulated delete failure');
+    });
+    $this->withoutExceptionHandling();
+    try {
+        $this->deleteJson('/api/scores/'.$scoreId);
+        $this->fail('The simulated delete failure must be raised.');
+    } catch (RuntimeException $exception) {
+        expect($exception->getMessage())->toBe('Simulated delete failure');
+    }
+    expect($this->matchAlliance->fresh()->score)->toBe(10);
+    expect($this->match->scores()->count())->toBe(1);
+});
+
+it('allows referees to undo scoring actions but not manual corrections', function () {
+    $this->postJson('/api/matches/'.$this->match->id.'/update-score', [
+        'match_alliances' => [['id' => $this->matchAlliance->id, 'score' => 17]],
+    ])->assertSuccessful();
+    $correction = $this->match->scores()->firstOrFail();
+    $this->actingAs(User::factory()->create(['role' => UserRole::Referee]));
+    $this->deleteJson('/api/scores/'.$correction->id)->assertForbidden();
+    $scoreId = $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertCreated()->json('match.scores.1.id');
+    $this->deleteJson('/api/scores/'.$scoreId)->assertSuccessful();
+    expect($this->matchAlliance->fresh()->score)->toBe(17);
+});
+
+it('retains alliance point snapshots including zero and negative values', function (int $points) {
+    $this->scoreType->update(['points' => $points, 'target' => 'alliance']);
+    $scoreId = $this->postJson('/api/scores', [
+        'match_id' => $this->match->id, 'alliance_id' => $this->red->id, 'score_type_id' => $this->scoreType->id,
+    ])->assertCreated()->json('match.scores.0.id');
+    $this->scoreType->update(['points' => 100]);
+    $this->match->update(['status' => MatchStatus::COMPLETED]);
+    $this->getJson('/api/matches/teams-display')->assertJsonPath('0.alliance_score', $points);
+    $this->deleteJson('/api/scores/'.$scoreId)->assertSuccessful();
+    expect($this->matchAlliance->fresh()->score)->toBe(0);
+})->with([0, -10]);

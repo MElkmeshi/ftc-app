@@ -1,19 +1,50 @@
-import { CompetitionMatch, ScoreType } from '@/types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CompetitionMatch, MatchStatusChangedEvent, ScoreType, ScoreUpdatedEvent } from '@/types';
+import { useEchoPublic } from '@laravel/echo-react';
+import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
+
+async function cacheMatch(queryClient: QueryClient, match: CompetitionMatch) {
+    await Promise.all([
+        queryClient.cancelQueries({ queryKey: ['matches', match.id], exact: true }),
+        queryClient.cancelQueries({ queryKey: ['matches'], exact: true }),
+        queryClient.cancelQueries({ queryKey: ['active-match'], exact: true }),
+    ]);
+    queryClient.setQueryData(['matches', match.id], match);
+    queryClient.setQueryData<CompetitionMatch[]>(['matches'], (matches) => matches?.map((current) => (current.id === match.id ? match : current)));
+    queryClient.setQueryData<CompetitionMatch | null>(['active-match'], (current) => {
+        if (match.status === 'ongoing') return match;
+        return current?.id === match.id ? null : current;
+    });
+}
 
 export function useMatches(refetchInterval?: number) {
     const api = useApi();
+    const queryClient = useQueryClient();
+    useEchoPublic<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', ({ match, action }) => {
+        cacheMatch(queryClient, match);
+        if (action === 'loaded') {
+            queryClient.setQueryData(['loaded-match'], match);
+        } else if (action === 'started') {
+            queryClient.setQueryData(['loaded-match'], null);
+        }
+    });
     return useQuery<CompetitionMatch[]>({
         queryKey: ['matches'],
         queryFn: api.getMatches,
-        refetchInterval: refetchInterval || 500, // Poll every 500ms by default
+        refetchInterval: refetchInterval ?? 15000,
         refetchIntervalInBackground: true, // Keep polling even in background tabs (like FTC Live)
     });
 }
 
 export function useMatch(id: number | null, refetchInterval?: number) {
     const api = useApi();
+    const queryClient = useQueryClient();
+    useEchoPublic<ScoreUpdatedEvent>(id ? `matches.${id}` : '', 'ScoreUpdated', ({ match }) => {
+        if (match.id === id) cacheMatch(queryClient, match);
+    });
+    useEchoPublic<MatchStatusChangedEvent>(id ? `matches.${id}` : '', 'MatchStatusChanged', ({ match }) => {
+        if (match.id === id) cacheMatch(queryClient, match);
+    });
     return useQuery<CompetitionMatch>({
         queryKey: ['matches', id],
         queryFn: () => (id ? api.getMatch(id) : Promise.reject()),
@@ -83,6 +114,7 @@ export function useAddScore() {
                         match_id: params.match_id,
                         team_id: params.team_id || null,
                         alliance_id: params.alliance_id || null,
+                        points: scoreType.points,
                         score_type_id: params.score_type_id,
                         score_type: scoreType,
                         created_at: new Date().toISOString(),
@@ -109,10 +141,7 @@ export function useAddScore() {
                 queryClient.setQueryData(['matches', params.match_id], context.previousMatch);
             }
         },
-        onSuccess: (_data, params) => {
-            // Invalidate to get fresh data from server
-            queryClient.invalidateQueries({ queryKey: ['matches', params.match_id] });
-        },
+        onSuccess: ({ match }) => cacheMatch(queryClient, match),
     });
 }
 
@@ -134,11 +163,13 @@ export function useDeleteScore() {
                     if (!old) return old;
 
                     // Remove the score from the scores array
+                    const removedScore = old.scores?.find((score) => score.id === params.scoreId);
+                    const removedPoints = removedScore?.points ?? params.points;
                     const updatedScores = (old.scores || []).filter((score) => score.id !== params.scoreId);
 
                     // Update match alliances scores if it's a team score
                     const updatedMatchAlliances = params.teamId
-                        ? old.match_alliances.map((ma) => (ma.team.id === params.teamId ? { ...ma, score: ma.score - params.points } : ma))
+                        ? old.match_alliances.map((ma) => (ma.team.id === params.teamId ? { ...ma, score: ma.score - removedPoints } : ma))
                         : old.match_alliances;
 
                     return {
@@ -157,10 +188,7 @@ export function useDeleteScore() {
                 queryClient.setQueryData(['matches', params.matchId], context.previousMatch);
             }
         },
-        onSuccess: (_data, params) => {
-            // Invalidate to get fresh data from server
-            queryClient.invalidateQueries({ queryKey: ['matches', params.matchId] });
-        },
+        onSuccess: ({ match }) => cacheMatch(queryClient, match),
     });
 }
 

@@ -19,7 +19,7 @@ class AllianceSelectionService
     /**
      * Get team rankings from completed qualification matches.
      *
-     * @return Collection<int, array{team_id: int, team_number: string, team_name: string, total_score: int, rank: int}>
+     * @return Collection<int, array{team_id: int, team_number: int|string, team_name: string, alliance_color: ?string, team_score: int, alliance_score: int, total_score: int, rank: int}>
      */
     public function getRankings(): Collection
     {
@@ -56,18 +56,22 @@ class AllianceSelectionService
                         'team_id' => $ma->team->id,
                         'team_number' => $ma->team->number,
                         'team_name' => $ma->team->name,
+                        'alliance_color' => $ma->alliance?->color,
+                        'team_score' => 0,
+                        'alliance_score' => 0,
                         'total_score' => 0,
                     ];
                 }
 
-                $teamScores[$teamId]['total_score'] += $ma->score ?? 0;
+                $teamScores[$teamId]['team_score'] += $ma->score ?? 0;
 
                 $allianceWideScore = $match->scores
                     ->where('alliance_id', $ma->alliance_id)
                     ->whereNull('team_id')
-                    ->sum(fn ($score) => $score->scoreType->points ?? 0);
+                    ->sum('points');
 
-                $teamScores[$teamId]['total_score'] += $allianceWideScore;
+                $teamScores[$teamId]['alliance_score'] += $allianceWideScore;
+                $teamScores[$teamId]['total_score'] = $teamScores[$teamId]['team_score'] + $teamScores[$teamId]['alliance_score'];
             }
         }
 

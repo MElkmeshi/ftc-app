@@ -74,8 +74,9 @@ export interface Score {
     match_id: number;
     team_id: number | null;
     alliance_id?: number | null;
-    score_type_id: number;
-    score_type?: ScoreType;
+    points?: number;
+    score_type_id: number | null;
+    score_type?: ScoreType | null;
     created_at: string;
 }
 
@@ -178,4 +179,3 @@ export interface DashboardStats {
     completed_matches: number;
     ongoing_match: { id: number; number: number } | null;
 }
-

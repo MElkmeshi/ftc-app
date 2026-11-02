@@ -4,26 +4,28 @@ namespace App\Events;
 
 use App\Models\CompetitionMatch;
 use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Queue\SerializesModels;
 
-class ScoreUpdated implements ShouldBroadcast
+class ScoreUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
 {
-    use SerializesModels;
+    use InteractsWithSockets, SerializesModels;
 
-    public $match;
+    public CompetitionMatch $match;
 
     public function __construct(CompetitionMatch $match)
     {
-        $this->match = $match->load('matchAlliances.team', 'matchAlliances.alliance');
+        $this->match = $match->loadMissing('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
     }
 
-    public function broadcastOn()
+    public function broadcastOn(): Channel
     {
         return new Channel('matches.'.$this->match->id);
     }
 
-    public function broadcastWith()
+    public function broadcastWith(): array
     {
         return [
             'match' => $this->match,

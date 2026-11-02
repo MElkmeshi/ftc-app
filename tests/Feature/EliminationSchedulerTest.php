@@ -7,6 +7,7 @@ use App\Models\AllianceGroup;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
 use App\Models\MatchAlliance;
+use App\Models\ScoreType;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\EliminationScheduler;
@@ -259,3 +260,31 @@ it('rejects generating elimination when no alliance groups exist', function () {
     expect(fn () => $scheduler->generate(1))
         ->toThrow(Exception::class, 'No completed alliance groups found.');
 });
+
+it('counts alliance-wide points once per group across home and away matches', function (int $teamTotal, int $alliancePoints, int $opponentTotal, int $expectedWins) {
+    createCompletedAllianceGroups(2);
+    $scheduler = new EliminationScheduler;
+    $scheduler->generate(1);
+    $series = EliminationSeries::firstOrFail();
+    $scoreType = ScoreType::factory()->create(['points' => $alliancePoints, 'target' => 'alliance']);
+
+    foreach ($series->matches as $match) {
+        $members = $match->matchAlliances;
+        $firstGroup = $members->where('alliance_group_id', $series->alliance_group_1_id);
+        $otherGroup = $members->where('alliance_group_id', $series->alliance_group_2_id);
+        $firstGroup->first()->update(['score' => $teamTotal]);
+        $otherGroup->first()->update(['score' => $opponentTotal]);
+        $match->scores()->create([
+            'alliance_id' => $firstGroup->first()->alliance_id,
+            'score_type_id' => $scoreType->id, 'created_by' => 1,
+        ]);
+        $match->update(['status' => MatchStatus::COMPLETED]);
+    }
+
+    $result = $scheduler->getSeriesResult($series);
+    expect($result['group_1_wins'])->toBe($expectedWins);
+})->with([
+    'bonus must not reverse a loss' => [0, 20, 30, 0],
+    'penalty must not reverse a win' => [50, -20, 20, 2],
+    'a real tie stays a tie' => [0, 20, 20, 0],
+]);

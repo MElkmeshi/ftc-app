@@ -1,15 +1,7 @@
 <?php
 
 use App\Enums\MatchStatus;
-use App\Http\Controllers\Api\AllianceSelectionController;
-use App\Http\Controllers\Api\DashboardController;
-use App\Http\Controllers\Api\EliminationController;
-use App\Http\Controllers\Api\GroupController;
-use App\Http\Controllers\Api\MatchController;
-use App\Http\Controllers\Api\ScoreController;
-use App\Http\Controllers\Api\ScoreTypeController;
 use App\Http\Controllers\Api\SettingsController;
-use App\Http\Controllers\Api\TeamController;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\MatchAlliance;
@@ -21,90 +13,11 @@ Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
-Route::prefix('api')->group(function () {
-    Route::prefix('matches')->group(function () {
-        Route::get('/', [MatchController::class, 'index']);
-        Route::get('/active', [MatchController::class, 'active']);
-        Route::get('/teams-display', [MatchController::class, 'teamsDisplay']);
-        Route::get('/{id}', [MatchController::class, 'show'])->where('id', '[0-9]+');
-        Route::post('/{id}/update-score', [MatchController::class, 'updateScore'])->where('id', '[0-9]+');
-        Route::post('/load', [MatchController::class, 'loadMatch']);
-        Route::get('/loaded', [MatchController::class, 'loadedMatch']);
-        Route::post('/start', [MatchController::class, 'startMatch']);
-        Route::post('/end', [MatchController::class, 'endMatch']);
-        Route::post('/cancel', [MatchController::class, 'cancelMatch']);
-        Route::post('/generate-schedule', [MatchController::class, 'generateSchedule']);
-        Route::delete('/delete-all', [MatchController::class, 'deleteAll']);
-    });
-
-    Route::prefix('score-types')->group(function () {
-        Route::get('/', [ScoreTypeController::class, 'index']);
-        Route::post('/', [ScoreTypeController::class, 'store']);
-        Route::put('/{scoreType}', [ScoreTypeController::class, 'update']);
-        Route::delete('/{scoreType}', [ScoreTypeController::class, 'destroy']);
-    });
-
-    Route::prefix('scores')->group(function () {
-        Route::post('/', [ScoreController::class, 'store']);
-        Route::delete('/{score}', [ScoreController::class, 'destroy']);
-    });
-
-    Route::prefix('teams')->group(function () {
-        Route::get('/', [TeamController::class, 'index']);
-        Route::post('/', [TeamController::class, 'store']);
-        Route::put('/{team}', [TeamController::class, 'update']);
-        Route::delete('/{team}', [TeamController::class, 'destroy']);
-    });
-
-    Route::prefix('groups')->group(function () {
-        Route::get('/', [GroupController::class, 'index']);
-        Route::post('/', [GroupController::class, 'store']);
-        Route::put('/{group}', [GroupController::class, 'update']);
-        Route::delete('/{group}', [GroupController::class, 'destroy']);
-    });
-
-    Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
-    Route::get('/dashboard/config', [DashboardController::class, 'config']);
-
-    Route::prefix('settings')->group(function () {
-        Route::get('/competition', [SettingsController::class, 'getCompetitionSettings']);
-        Route::put('/competition', [SettingsController::class, 'updateCompetitionSettings']);
-        Route::delete('/competition/reset', [SettingsController::class, 'resetCompetitionSettings']);
-    });
-
-    Route::prefix('alliance-selection')->group(function () {
-        Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
-        Route::get('/groups', [AllianceSelectionController::class, 'groups']);
-        Route::get('/available-teams', [AllianceSelectionController::class, 'availableTeams']);
-        Route::get('/declined-teams', [AllianceSelectionController::class, 'declinedTeams']);
-        Route::get('/status', [AllianceSelectionController::class, 'status']);
-
-        /**
-         * Reads stay open so the unauthenticated audience display can render.
-         * Anything that mutates the selection is operator-only — on a venue LAN
-         * an open reset endpoint is a footgun.
-         */
-        Route::middleware('auth')->group(function () {
-            Route::post('/start', [AllianceSelectionController::class, 'start']);
-            Route::post('/invite', [AllianceSelectionController::class, 'invite']);
-            Route::post('/accept', [AllianceSelectionController::class, 'accept']);
-            Route::post('/decline', [AllianceSelectionController::class, 'decline']);
-            Route::delete('/reset', [AllianceSelectionController::class, 'reset']);
-        });
-    });
-
-    Route::prefix('elimination')->group(function () {
-        Route::post('/generate', [EliminationController::class, 'generate']);
-        Route::get('/bracket', [EliminationController::class, 'bracket']);
-        Route::post('/series/{series}/check-winner', [EliminationController::class, 'checkWinner']);
-        Route::post('/series/{series}/tiebreaker', [EliminationController::class, 'tiebreaker']);
-        Route::delete('/reset', [EliminationController::class, 'reset']);
-    });
-});
+Route::prefix('api')->group(__DIR__.'/api.php');
 
 Route::get('referee/match-control', function () {
     return Inertia::render('referee/match-control');
-})->name('referee.match-control');
+})->middleware(['auth', 'can:control-matches'])->name('referee.match-control');
 
 Route::get('alliance-selection/display', function () {
     return Inertia::render('alliance-selection/display');
@@ -159,49 +72,49 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('referee/scoring', function () {
         return Inertia::render('referee/scoring');
-    })->name('referee.scoring');
+    })->middleware('can:score-matches')->name('referee.scoring');
 
     Route::get('referee/scoring2', function () {
         return Inertia::render('referee/scoring-v2');
-    })->name('referee.scoring2');
+    })->middleware('can:score-matches')->name('referee.scoring2');
 
     Route::get('referee/scoring3', function () {
         return Inertia::render('referee/scoring-v3');
-    })->name('referee.scoring3');
+    })->middleware('can:score-matches')->name('referee.scoring3');
 
     Route::get('referee/scoring4', function () {
         return Inertia::render('referee/scoring-v4');
-    })->name('referee.scoring4');
+    })->middleware('can:score-matches')->name('referee.scoring4');
 
     Route::get('referee/scoring5', function () {
         return Inertia::render('referee/scoring-v5');
-    })->name('referee.scoring5');
+    })->middleware('can:score-matches')->name('referee.scoring5');
 
     Route::get('referee/scoring6', function () {
         return Inertia::render('referee/scoring-v6');
-    })->name('referee.scoring6');
+    })->middleware('can:score-matches')->name('referee.scoring6');
 
     Route::get('referee/scoring7', function () {
         return Inertia::render('referee/scoring-v7');
-    })->name('referee.scoring7');
+    })->middleware('can:score-matches')->name('referee.scoring7');
 
     Route::get('admin/teams', function () {
         return Inertia::render('admin/teams');
-    })->name('admin.teams');
+    })->middleware('can:manage-competition')->name('admin.teams');
 
     Route::get('admin/score-types', function () {
         return Inertia::render('admin/score-types');
-    })->name('admin.score-types');
+    })->middleware('can:manage-competition')->name('admin.score-types');
 
     Route::get('admin/alliance-selection', function () {
         return Inertia::render('admin/alliance-selection');
-    })->name('admin.alliance-selection');
+    })->middleware('can:manage-competition')->name('admin.alliance-selection');
 
     Route::get('admin/competition-settings', function () {
         return Inertia::render('admin/competition-settings', [
             'settings' => Inertia::defer(fn () => app(SettingsController::class)->getCompetitionSettings()->getData(true)),
         ]);
-    })->name('admin.competition-settings');
+    })->middleware('can:manage-competition')->name('admin.competition-settings');
 
 });
 

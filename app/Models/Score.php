@@ -18,6 +18,20 @@ class Score extends Model
         'created_by', 'updated_by', 'deleted_at', 'created_at', 'updated_at',
     ];
 
+    protected function casts(): array
+    {
+        return ['points' => 'integer'];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Score $score): void {
+            if ($score->points === null) {
+                $score->points = $score->scoreType?->points ?? 0;
+            }
+        });
+    }
+
     public function match()
     {
         return $this->belongsTo(CompetitionMatch::class);

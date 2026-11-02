@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run()
     {
-        $admin = User::factory()->create(['email' => 'elkmeshi2002@gmail.com']);
+        $admin = User::factory()->admin()->create(['email' => 'elkmeshi2002@gmail.com']);
 
         $red = Alliance::create(['color' => 'red']);
         $blue = Alliance::create(['color' => 'blue']);

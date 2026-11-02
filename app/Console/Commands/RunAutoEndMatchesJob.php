@@ -9,9 +9,9 @@ class RunAutoEndMatchesJob extends Command
 {
     protected $signature = 'matches:auto-end-job';
 
-    protected $description = 'Dispatch the AutoEndMatchesJob to auto-complete matches after 2.5 minutes.';
+    protected $description = 'Dispatch the AutoEndMatchesJob to auto-complete matches when their configured duration expires.';
 
-    public function handle()
+    public function handle(): void
     {
         dispatch(new AutoEndMatchesJob);
     }

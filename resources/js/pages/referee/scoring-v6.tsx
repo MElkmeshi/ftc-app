@@ -39,7 +39,7 @@ export default function RefereeFoulsOnly() {
         if (!match || !selectedAllianceId) return 0;
         return (match.scores ?? [])
             .filter((s) => {
-                const pts = s.score_type?.points ?? 0;
+                const pts = s.points ?? s.score_type?.points ?? 0;
                 if (pts >= 0) return false;
                 // alliance-wide foul
                 if (!s.team_id && s.alliance_id === selectedAllianceId) return true;
@@ -49,7 +49,7 @@ export default function RefereeFoulsOnly() {
                 }
                 return false;
             })
-            .reduce((sum, s) => sum + (s.score_type?.points ?? 0), 0);
+            .reduce((sum, s) => sum + (s.points ?? s.score_type?.points ?? 0), 0);
     })();
 
     return (

@@ -132,7 +132,7 @@ export default function RefereeScoring3() {
                                 <p className={cn('mt-1 text-2xl font-black tabular-nums', colorClasses.text)}>
                                     {(match?.scores ?? [])
                                         .filter((s) => s.alliance_id === selectedAllianceId && !s.team_id)
-                                        .reduce((sum, s) => sum + (s.score_type?.points ?? 0), 0)}
+                                        .reduce((sum, s) => sum + (s.points ?? s.score_type?.points ?? 0), 0)}
                                 </p>
                             </button>
 

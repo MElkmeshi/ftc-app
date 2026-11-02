@@ -1,21 +1,78 @@
 <?php
 
+use App\Http\Controllers\Api\AllianceSelectionController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\EliminationController;
+use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\ScoreController;
+use App\Http\Controllers\Api\ScoreTypeController;
+use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\TeamController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('matches')->group(function () {
-    Route::get('/', [MatchController::class, 'index']);
-    Route::get('/active', [MatchController::class, 'active']);
-    Route::get('/{id}', [MatchController::class, 'show']);
-    Route::post('/{id}/update-score', [MatchController::class, 'updateScore']);
+/** These session-authenticated endpoints inherit web middleware and CSRF protection from web.php. */
+Route::get('/matches', [MatchController::class, 'index']);
+Route::get('/matches/active', [MatchController::class, 'active']);
+Route::get('/matches/loaded', [MatchController::class, 'loadedMatch']);
+Route::get('/matches/teams-display', [MatchController::class, 'teamsDisplay']);
+Route::get('/matches/{id}', [MatchController::class, 'show'])->whereNumber('id');
+Route::get('/score-types', [ScoreTypeController::class, 'index']);
+Route::get('/teams', [TeamController::class, 'index']);
+Route::get('/groups', [GroupController::class, 'index']);
+Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+Route::get('/dashboard/config', [DashboardController::class, 'config']);
+Route::get('/settings/competition', [SettingsController::class, 'getCompetitionSettings']);
+Route::get('/elimination/bracket', [EliminationController::class, 'bracket']);
+
+Route::prefix('alliance-selection')->group(function () {
+    Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
+    Route::get('/groups', [AllianceSelectionController::class, 'groups']);
+    Route::get('/available-teams', [AllianceSelectionController::class, 'availableTeams']);
+    Route::get('/declined-teams', [AllianceSelectionController::class, 'declinedTeams']);
+    Route::get('/status', [AllianceSelectionController::class, 'status']);
 });
 
-Route::prefix('score-types')->group(function () {
-    Route::get('/', [ScoreController::class, 'index']);
+Route::middleware(['auth', 'can:score-matches'])->group(function () {
+    Route::post('/scores', [ScoreController::class, 'store']);
+    Route::delete('/scores/{score}', [ScoreController::class, 'destroy']);
 });
 
-Route::prefix('scores')->group(function () {
-    Route::post('/', [ScoreController::class, 'store']);
-    Route::delete('/{score}', [ScoreController::class, 'destroy']);
+Route::middleware(['auth', 'can:control-matches'])->group(function () {
+    Route::post('/matches/{id}/update-score', [MatchController::class, 'updateScore'])->whereNumber('id');
+    Route::post('/matches/load', [MatchController::class, 'loadMatch']);
+    Route::post('/matches/start', [MatchController::class, 'startMatch']);
+    Route::post('/matches/end', [MatchController::class, 'endMatch']);
+    Route::post('/matches/cancel', [MatchController::class, 'cancelMatch']);
+});
+
+Route::middleware(['auth', 'can:manage-competition'])->group(function () {
+    Route::post('/matches/generate-schedule', [MatchController::class, 'generateSchedule']);
+    Route::delete('/matches/delete-all', [MatchController::class, 'deleteAll']);
+    Route::post('/score-types', [ScoreTypeController::class, 'store']);
+    Route::put('/score-types/{scoreType}', [ScoreTypeController::class, 'update']);
+    Route::delete('/score-types/{scoreType}', [ScoreTypeController::class, 'destroy']);
+    Route::post('/teams', [TeamController::class, 'store']);
+    Route::put('/teams/{team}', [TeamController::class, 'update']);
+    Route::delete('/teams/{team}', [TeamController::class, 'destroy']);
+    Route::post('/groups', [GroupController::class, 'store']);
+    Route::put('/groups/{group}', [GroupController::class, 'update']);
+    Route::delete('/groups/{group}', [GroupController::class, 'destroy']);
+    Route::put('/settings/competition', [SettingsController::class, 'updateCompetitionSettings']);
+    Route::delete('/settings/competition/reset', [SettingsController::class, 'resetCompetitionSettings']);
+
+    Route::prefix('alliance-selection')->group(function () {
+        Route::post('/start', [AllianceSelectionController::class, 'start']);
+        Route::post('/invite', [AllianceSelectionController::class, 'invite']);
+        Route::post('/accept', [AllianceSelectionController::class, 'accept']);
+        Route::post('/decline', [AllianceSelectionController::class, 'decline']);
+        Route::delete('/reset', [AllianceSelectionController::class, 'reset']);
+    });
+
+    Route::prefix('elimination')->group(function () {
+        Route::post('/generate', [EliminationController::class, 'generate']);
+        Route::post('/series/{series}/check-winner', [EliminationController::class, 'checkWinner']);
+        Route::post('/series/{series}/tiebreaker', [EliminationController::class, 'tiebreaker']);
+        Route::delete('/reset', [EliminationController::class, 'reset']);
+    });
 });

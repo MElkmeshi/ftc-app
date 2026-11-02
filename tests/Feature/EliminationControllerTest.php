@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    User::factory()->create(['id' => 1]);
+    User::factory()->admin()->create(['id' => 1]);
     $this->actingAs(User::find(1));
 
     if (Alliance::count() < 2) {

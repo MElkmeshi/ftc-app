@@ -63,7 +63,7 @@ export function getAllianceScore(match: CompetitionMatch, color: string): number
     const allianceIds = [...new Set(allianceTeams.map((ma) => ma.alliance.id))];
     const allianceWideScore = (match.scores || [])
         .filter((s) => !s.team_id && allianceIds.includes(s.alliance_id ?? -1))
-        .reduce((sum, s) => sum + (s.score_type?.points || 0), 0);
+        .reduce((sum, s) => sum + (s.points ?? s.score_type?.points ?? 0), 0);
 
     const total = teamScore + allianceWideScore;
 

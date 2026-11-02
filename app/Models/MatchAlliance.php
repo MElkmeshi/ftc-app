@@ -11,6 +11,8 @@ class MatchAlliance extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $attributes = ['score' => 0];
+
     protected $fillable = [
         'match_id', 'team_id', 'alliance_id', 'alliance_pos', 'score', 'counts_for_ranking', 'alliance_group_id', 'created_by', 'updated_by',
     ];
