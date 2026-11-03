@@ -16,6 +16,7 @@ interface GameRow {
     name: string;
     description: string | null;
     ranking_method: string;
+    logo_url: string | null;
     score_types_count: number;
     groups_count: number;
     events: GameEventSummary[];
@@ -169,7 +170,11 @@ function GameCard({ game, onRename, onDuplicate, onDelete }: { game: GameRow; on
             <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                     <CardTitle className="flex items-center gap-2">
-                        <Gamepad2 className="text-muted-foreground size-5" />
+                        {game.logo_url ? (
+                            <img src={game.logo_url} alt="" className="h-8 max-w-24 object-contain" />
+                        ) : (
+                            <Gamepad2 className="text-muted-foreground size-5" />
+                        )}
                         {game.name}
                     </CardTitle>
                     {game.description && <CardDescription>{game.description}</CardDescription>}
