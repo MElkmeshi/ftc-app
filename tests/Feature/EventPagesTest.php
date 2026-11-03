@@ -6,7 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 it('lists every event on the home page', function () {
-    Event::factory()->create(['code' => 'spring', 'name' => 'Spring Scrimmage']);
+    Event::factory()->create(['code' => 'spring', 'name' => 'Spring Scrimmage', 'start_date' => now()->subYear(), 'end_date' => now()->subYear()]);
 
     $this->get('/')->assertOk()->assertInertia(fn ($page) => $page
         ->component('events/index')
