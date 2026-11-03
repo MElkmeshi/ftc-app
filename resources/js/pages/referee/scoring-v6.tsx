@@ -23,18 +23,12 @@ export default function RefereeFoulsOnly() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, allianceName, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
-    } = useScoringPage();
+        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
+    } = useScoringPage({ role: 'penalty' });
 
-    // Only negative-point score types
+    // This layout is the alliance's penalty referee: only the fouls it calls (the − / + ones).
     const filteredGroups = sortedGroups
-        .map(([groupName, { alliance, team }]) => [
-            groupName,
-            {
-                alliance: alliance.filter((st) => st.points < 0),
-                team: team.filter((st) => st.points < 0),
-            },
-        ] as const)
+        .map(([groupName, { alliance, team }]) => [groupName, { alliance, team }] as const)
         .filter(([, { alliance, team }]) => alliance.length > 0 || team.length > 0);
 
     // Total fouls applied to the selected alliance
@@ -264,10 +258,10 @@ export default function RefereeFoulsOnly() {
 
                 {match && match.status === 'ongoing' && selectedAllianceId && (
                     <>
-                        <SeatWarning names={sharingSeatWith} allianceName={allianceName} />
+                        <SeatWarning names={sharingSeatWith} label={seatLabel} />
                         <SubmitScoresPanel
                             matchNumber={match.number}
-                            allianceName={allianceName}
+                            label={seatLabel}
                             submission={submission}
                             pending={isSubmitPending}
                             error={submitError}

@@ -1,6 +1,6 @@
 import { apiScope, eventChannel } from '@/lib/event';
 import { applyScoreCount } from '@/lib/score-count';
-import { CompetitionMatch, MatchStatusChangedEvent, ScoreTarget, ScoreType, ScoreUpdatedEvent } from '@/types';
+import { CompetitionMatch, MatchStatusChangedEvent, RefereeRole, ScoreTarget, ScoreType, ScoreUpdatedEvent } from '@/types';
 import { useEchoPublic } from '@laravel/echo-react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
@@ -293,7 +293,7 @@ export function useSetScoreCount() {
     });
 }
 
-/** Submits an alliance's scores (locking them), or reopens them for changes. */
+/** Submits what one referee seat entered (locking it), or reopens it for changes. */
 export function useSetAllianceSubmitted() {
     const api = useApi();
     const queryClient = useQueryClient();
@@ -301,8 +301,8 @@ export function useSetAllianceSubmitted() {
     return useMutation({
         mutationKey: SCORING_MUTATION_KEY,
         scope: { id: 'scoring' },
-        mutationFn: (params: { matchId: number; allianceId: number; submitted: boolean }) =>
-            api.setAllianceSubmitted(params.matchId, params.allianceId, params.submitted),
+        mutationFn: (params: { matchId: number; allianceId: number; role: RefereeRole; submitted: boolean }) =>
+            api.setAllianceSubmitted(params.matchId, params.allianceId, params.role, params.submitted),
         onSuccess: ({ match }) => cacheMatch(queryClient, match),
     });
 }

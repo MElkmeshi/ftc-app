@@ -1,4 +1,4 @@
-import { type ScoreKind } from '@/types';
+import { type PointsAwardedTo, type RefereeRole, type ScoreKind } from '@/types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
 
@@ -6,8 +6,16 @@ export function useCreateScoreType() {
     const api = useApi();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: { name: string; points: number; target: string; kind: ScoreKind; choice_set: string | null; group_id: number | null }) =>
-            api.createScoreType(data),
+        mutationFn: (data: {
+            name: string;
+            points: number;
+            target: string;
+            kind: ScoreKind;
+            choice_set: string | null;
+            referee: RefereeRole;
+            awarded_to: PointsAwardedTo;
+            group_id: number | null;
+        }) => api.createScoreType(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['score-types'] });
         },
@@ -20,7 +28,16 @@ export function useUpdateScoreType() {
     return useMutation({
         mutationFn: (params: {
             id: number;
-            data: { name: string; points: number; target: string; kind: ScoreKind; choice_set: string | null; group_id: number | null };
+            data: {
+                name: string;
+                points: number;
+                target: string;
+                kind: ScoreKind;
+                choice_set: string | null;
+                referee: RefereeRole;
+                awarded_to: PointsAwardedTo;
+                group_id: number | null;
+            };
         }) => api.updateScoreType(params.id, params.data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['score-types'] });

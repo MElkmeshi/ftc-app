@@ -107,7 +107,7 @@ it('commits a match only once every alliance has submitted, unless forced', func
 
     $this->postJson('/api/matches/end', ['match_id' => $this->match->id])
         ->assertConflict()
-        ->assertJsonPath('message', 'Waiting for Blue alliance to submit scores.');
+        ->assertJsonPath('message', 'Waiting for Blue scoring to submit.');
     expect($this->match->fresh()->status)->toBe(MatchStatus::ONGOING);
 
     $this->postJson('/api/matches/end', ['match_id' => $this->match->id, 'force' => true])->assertOk();
@@ -146,7 +146,7 @@ it('warns tablets that score the same alliance and shows match control who is sc
     $this->actingAs($this->referee)->postJson('/api/referee-seats', $seat($second, $this->red))->assertJsonPath('sharing_with', ['Red ref']);
 
     $this->actingAs($this->headReferee)->getJson("/api/matches/{$this->match->id}/referee-seats")
-        ->assertJsonPath("seats.{$this->red->id}", ['Red ref', 'Red ref']);
+        ->assertJsonPath("seats.{$this->red->id}.scoring", ['Red ref', 'Red ref']);
 
     $this->travel(20)->seconds();
     $this->actingAs($this->referee)->postJson('/api/referee-seats', $seat($second, $this->red))->assertJsonPath('sharing_with', []);
@@ -161,4 +161,53 @@ it('keeps referee seats for referees and the seat list for match control', funct
 
 it('tells screens the build version so they can reload after an update', function () {
     $this->getJson('/server-time')->assertOk()->assertJsonStructure(['now', 'version']);
+});
+
+it('gives each alliance a scoring and a penalty referee who submit and lock separately', function () {
+    $this->actingAs($this->referee);
+    $foul = ScoreType::factory()->create(['name' => 'minor_foul', 'points' => 5, 'target' => 'alliance', 'referee' => 'penalty', 'awarded_to' => 'opponent']);
+    $blueFoul = ['match_id' => $this->match->id, 'alliance_id' => $this->red->id, 'score_type_id' => $foul->id, 'count' => 1];
+
+    $this->postJson("/api/matches/{$this->match->id}/submissions", ['alliance_id' => $this->blue->id])->assertOk();
+    $this->putJson('/api/scores/count', $blueFoul)->assertOk('the blue penalty referee is still open');
+
+    $this->postJson("/api/matches/{$this->match->id}/submissions", ['alliance_id' => $this->blue->id, 'role' => 'penalty'])->assertOk();
+    $this->putJson('/api/scores/count', [...$blueFoul, 'count' => 2])->assertJsonValidationErrors('alliance_id');
+    $this->putJson('/api/scores/count', ($this->count)($this->artifact, 1))->assertOk('the red scoring referee is still open');
+
+    expect(Score::query()->where('score_type_id', $foul->id)->sole()->alliance_id)->toBe($this->red->id, 'blue fouls give red the points');
+});
+
+it('waits for a penalty referee only on an alliance where one joined', function () {
+    $this->actingAs($this->referee)->postJson('/api/referee-seats', [
+        'tablet_id' => (string) Str::uuid(), 'match_id' => $this->match->id, 'alliance_id' => $this->blue->id, 'role' => 'penalty',
+    ])->assertOk();
+
+    $this->match->update(['submissions' => collect([$this->red, $this->blue])->map(fn (Alliance $alliance) => [
+        'alliance_id' => $alliance->id, 'role' => 'scoring', 'by' => 'ref', 'at' => now()->toIso8601String(),
+    ])->all()]);
+
+    $this->actingAs($this->headReferee)->postJson('/api/matches/end', ['match_id' => $this->match->id])
+        ->assertConflict()
+        ->assertJsonPath('message', 'Waiting for Blue penalties to submit.');
+});
+
+it('warns two tablets in the same seat but not a scoring and a penalty referee', function () {
+    $seat = fn (string $role) => ['tablet_id' => (string) Str::uuid(), 'match_id' => $this->match->id, 'alliance_id' => $this->red->id, 'role' => $role];
+    $this->actingAs($this->referee);
+
+    $this->postJson('/api/referee-seats', $seat('scoring'))->assertJsonPath('sharing_with', []);
+    $this->postJson('/api/referee-seats', $seat('penalty'))->assertJsonPath('sharing_with', []);
+    $this->postJson('/api/referee-seats', $seat('penalty'))->assertJsonPath('sharing_with', ['Red ref']);
+});
+
+it('only gives the opponent points for alliance-wide fouls', function () {
+    $this->actingAs($this->headReferee);
+
+    $this->postJson('/api/score-types', ['name' => 'Foul', 'points' => 5, 'target' => 'team', 'referee' => 'penalty', 'awarded_to' => 'opponent'])
+        ->assertJsonValidationErrors('awarded_to');
+    $this->postJson('/api/score-types', ['name' => 'Foul', 'points' => 5, 'target' => 'alliance', 'referee' => 'penalty', 'awarded_to' => 'opponent'])
+        ->assertCreated()
+        ->assertJsonPath('referee', 'penalty')
+        ->assertJsonPath('awarded_to', 'opponent');
 });

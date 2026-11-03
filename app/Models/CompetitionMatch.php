@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\MatchStatus;
 use App\Enums\MatchType;
+use App\Enums\RefereeRole;
 use App\Models\Concerns\BelongsToEvent;
 use Database\Factories\MatchFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,7 +27,7 @@ class CompetitionMatch extends Model
     protected $table = 'matches';
 
     protected $fillable = [
-        'event_id', 'number', 'type', 'round', 'field', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'ended_at', 'cancelled_at', 'submissions', 'created_by', 'updated_by',
+        'event_id', 'number', 'type', 'round', 'field', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'ended_at', 'cancelled_at', 'submissions', 'referee_seats', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -45,6 +46,7 @@ class CompetitionMatch extends Model
             'ended_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'submissions' => 'array',
+            'referee_seats' => 'array',
         ];
     }
 
@@ -84,23 +86,44 @@ class CompetitionMatch extends Model
     }
 
     /**
-     * Whether the referees of this alliance have submitted their scores, which
-     * locks that alliance's scoring until they reopen it or the match ends.
+     * Whether this alliance's scoring or penalty referee has submitted, which
+     * locks what they enter until they reopen it or the match ends.
      */
-    public function isSubmittedFor(int $allianceId): bool
+    public function isSubmittedFor(int $allianceId, RefereeRole $role = RefereeRole::SCORING): bool
     {
-        return collect($this->submissions ?? [])->contains('alliance_id', $allianceId);
+        return collect($this->submissions ?? [])->contains(
+            fn (array $entry): bool => $entry['alliance_id'] === $allianceId && ($entry['role'] ?? RefereeRole::SCORING->value) === $role->value,
+        );
+    }
+
+    /** Whether a penalty referee's tablet joined this alliance during the match. */
+    public function hasPenaltySeat(int $allianceId): bool
+    {
+        return collect($this->referee_seats ?? [])->contains(
+            fn (array $seat): bool => $seat['alliance_id'] === $allianceId && $seat['role'] === RefereeRole::PENALTY->value,
+        );
+    }
+
+    /** The other alliance playing this match. */
+    public function opponentOf(int $allianceId): ?int
+    {
+        return $this->matchAlliances()->where('alliance_id', '!=', $allianceId)->value('alliance_id');
     }
 
     /**
-     * The alliances playing this match whose referees have not submitted yet.
+     * The referee seats the head referee is still waiting for: every
+     * alliance's scoring referee, plus a penalty referee wherever one joined.
      *
-     * @return Collection<int, Alliance>
+     * @return Collection<int, array{alliance: Alliance, role: RefereeRole}>
      */
-    public function alliancesAwaitingSubmission(): Collection
+    public function seatsAwaitingSubmission(): Collection
     {
-        return $this->matchAlliances->pluck('alliance')->unique('id')
-            ->reject(fn (Alliance $alliance): bool => $this->isSubmittedFor($alliance->id))
+        return $this->matchAlliances->pluck('alliance')->unique('id')->values()
+            ->flatMap(fn (Alliance $alliance): array => array_filter([
+                ['alliance' => $alliance, 'role' => RefereeRole::SCORING],
+                $this->hasPenaltySeat($alliance->id) ? ['alliance' => $alliance, 'role' => RefereeRole::PENALTY] : null,
+            ]))
+            ->reject(fn (array $seat): bool => $this->isSubmittedFor($seat['alliance']->id, $seat['role']))
             ->values();
     }
 }

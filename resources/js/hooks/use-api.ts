@@ -14,6 +14,8 @@ import {
     ScoreType,
     Team,
     TeamDisplay,
+    type PointsAwardedTo,
+    type RefereeRole,
     type ScoreKind,
 } from '@/types';
 import { http } from '@inertiajs/react';
@@ -146,18 +148,19 @@ export const useApi = () => {
         return sendWithRetry<{ match: CompetitionMatch }>('put', '/api/scores/count', { ...data });
     }, []);
 
-    const setAllianceSubmitted = useCallback(async (matchId: number, allianceId: number, submitted: boolean) => {
+    const setAllianceSubmitted = useCallback(async (matchId: number, allianceId: number, role: RefereeRole, submitted: boolean) => {
         return request<{ match: CompetitionMatch }>(submitted ? 'post' : 'delete', `/api/matches/${matchId}/submissions`, {
             alliance_id: allianceId,
+            role,
         });
     }, []);
 
-    const reportRefereeSeat = useCallback(async (data: { tablet_id: string; match_id: number; alliance_id: number | null }) => {
+    const reportRefereeSeat = useCallback(async (data: { tablet_id: string; match_id: number; alliance_id: number | null; role: RefereeRole }) => {
         return post<{ sharing_with: string[] }>('/api/referee-seats', data);
     }, []);
 
     const getRefereeSeats = useCallback(async (matchId: number) => {
-        return get<{ seats: Record<string, string[]> }>(`/api/matches/${matchId}/referee-seats`);
+        return get<{ seats: Record<string, Partial<Record<RefereeRole, string[]>>> }>(`/api/matches/${matchId}/referee-seats`);
     }, []);
 
     const cancelMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
@@ -208,6 +211,8 @@ export const useApi = () => {
             target: string;
             kind: ScoreKind;
             choice_set: string | null;
+            referee: RefereeRole;
+            awarded_to: PointsAwardedTo;
             group_id: number | null;
         }): Promise<ScoreType> => {
             return post('/api/score-types', data);
@@ -218,7 +223,16 @@ export const useApi = () => {
     const updateScoreType = useCallback(
         async (
             id: number,
-            data: { name: string; points: number; target: string; kind: ScoreKind; choice_set: string | null; group_id: number | null },
+            data: {
+                name: string;
+                points: number;
+                target: string;
+                kind: ScoreKind;
+                choice_set: string | null;
+                referee: RefereeRole;
+                awarded_to: PointsAwardedTo;
+                group_id: number | null;
+            },
         ): Promise<ScoreType> => {
             return put(`/api/score-types/${id}`, data);
         },

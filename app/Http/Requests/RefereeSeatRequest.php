@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\RefereeRole;
 use App\Http\Requests\Concerns\ValidatesWithinEvent;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class RefereeSeatRequest extends FormRequest
 {
@@ -21,6 +23,7 @@ class RefereeSeatRequest extends FormRequest
             'tablet_id' => ['required', 'uuid'],
             'match_id' => ['required', 'integer', $this->existsInEvent('matches')->whereNull('deleted_at')],
             'alliance_id' => ['nullable', 'integer', 'exists:alliances,id'],
+            'role' => ['sometimes', Rule::enum(RefereeRole::class)],
         ];
     }
 }

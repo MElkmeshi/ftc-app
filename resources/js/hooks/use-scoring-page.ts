@@ -1,11 +1,12 @@
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useMatch, useMatches, useScoreTypes, useSetAllianceSubmitted, useSetScoreCount } from '@/hooks/use-match';
 import { useRefereeField } from '@/hooks/use-referee-field';
+import { useRefereeRole } from '@/hooks/use-referee-role';
 import { useRefereeSeat } from '@/hooks/use-referee-seat';
 import { getAllianceColorClasses } from '@/lib/match-utils';
 import { type ScoreControl, splitScoreTypes } from '@/lib/score-controls';
 import { countScores } from '@/lib/score-count';
-import { type ScoreTarget, type ScoreType } from '@/types';
+import { type RefereeRole, type ScoreTarget, type ScoreType } from '@/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export interface ScoringGroup {
@@ -17,7 +18,14 @@ export interface ScoringGroup {
     teamControls: ScoreControl[];
 }
 
-export function useScoringPage() {
+/**
+ * State and actions shared by the referee scoring layouts. The tablet is one
+ * alliance's scoring referee or penalty referee (`role` forces one, as on the
+ * fouls layout); it only shows the score types that referee enters.
+ */
+export function useScoringPage(options: { role?: RefereeRole } = {}) {
+    const [storedRole] = useRefereeRole();
+    const role = options.role ?? storedRole;
     const [selectedAllianceId, setSelectedAllianceId] = useState<number | null>(null);
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
@@ -28,7 +36,8 @@ export function useScoringPage() {
     const { data: matches = [] } = useMatches();
     const { activeMatch } = useActiveMatchTimer({ field: refereeField });
     const { data: match, isLoading } = useMatch(selectedMatchId, 15000);
-    const { data: scoreTypes = [] } = useScoreTypes();
+    const { data: allScoreTypes = [] } = useScoreTypes();
+    const scoreTypes = useMemo(() => allScoreTypes.filter((st) => (st.referee ?? 'scoring') === role), [allScoreTypes, role]);
 
     const ongoingMatches = useMemo(
         () => matches.filter((m) => m.status === 'ongoing' && (!refereeField || m.field === refereeField)),
@@ -123,9 +132,31 @@ export function useScoringPage() {
         return teamTotal + allianceTotal;
     }, [teamsInAlliance, match, selectedAllianceId]);
 
+    const opponentAllianceId = alliances.find((alliance) => alliance && alliance.id !== selectedAllianceId)?.id;
+
+    /**
+     * Where a tap lands: a foul whose points go to the opponent is entered by
+     * this alliance's penalty referee but recorded on the other alliance.
+     */
+    const resolveTarget = useCallback(
+        (scoreType: ScoreType | undefined, target: ScoreTarget): ScoreTarget =>
+            scoreType?.awarded_to === 'opponent' && target.allianceId && opponentAllianceId ? { allianceId: opponentAllianceId } : target,
+        [opponentAllianceId],
+    );
+
     const getAllianceScoreTypeCount = useCallback(
-        (scoreTypeId: number) => (selectedAllianceId ? countScores(match, scoreTypeId, { allianceId: selectedAllianceId }) : 0),
-        [match, selectedAllianceId],
+        (scoreTypeId: number) =>
+            selectedAllianceId
+                ? countScores(
+                      match,
+                      scoreTypeId,
+                      resolveTarget(
+                          scoreTypes.find((st) => st.id === scoreTypeId),
+                          { allianceId: selectedAllianceId },
+                      ),
+                  )
+                : 0,
+        [match, selectedAllianceId, scoreTypes, resolveTarget],
     );
 
     const getTeamScoreTypeCount = useCallback((scoreTypeId: number, teamId: number) => countScores(match, scoreTypeId, { teamId }), [match]);
@@ -135,32 +166,28 @@ export function useScoringPage() {
         (scoreTypeId: number, target: ScoreTarget, delta: 1 | -1) => {
             const scoreType = scoreTypes.find((st) => st.id === scoreTypeId);
             if (!match || !scoreType || (!target.teamId && !target.allianceId)) return;
-            const current = countScores(match, scoreTypeId, target);
+            const landsOn = resolveTarget(scoreType, target.teamId ? { teamId: target.teamId } : { allianceId: target.allianceId });
+            const current = countScores(match, scoreTypeId, landsOn);
             if (current + delta < 0) return;
-            setScoreCount.mutate({
-                match,
-                scoreType,
-                target: target.teamId ? { teamId: target.teamId } : { allianceId: target.allianceId },
-                count: current + delta,
-            });
+            setScoreCount.mutate({ match, scoreType, target: landsOn, count: current + delta });
         },
-        [match, scoreTypes, setScoreCount],
+        [match, scoreTypes, setScoreCount, resolveTarget],
     );
 
     const handleAddScore = useCallback((scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, 1), [changeCount]);
     const handleRemoveScore = useCallback((scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, -1), [changeCount]);
 
-    const submission = match?.submissions?.find((entry) => entry.alliance_id === selectedAllianceId) ?? null;
+    const submission = match?.submissions?.find((entry) => entry.alliance_id === selectedAllianceId && (entry.role ?? 'scoring') === role) ?? null;
 
     const setSubmitted = useCallback(
         (submitted: boolean) => {
             if (!match || !selectedAllianceId) return;
-            setAllianceSubmitted.mutate({ matchId: match.id, allianceId: selectedAllianceId, submitted });
+            setAllianceSubmitted.mutate({ matchId: match.id, allianceId: selectedAllianceId, role, submitted });
         },
-        [match, selectedAllianceId, setAllianceSubmitted],
+        [match, selectedAllianceId, role, setAllianceSubmitted],
     );
 
-    const sharingSeatWith = useRefereeSeat(match?.status === 'ongoing' ? match.id : null, selectedAllianceId);
+    const sharingSeatWith = useRefereeSeat(match?.status === 'ongoing' ? match.id : null, selectedAllianceId, role);
 
     /** A submitted alliance is locked on the tablet until its referee reopens it. */
     const isPending = match?.status === 'ongoing' && submission !== null;
@@ -184,7 +211,9 @@ export function useScoringPage() {
         getTeamScoreTypeCount,
         handleAddScore,
         handleRemoveScore,
-        allianceName: `${allianceColor.charAt(0).toUpperCase()}${allianceColor.slice(1)} alliance`,
+        role,
+        /** What this tablet submits, e.g. "Blue alliance penalties". */
+        seatLabel: `${allianceColor.charAt(0).toUpperCase()}${allianceColor.slice(1)} alliance ${role === 'penalty' ? 'penalties' : 'scores'}`,
         submission,
         setSubmitted,
         isSubmitPending: setAllianceSubmitted.isPending,

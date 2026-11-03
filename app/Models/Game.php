@@ -155,6 +155,8 @@ class Game extends Model
                 'target' => $scoreType->target,
                 'kind' => $scoreType->kind,
                 'choice_set' => $scoreType->choice_set,
+                'referee' => $scoreType->referee,
+                'awarded_to' => $scoreType->awarded_to,
                 'group_id' => $scoreType->group_id !== null ? ($groupIdMap[$scoreType->group_id] ?? null) : null,
                 'created_by' => $createdBy,
             ])->id;

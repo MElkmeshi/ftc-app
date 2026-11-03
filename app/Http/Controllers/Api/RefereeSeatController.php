@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MatchStatus;
+use App\Enums\RefereeRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RefereeSeatRequest;
 use App\Models\CompetitionMatch;
@@ -9,9 +11,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Which tablet is scoring which alliance, like FTC Live's session list.
- * Tablets report their seat every few seconds; two tablets on one alliance
- * get a warning, because their taps would overwrite each other.
+ * Which tablet sits in which referee seat (an alliance's scoring or penalty
+ * referee), like FTC Live's session list. Tablets report their seat every few
+ * seconds; two tablets in one seat get a warning, because their counts would
+ * overwrite each other. A penalty seat that joins a match is remembered, so
+ * the head referee's commit waits for it.
  */
 class RefereeSeatController extends Controller
 {
@@ -23,25 +27,33 @@ class RefereeSeatController extends Controller
         $validated = $request->validated();
         $matchId = (int) $validated['match_id'];
         $allianceId = isset($validated['alliance_id']) ? (int) $validated['alliance_id'] : null;
+        $role = $validated['role'] ?? RefereeRole::SCORING->value;
 
-        $seats = Cache::lock($this->key($matchId).':lock', 5)->block(3, function () use ($matchId, $validated, $allianceId, $request): array {
+        $seats = Cache::lock($this->key($matchId).':lock', 5)->block(3, function () use ($matchId, $validated, $allianceId, $role, $request): array {
             $seats = $this->liveSeats($matchId);
-            $seats[$validated['tablet_id']] = ['alliance_id' => $allianceId, 'name' => $request->user()->name, 'seen_at' => now()->timestamp];
+            $seats[$validated['tablet_id']] = ['alliance_id' => $allianceId, 'role' => $role, 'name' => $request->user()->name, 'seen_at' => now()->timestamp];
             Cache::put($this->key($matchId), $seats, self::SEAT_TTL_SECONDS * 4);
 
             return $seats;
         });
 
+        if ($allianceId !== null && $role === RefereeRole::PENALTY->value) {
+            $this->rememberPenaltySeat($matchId, $allianceId);
+        }
+
         $sharing = collect($seats)
             ->except($validated['tablet_id'])
-            ->filter(fn (array $seat): bool => $allianceId !== null && $seat['alliance_id'] === $allianceId)
+            ->filter(fn (array $seat): bool => $allianceId !== null && $seat['alliance_id'] === $allianceId && $seat['role'] === $role)
             ->pluck('name')
             ->values();
 
         return response()->json(['sharing_with' => $sharing]);
     }
 
-    /** The tablets scoring each alliance of a match, for match control. */
+    /**
+     * The tablets in each seat of a match, for match control:
+     * `{alliance_id: {scoring: [names], penalty: [names]}}`.
+     */
     public function index(int $id): JsonResponse
     {
         $match = CompetitionMatch::query()->findOrFail($id);
@@ -49,13 +61,31 @@ class RefereeSeatController extends Controller
         $seats = collect($this->liveSeats($match->id))
             ->filter(fn (array $seat): bool => $seat['alliance_id'] !== null)
             ->groupBy('alliance_id')
-            ->map(fn ($group) => $group->pluck('name')->values());
+            ->map(fn ($group) => $group->groupBy('role')->map(fn ($tablets) => $tablets->pluck('name')->values()));
 
         return response()->json(['seats' => $seats]);
     }
 
+    private function rememberPenaltySeat(int $matchId, int $allianceId): void
+    {
+        $match = CompetitionMatch::query()->find($matchId);
+
+        if ($match === null || $match->status !== MatchStatus::ONGOING || $match->hasPenaltySeat($allianceId)
+            || ! $match->matchAlliances()->where('alliance_id', $allianceId)->exists()) {
+            return;
+        }
+
+        $match->getConnection()->transaction(function () use ($matchId, $allianceId): void {
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($matchId);
+
+            if (! $match->hasPenaltySeat($allianceId)) {
+                $match->update(['referee_seats' => [...($match->referee_seats ?? []), ['alliance_id' => $allianceId, 'role' => RefereeRole::PENALTY->value]]]);
+            }
+        });
+    }
+
     /**
-     * @return array<string, array{alliance_id: ?int, name: string, seen_at: int}>
+     * @return array<string, array{alliance_id: ?int, role: string, name: string, seen_at: int}>
      */
     private function liveSeats(int $matchId): array
     {

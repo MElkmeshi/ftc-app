@@ -44,6 +44,16 @@ function getFoulTotal(match: CompetitionMatch, color: string): number {
         .reduce((sum, s) => sum + (s.points ?? s.score_type?.points ?? 0), 0);
 }
 
+/**
+ * The alliance a foul is recorded on. Each column is the alliance whose
+ * robots committed the foul; a foul whose points go to the opponent is
+ * recorded on the other alliance.
+ */
+function foulAllianceId(match: CompetitionMatch, scoreType: ScoreType, allianceId: number): number {
+    if (scoreType.awarded_to !== 'opponent') return allianceId;
+    return match.match_alliances.find((ma) => ma.alliance.id !== allianceId)?.alliance.id ?? allianceId;
+}
+
 function getAllianceScoreTypeCount(match: CompetitionMatch, scoreTypeId: number, allianceId: number): number {
     return (match.scores ?? []).filter(
         (s) => s.score_type_id === scoreTypeId && s.alliance_id === allianceId && !s.team_id,
@@ -111,7 +121,7 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
                         <div className="space-y-2">
                             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Alliance-wide</p>
                             {alliance.map((scoreType) => {
-                                const count = getAllianceScoreTypeCount(match, scoreType.id, allianceId);
+                                const count = getAllianceScoreTypeCount(match, scoreType.id, foulAllianceId(match, scoreType, allianceId));
                                 return (
                                     <Card key={scoreType.id} className={cn('overflow-hidden', cardBorder)}>
                                         <CardContent className="p-3">
@@ -222,13 +232,13 @@ export default function RefereeFoulsBoth() {
         }
     }, [activeMatch, selectedMatchId]);
 
-    // Only negative-point score types, sorted into groups
+    // The fouls penalty referees call, sorted into groups
     const foulGroups = (() => {
         const grouped: Record<string, { alliance: ScoreType[]; team: ScoreType[] }> = {
             ungrouped: { alliance: [], team: [] },
         };
         scoreTypes
-            .filter((st) => st.points < 0)
+            .filter((st) => st.referee === 'penalty')
             .forEach((st) => {
                 const key = st.group?.name ?? 'ungrouped';
                 if (!grouped[key]) grouped[key] = { alliance: [], team: [] };
@@ -255,9 +265,10 @@ export default function RefereeFoulsBoth() {
     const changeCount = (scoreTypeId: number, target: ScoreTarget, delta: 1 | -1) => {
         const scoreType = scoreTypes.find((st) => st.id === scoreTypeId);
         if (!match || !scoreType) return;
-        const current = countScores(match, scoreTypeId, target);
+        const landsOn = target.allianceId ? { allianceId: foulAllianceId(match, scoreType, target.allianceId) } : target;
+        const current = countScores(match, scoreTypeId, landsOn);
         if (current + delta < 0) return;
-        setScoreCount.mutate({ match, scoreType, target, count: current + delta });
+        setScoreCount.mutate({ match, scoreType, target: landsOn, count: current + delta });
     };
 
     const handleAddScore = (scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, 1);

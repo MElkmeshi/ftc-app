@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\PointsAwardedTo;
+use App\Enums\RefereeRole;
 use App\Enums\ScoreKind;
 use App\Enums\ScoreTarget;
 use App\Models\Concerns\BelongsToGame;
@@ -16,7 +18,7 @@ class ScoreType extends Model
     use BelongsToGame, HasFactory;
 
     protected $fillable = [
-        'game_id', 'name', 'points', 'target', 'kind', 'choice_set', 'group_id', 'icon_path', 'created_by',
+        'game_id', 'name', 'points', 'target', 'kind', 'choice_set', 'referee', 'awarded_to', 'group_id', 'icon_path', 'created_by',
     ];
 
     protected $hidden = [
@@ -47,6 +49,8 @@ class ScoreType extends Model
     protected $casts = [
         'target' => ScoreTarget::class,
         'kind' => ScoreKind::class,
+        'referee' => RefereeRole::class,
+        'awarded_to' => PointsAwardedTo::class,
     ];
 
     /**
@@ -54,6 +58,8 @@ class ScoreType extends Model
      */
     protected $attributes = [
         'kind' => 'count',
+        'referee' => 'scoring',
+        'awarded_to' => 'own',
     ];
 
     public function creator()

@@ -137,6 +137,12 @@ export interface Group {
 
 export type ScoreKind = 'count' | 'toggle' | 'choice';
 
+/** Which of an alliance's two referees enters a score type. */
+export type RefereeRole = 'scoring' | 'penalty';
+
+/** Who a score type's points count for: the alliance it is entered for, or its opponent (FTC-style fouls). */
+export type PointsAwardedTo = 'own' | 'opponent';
+
 export interface ScoreType {
     id: number;
     name: string;
@@ -146,6 +152,9 @@ export interface ScoreType {
     kind: ScoreKind;
     /** Name shared by the options of a "one of" choice, e.g. "Ascent". */
     choice_set: string | null;
+    /** Entered by the alliance's scoring referee or its penalty referee. */
+    referee: RefereeRole;
+    awarded_to: PointsAwardedTo;
     group_id: number | null;
     /** A picture of the game piece or action, when the game has one. */
     icon_url?: string | null;
@@ -189,10 +198,14 @@ export interface CompetitionMatch {
     scores?: Score[];
     /** Alliances whose referees submitted their scores (cleared when the match starts). */
     submissions?: ScoreSubmission[] | null;
+    /** Penalty referee seats that joined this match; the head referee's commit waits for them too. */
+    referee_seats?: { alliance_id: number; role: RefereeRole }[] | null;
 }
 
 export interface ScoreSubmission {
     alliance_id: number;
+    /** Missing on submissions made before referees had roles: those were scoring. */
+    role?: RefereeRole;
     /** Name of the referee who submitted. */
     by: string;
     at: string;

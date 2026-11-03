@@ -43,8 +43,8 @@ class AutoEndMatchesJob implements ShouldQueue
             $endsAt = $match->started_at->copy()->addMilliseconds($match->duration_ms ?? $fallbackDurationMs);
 
             // Like FTC Live, scoring stays open after the buzzer until every
-            // alliance's referee has submitted; otherwise the head referee commits.
-            if ($endsAt->isFuture() || $match->load('matchAlliances.alliance')->alliancesAwaitingSubmission()->isNotEmpty()) {
+            // referee seat has submitted; otherwise the head referee commits.
+            if ($endsAt->isFuture() || $match->load('matchAlliances.alliance')->seatsAwaitingSubmission()->isNotEmpty()) {
                 return null;
             }
 

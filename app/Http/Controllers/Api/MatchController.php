@@ -105,6 +105,7 @@ class MatchController extends Controller
             'status' => MatchStatus::ONGOING,
             'started_at' => now(),
             'submissions' => null,
+            'referee_seats' => null,
             'duration_ms' => $matchTiming->currentDurationMs(),
         ]);
 
@@ -129,12 +130,12 @@ class MatchController extends Controller
             ], 422);
         }
 
-        $waiting = $match->load('matchAlliances.alliance')->alliancesAwaitingSubmission();
+        $waiting = $match->load('matchAlliances.alliance')->seatsAwaitingSubmission();
 
         if ($waiting->isNotEmpty() && ! $request->boolean('force')) {
             return response()->json([
-                'message' => 'Waiting for '.$waiting->map(fn ($alliance): string => ucfirst($alliance->color).' alliance')->join(', ', ' and ').' to submit scores.',
-                'waiting_for' => $waiting->pluck('id'),
+                'message' => 'Waiting for '.$waiting->map(fn (array $seat): string => ucfirst($seat['alliance']->color).' '.$seat['role']->label())->join(', ', ' and ').' to submit.',
+                'waiting_for' => $waiting->map(fn (array $seat): array => ['alliance_id' => $seat['alliance']->id, 'role' => $seat['role']->value]),
             ], 409);
         }
 
@@ -165,6 +166,7 @@ class MatchController extends Controller
             'started_at' => null,
             'cancelled_at' => now(),
             'submissions' => null,
+            'referee_seats' => null,
         ]);
 
         $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');

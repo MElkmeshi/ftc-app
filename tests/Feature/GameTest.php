@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\MatchStatus;
+use App\Enums\PointsAwardedTo;
 use App\Enums\RankingMethod;
+use App\Enums\RefereeRole;
 use App\Enums\ScoreKind;
 use App\Models\CompetitionMatch;
 use App\Models\Event;
@@ -152,11 +154,13 @@ it('keeps games for admins only', function () {
 });
 
 it('copies how each score type is scored when duplicating a game', function () {
-    ScoreType::factory()->create(['name' => 'Full base', 'points' => 10, 'kind' => 'choice', 'choice_set' => 'Base']);
+    ScoreType::factory()->create(['name' => 'Full base', 'points' => 10, 'kind' => 'choice', 'choice_set' => 'Base', 'target' => 'alliance', 'referee' => 'penalty', 'awarded_to' => 'opponent']);
 
     $this->actingAs($this->admin)->post('/games', ['name' => 'Copy', 'duplicate_from' => $this->game->id])->assertRedirect();
 
     expect(Game::query()->where('name', 'Copy')->sole()->scoreTypes()->sole())
         ->kind->toBe(ScoreKind::CHOICE)
-        ->choice_set->toBe('Base');
+        ->choice_set->toBe('Base')
+        ->referee->toBe(RefereeRole::PENALTY)
+        ->awarded_to->toBe(PointsAwardedTo::OPPONENT);
 });

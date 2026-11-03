@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\RefereeRole;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SubmitAllianceScoresRequest extends FormRequest
 {
@@ -16,6 +18,7 @@ class SubmitAllianceScoresRequest extends FormRequest
     {
         return [
             'alliance_id' => ['required', 'integer', 'exists:alliances,id'],
+            'role' => ['sometimes', Rule::enum(RefereeRole::class)],
         ];
     }
 }

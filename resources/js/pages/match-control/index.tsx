@@ -21,7 +21,14 @@ import {
 } from '@/lib/match-utils';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
-import { type AudienceDisplayState, type BreadcrumbItem, type CompetitionMatch, type DisplayModeValue, type SharedData } from '@/types';
+import {
+    type AudienceDisplayState,
+    type BreadcrumbItem,
+    type CompetitionMatch,
+    type DisplayModeValue,
+    type RefereeRole,
+    type SharedData,
+} from '@/types';
 import { Head, router, usePage, useProp } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, ChevronRight, Clock, ExternalLink, Flag, Megaphone, Octagon, Play, Square, Tablet, TriangleAlert, Upload } from 'lucide-react';
@@ -212,38 +219,57 @@ function ScheduleDrift({ matches }: { matches: CompetitionMatch[] }) {
     );
 }
 
+const ROLE_LABELS: Record<RefereeRole, string> = { scoring: 'Scoring', penalty: 'Penalties' };
+
+const isSubmitted = (match: CompetitionMatch, allianceId: number, role: RefereeRole) =>
+    match.submissions?.find((entry) => entry.alliance_id === allianceId && (entry.role ?? 'scoring') === role);
+
+/** The referee seats of an alliance: always its scoring referee, and its penalty referee once one joined. */
+const seatsOf = (match: CompetitionMatch, allianceId: number): RefereeRole[] =>
+    match.referee_seats?.some((seat) => seat.alliance_id === allianceId && seat.role === 'penalty') ? ['scoring', 'penalty'] : ['scoring'];
+
 /**
- * Where an alliance's referee is during a running match: submitted, still
- * scoring on a tablet (two tablets is a warning), or no tablet connected.
+ * Where one referee seat is during a running match: submitted, entering on a
+ * tablet (two tablets in one seat is a warning), or no tablet connected.
  */
-function RefereeStatus({ match, color, tablets }: { match: CompetitionMatch; color: 'red' | 'blue'; tablets: string[] }) {
-    const allianceId = getAllianceMembers(match, color)[0]?.alliance.id;
-    const submission = match.submissions?.find((entry) => entry.alliance_id === allianceId);
+function RefereeStatus({ match, allianceId, role, tablets }: { match: CompetitionMatch; allianceId: number; role: RefereeRole; tablets: string[] }) {
+    const submission = isSubmitted(match, allianceId, role);
+    const label = ROLE_LABELS[role];
 
     if (submission) {
         return (
-            <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <CheckCircle className="size-3.5" /> Submitted by {submission.by}
+            <p className="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <CheckCircle className="size-3.5" /> {label}: submitted by {submission.by}
             </p>
         );
     }
 
     if (tablets.length > 1) {
         return (
-            <p className="text-destructive mt-2 flex items-center gap-1 text-xs font-semibold">
-                <TriangleAlert className="size-3.5" /> {tablets.length} tablets: {tablets.join(', ')}
+            <p className="text-destructive flex items-center gap-1 text-xs font-semibold">
+                <TriangleAlert className="size-3.5" /> {label}: {tablets.length} tablets ({tablets.join(', ')})
             </p>
         );
     }
 
     return (
-        <p className="text-muted-foreground mt-2 flex items-center gap-1 text-xs">
-            <Tablet className="size-3.5" /> {tablets.length === 1 ? `Scoring: ${tablets[0]}` : 'No referee tablet'}
+        <p className="text-muted-foreground flex items-center gap-1 text-xs">
+            <Tablet className="size-3.5" /> {label}: {tablets.length === 1 ? tablets[0] : 'no tablet'}
         </p>
     );
 }
 
-function AllianceSummary({ match, color, tablets }: { match: CompetitionMatch; color: 'red' | 'blue'; tablets?: string[] }) {
+function AllianceSummary({
+    match,
+    color,
+    tablets,
+}: {
+    match: CompetitionMatch;
+    color: 'red' | 'blue';
+    tablets?: Partial<Record<RefereeRole, string[]>>;
+}) {
+    const allianceId = getAllianceMembers(match, color)[0]?.alliance.id;
+
     return (
         <div
             className={cn(
@@ -269,7 +295,13 @@ function AllianceSummary({ match, color, tablets }: { match: CompetitionMatch; c
                     </li>
                 ))}
             </ul>
-            {match.status === 'ongoing' && tablets && <RefereeStatus match={match} color={color} tablets={tablets} />}
+            {match.status === 'ongoing' && tablets && allianceId !== undefined && (
+                <div className="mt-2 space-y-0.5">
+                    {(tablets.penalty?.length ? (['scoring', 'penalty'] as RefereeRole[]) : seatsOf(match, allianceId)).map((role) => (
+                        <RefereeStatus key={role} match={match} allianceId={allianceId} role={role} tablets={tablets[role] ?? []} />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -338,12 +370,17 @@ export default function MatchControlConsole() {
         refetchInterval: 5000,
         refetchIntervalInBackground: true,
     });
-    const tabletsFor = (color: 'red' | 'blue') => (selected ? (seats?.seats[String(getAllianceMembers(selected, color)[0]?.alliance.id)] ?? []) : []);
+    const tabletsFor = (color: 'red' | 'blue') => (selected ? (seats?.seats[String(getAllianceMembers(selected, color)[0]?.alliance.id)] ?? {}) : {});
+    // Every alliance's scoring referee, plus its penalty referee once one joined, must submit before the commit.
     const awaitingSubmission =
         selected?.status === 'ongoing'
-            ? (['red', 'blue'] as const).filter((color) => {
+            ? (['red', 'blue'] as const).flatMap((color) => {
                   const allianceId = getAllianceMembers(selected, color)[0]?.alliance.id;
-                  return allianceId !== undefined && !selected.submissions?.some((entry) => entry.alliance_id === allianceId);
+                  return allianceId === undefined
+                      ? []
+                      : seatsOf(selected, allianceId)
+                            .filter((role) => !isSubmitted(selected, allianceId, role))
+                            .map((role) => `${color} ${role === 'penalty' ? 'penalties' : 'scoring'}`);
               })
             : [];
 

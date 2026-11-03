@@ -24,7 +24,7 @@ export default function RefereeScoringOnly() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, allianceName, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
+        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
     } = useScoringPage();
 
     // Only positive-point score types
@@ -99,7 +99,7 @@ export default function RefereeScoringOnly() {
                     </Link>
                 </div>
 
-                <MatchTimerBanner showScores={false} />
+                <MatchTimerBanner showScores={false} showRolePicker />
 
                 {isLoading && (
                     <div className="flex h-40 items-center justify-center">
@@ -258,10 +258,10 @@ export default function RefereeScoringOnly() {
 
                 {match && match.status === 'ongoing' && selectedAllianceId && (
                     <>
-                        <SeatWarning names={sharingSeatWith} allianceName={allianceName} />
+                        <SeatWarning names={sharingSeatWith} label={seatLabel} />
                         <SubmitScoresPanel
                             matchNumber={match.number}
-                            allianceName={allianceName}
+                            label={seatLabel}
                             submission={submission}
                             pending={isSubmitPending}
                             error={submitError}

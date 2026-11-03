@@ -86,7 +86,7 @@ export default function RefereeScoring4() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, allianceName, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
+        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
     } = useScoringPage();
 
     const allianceColorName = alliances.find((a) => a?.id === selectedAllianceId)?.color ?? 'gray';
@@ -144,7 +144,7 @@ export default function RefereeScoring4() {
                     </Link>
                 </div>
 
-                <MatchTimerBanner showScores={false} />
+                <MatchTimerBanner showScores={false} showRolePicker />
 
                 {isLoading && (
                     <div className="flex h-40 items-center justify-center rounded-2xl bg-slate-900">
@@ -248,10 +248,10 @@ export default function RefereeScoring4() {
                 {/* Submit */}
                 {match && match.status === 'ongoing' && selectedAllianceId && (
                     <>
-                        <SeatWarning names={sharingSeatWith} allianceName={allianceName} />
+                        <SeatWarning names={sharingSeatWith} label={seatLabel} />
                         <SubmitScoresPanel
                             matchNumber={match.number}
-                            allianceName={allianceName}
+                            label={seatLabel}
                             submission={submission}
                             pending={isSubmitPending}
                             error={submitError}

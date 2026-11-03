@@ -11,7 +11,7 @@ import { useCreateGroup, useDeleteGroup, useGroups, useUpdateGroup } from '@/hoo
 import { useScoreTypes } from '@/hooks/use-match';
 import { useCreateScoreType, useDeleteScoreType, useUpdateScoreType } from '@/hooks/use-score-types-crud';
 import AppLayout from '@/layouts/app-layout';
-import { type GameSummary, type Group, type ScoreKind, type ScoreType } from '@/types';
+import { type GameSummary, type Group, type PointsAwardedTo, type RefereeRole, type ScoreKind, type ScoreType } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
@@ -36,6 +36,15 @@ function describeKind(scoreType: ScoreType): string {
     return 'Count';
 }
 
+/** Who enters a score type, and for opponent fouls where the points go. */
+function describeReferee(scoreType: ScoreType): string {
+    if (scoreType.referee !== 'penalty') {
+        return 'Scoring';
+    }
+
+    return scoreType.awarded_to === 'opponent' ? 'Penalty → opponent' : 'Penalty';
+}
+
 function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: ScoreType; groups: Group[]; trigger: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState(scoreType?.name ?? '');
@@ -43,6 +52,8 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
     const [target, setTarget] = useState(scoreType?.target ?? 'team');
     const [kind, setKind] = useState<ScoreKind>(scoreType?.kind ?? 'count');
     const [choiceSet, setChoiceSet] = useState(scoreType?.choice_set ?? '');
+    const [referee, setReferee] = useState<RefereeRole>(scoreType?.referee ?? 'scoring');
+    const [awardedTo, setAwardedTo] = useState<PointsAwardedTo>(scoreType?.awarded_to ?? 'own');
     const [groupId, setGroupId] = useState<string>(scoreType?.group_id ? String(scoreType.group_id) : 'none');
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const createScoreType = useCreateScoreType();
@@ -57,6 +68,8 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
             setTarget(scoreType?.target ?? 'team');
             setKind(scoreType?.kind ?? 'count');
             setChoiceSet(scoreType?.choice_set ?? '');
+            setReferee(scoreType?.referee ?? 'scoring');
+            setAwardedTo(scoreType?.awarded_to ?? 'own');
             setGroupId(scoreType?.group_id ? String(scoreType.group_id) : 'none');
             setErrors({});
         }
@@ -72,6 +85,9 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
             target,
             kind,
             choice_set: kind === 'choice' ? choiceSet : null,
+            referee,
+            // Points for the opponent are always alliance-wide.
+            awarded_to: target === 'alliance' ? awardedTo : 'own',
             group_id: groupId === 'none' ? null : parseInt(groupId, 10),
         };
 
@@ -154,6 +170,38 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
                                     Score types with the same set name are shown together; a robot gets only one of them.
                                 </p>
                                 {errors.choice_set && <p className="text-sm text-red-500">{errors.choice_set[0]}</p>}
+                            </div>
+                        )}
+                        <div className="grid gap-2">
+                            <Label>Entered by</Label>
+                            <Select value={referee} onValueChange={(value) => setReferee(value as RefereeRole)}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="scoring">Scoring referee</SelectItem>
+                                    <SelectItem value="penalty">Penalty referee (fouls)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-muted-foreground text-xs">
+                                Each alliance can have a scoring referee and a penalty referee, who calls the fouls that alliance&apos;s robots
+                                commit.
+                            </p>
+                            {errors.referee && <p className="text-sm text-red-500">{errors.referee[0]}</p>}
+                        </div>
+                        {referee === 'penalty' && target === 'alliance' && (
+                            <div className="grid gap-2">
+                                <Label>Points go to</Label>
+                                <Select value={awardedTo} onValueChange={(value) => setAwardedTo(value as PointsAwardedTo)}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="own">The alliance that fouled (use negative points)</SelectItem>
+                                        <SelectItem value="opponent">The opponent (like FTC)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {errors.awarded_to && <p className="text-sm text-red-500">{errors.awarded_to[0]}</p>}
                             </div>
                         )}
                         <div className="grid gap-2">
@@ -443,6 +491,7 @@ export default function ScoreTypesPage() {
                                         <th className="px-4 py-2 text-left font-medium">Points</th>
                                         <th className="px-4 py-2 text-left font-medium">Target</th>
                                         <th className="px-4 py-2 text-left font-medium">Scored as</th>
+                                        <th className="px-4 py-2 text-left font-medium">Referee</th>
                                         <th className="px-4 py-2 text-left font-medium">Group</th>
                                         <th className="px-4 py-2 text-right font-medium">Actions</th>
                                     </tr>
@@ -450,7 +499,7 @@ export default function ScoreTypesPage() {
                                 <tbody>
                                     {scoreTypes.length === 0 ? (
                                         <tr>
-                                            <td colSpan={7} className="text-muted-foreground px-4 py-8 text-center">
+                                            <td colSpan={8} className="text-muted-foreground px-4 py-8 text-center">
                                                 No score types found
                                             </td>
                                         </tr>
@@ -473,6 +522,7 @@ export default function ScoreTypesPage() {
                                                     </Badge>
                                                 </td>
                                                 <td className="px-4 py-2 text-sm">{describeKind(st)}</td>
+                                                <td className="px-4 py-2 text-sm">{describeReferee(st)}</td>
                                                 <td className="px-4 py-2">{st.group?.name ?? '-'}</td>
                                                 <td className="px-4 py-2">
                                                     <div className="flex justify-end gap-2">

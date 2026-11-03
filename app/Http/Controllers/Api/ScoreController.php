@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\MatchStatus;
+use App\Enums\PointsAwardedTo;
+use App\Enums\RefereeRole;
 use App\Enums\ScoreKind;
 use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
@@ -120,8 +122,8 @@ class ScoreController extends Controller
 
             if ($currentScore->score_type_id === null) {
                 Gate::authorize('control-matches');
-            } elseif ($currentScore->alliance_id !== null) {
-                $this->ensureOpenFor($match, $currentScore->alliance_id);
+            } elseif ($currentScore->alliance_id !== null && ($scoreType = ScoreType::query()->find($currentScore->score_type_id)) !== null) {
+                $this->ensureOpenFor($match, $scoreType, $currentScore->alliance_id);
             }
 
             $this->removeScore($match, $currentScore);
@@ -160,21 +162,32 @@ class ScoreController extends Controller
             throw ValidationException::withMessages([$target.'_id' => 'The selected target is not assigned to this match.']);
         }
 
-        $this->ensureOpenFor($match, $matchAlliance->alliance_id);
+        $this->ensureOpenFor($match, $scoreType, $matchAlliance->alliance_id);
 
         return [$scoreType, $teamId, $matchAlliance];
     }
 
     /**
-     * While a match is running, an alliance whose referees submitted their
-     * scores is locked until they reopen it. Head referees can still add
-     * fouls, and correct scores after the match ends.
+     * While a match is running, what a referee submitted is locked until they
+     * reopen it. The referee is the alliance's scoring or penalty referee; a
+     * foul whose points go to the opponent is entered by the fouling
+     * alliance's penalty referee. Head referees can still add fouls, and
+     * correct scores after the match ends.
      */
-    private function ensureOpenFor(CompetitionMatch $match, int $allianceId): void
+    private function ensureOpenFor(CompetitionMatch $match, ScoreType $scoreType, int $targetAllianceId): void
     {
-        if ($match->status === MatchStatus::ONGOING && $match->isSubmittedFor($allianceId) && Gate::denies('control-matches')) {
+        if ($match->status !== MatchStatus::ONGOING || Gate::allows('control-matches')) {
+            return;
+        }
+
+        $seatAllianceId = $scoreType->awarded_to === PointsAwardedTo::OPPONENT
+            ? ($match->opponentOf($targetAllianceId) ?? $targetAllianceId)
+            : $targetAllianceId;
+        $role = $scoreType->referee ?? RefereeRole::SCORING;
+
+        if ($match->isSubmittedFor($seatAllianceId, $role)) {
             throw ValidationException::withMessages([
-                'alliance_id' => 'These scores were submitted. Reopen them on the tablet to make changes.',
+                'alliance_id' => "These {$role->label()} were submitted. Reopen them on the tablet to make changes.",
             ]);
         }
     }
