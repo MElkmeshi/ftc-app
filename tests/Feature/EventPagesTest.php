@@ -19,10 +19,16 @@ it('shows an event home page with links for every field', function () {
     $this->get('/event/testevent')->assertOk()->assertInertia(fn ($page) => $page
         ->component('events/show')
         ->where('event.code', 'testevent')
-        
+
     );
 });
 
 it('returns 404 for an unknown event code', function () {
     $this->get('/event/nope/referee/display')->assertNotFound();
+});
+
+it('tells screens the server time for clock sync', function () {
+    $this->getJson('/server-time')->assertOk()->assertJsonStructure(['now']);
+
+    expect(abs($this->getJson('/server-time')->json('now') - now()->getTimestampMs()))->toBeLessThan(5000);
 });

@@ -1,3 +1,4 @@
+import { eventApiUrl } from '@/lib/event';
 import {
     AllianceGroup,
     AllianceSelectionStatus,
@@ -11,7 +12,6 @@ import {
 } from '@/types';
 import { http } from '@inertiajs/react';
 import { useCallback } from 'react';
-import { eventApiUrl } from '@/lib/event';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -28,6 +28,34 @@ async function request<T>(method: Method, url: string, data?: unknown): Promise<
         },
     });
     return JSON.parse(response.data);
+}
+
+const RETRY_DELAYS_MS = [300, 1000, 2500];
+
+/** True when the request never got an HTTP response (Wi-Fi drop, server restart), so it is safe to resend. */
+function isNetworkFailure(error: unknown): boolean {
+    return error instanceof Error && 'code' in error && error.code === 'ERR_NETWORK';
+}
+
+/**
+ * Sends a write that carries its own idempotency key, retrying on network
+ * failures. The server ignores repeats of the same key, so a tap that did
+ * reach the server before the connection dropped is never counted twice.
+ */
+async function sendIdempotent<T>(method: Method, url: string, data: Record<string, unknown>): Promise<T> {
+    const payload = { ...data, client_request_id: crypto.randomUUID() };
+
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await request<T>(method, url, payload);
+        } catch (error) {
+            if (!isNetworkFailure(error) || attempt >= RETRY_DELAYS_MS.length) {
+                throw error;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+        }
+    }
 }
 
 async function get<T>(url: string): Promise<T> {
@@ -68,7 +96,7 @@ export const useApi = () => {
     }, []);
 
     const addScore = useCallback(async (scoreData: { match_id: number; team_id?: number; alliance_id?: number; score_type_id: number }) => {
-        return post<{ match: CompetitionMatch }>('/api/scores', scoreData);
+        return sendIdempotent<{ match: CompetitionMatch }>('post', '/api/scores', scoreData);
     }, []);
 
     const deleteScore = useCallback(async (scoreId: number) => {

@@ -14,11 +14,25 @@ use Illuminate\Validation\ValidationException;
 
 class ScoreController extends Controller
 {
+    /**
+     * Records one scoring tap. Tablets send a client_request_id with every tap
+     * and retry it after a dropped connection; a repeated id returns the match
+     * as it is instead of scoring the same tap twice.
+     */
     public function store(StoreScoreRequest $request): JsonResponse
     {
-        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request): CompetitionMatch {
+        $recorded = true;
+
+        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, &$recorded): CompetitionMatch {
             $validated = $request->validated();
             $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($validated['match_id']);
+            $clientRequestId = $validated['client_request_id'] ?? null;
+
+            if ($clientRequestId !== null && Score::withTrashed()->where('client_request_id', $clientRequestId)->exists()) {
+                $recorded = false;
+
+                return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+            }
             $scoreType = ScoreType::query()->findOrFail($validated['score_type_id']);
             $teamId = $validated['team_id'] ?? null;
             $allianceId = $validated['alliance_id'] ?? null;
@@ -41,6 +55,7 @@ class ScoreController extends Controller
                 'alliance_id' => $matchAlliance->alliance_id,
                 'score_type_id' => $scoreType->id,
                 'points' => $scoreType->points,
+                'client_request_id' => $clientRequestId,
                 'created_by' => $request->user()->id,
             ]);
 
@@ -50,6 +65,10 @@ class ScoreController extends Controller
 
             return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
         }, 3);
+
+        if (! $recorded) {
+            return response()->json(['match' => $match]);
+        }
 
         broadcast(new ScoreUpdated($match))->toOthers();
 

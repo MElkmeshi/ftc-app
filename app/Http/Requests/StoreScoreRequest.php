@@ -22,6 +22,7 @@ class StoreScoreRequest extends FormRequest
             'team_id' => ['nullable', 'integer', 'required_without:alliance_id', 'prohibits:alliance_id', $this->existsInEvent('teams')->whereNull('deleted_at')],
             'alliance_id' => ['nullable', 'integer', 'required_without:team_id', 'prohibits:team_id', 'exists:alliances,id'],
             'score_type_id' => ['required', 'integer', $this->existsInEvent('score_types')],
+            'client_request_id' => ['nullable', 'uuid'],
         ];
     }
 

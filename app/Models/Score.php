@@ -12,11 +12,11 @@ class Score extends Model
     use BelongsToEvent, HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'event_id', 'match_id', 'team_id', 'alliance_id', 'score_type_id', 'points', 'created_by', 'updated_by',
+        'event_id', 'match_id', 'team_id', 'alliance_id', 'score_type_id', 'points', 'client_request_id', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
-        'created_by', 'updated_by', 'deleted_at', 'created_at', 'updated_at',
+        'created_by', 'updated_by', 'client_request_id', 'deleted_at', 'created_at', 'updated_at',
     ];
 
     protected function casts(): array

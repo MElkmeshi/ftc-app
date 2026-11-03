@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 
 uses(RefreshDatabase::class);
 
@@ -67,6 +68,23 @@ it('adds a team score and broadcasts the updated match', function () {
     Event::assertDispatched(ScoreUpdated::class, function ($event) {
         return $event->match->id === $this->match->id;
     });
+});
+
+it('records a retried scoring tap only once', function () {
+    Event::fake();
+    $tap = [
+        'match_id' => $this->match->id,
+        'team_id' => $this->team->id,
+        'score_type_id' => $this->scoreType->id,
+        'client_request_id' => (string) Str::uuid(),
+    ];
+
+    $this->postJson('/api/scores', $tap)->assertCreated();
+    $this->postJson('/api/scores', $tap)->assertOk()->assertJsonPath('match.match_alliances.0.score', 10);
+
+    expect(Score::query()->count())->toBe(1)
+        ->and($this->matchAlliance->refresh()->score)->toBe(10);
+    Event::assertDispatchedTimes(ScoreUpdated::class, 1);
 });
 
 it('adds an alliance-wide score without affecting team scores', function () {

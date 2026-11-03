@@ -43,6 +43,11 @@ class EventArchive
 
     private const AUTHOR_COLUMNS = ['created_by', 'updated_by'];
 
+    /**
+     * Server-specific columns that would clash if the file is imported on the same server.
+     */
+    private const DROPPED_COLUMNS = ['client_request_id'];
+
     private const EVENT_COLUMNS = ['name', 'type', 'venue', 'timezone', 'start_date', 'end_date', 'field_count'];
 
     /**
@@ -57,7 +62,7 @@ class EventArchive
                 ->where('event_id', $event->id)
                 ->orderBy('id')
                 ->get()
-                ->map(fn (object $row): array => collect((array) $row)->except(['event_id', ...self::AUTHOR_COLUMNS])->all())
+                ->map(fn (object $row): array => collect((array) $row)->except(['event_id', ...self::AUTHOR_COLUMNS, ...self::DROPPED_COLUMNS])->all())
                 ->all();
         }
 
@@ -100,8 +105,7 @@ class EventArchive
 
                 foreach ($archive['tables'][$table] ?? [] as $row) {
                     $oldId = $row['id'] ?? null;
-                    $row = array_intersect_key((array) $row, $columns);
-                    unset($row['id']);
+                    $row = array_diff_key(array_intersect_key((array) $row, $columns), array_flip(['id', ...self::DROPPED_COLUMNS]));
 
                     foreach ($foreignKeys as $column => $referencedTable) {
                         if (isset($row[$column])) {

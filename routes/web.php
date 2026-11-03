@@ -25,6 +25,11 @@ Route::get('/', [EventController::class, 'index'])->name('home');
 Route::get('events', [EventController::class, 'index'])->name('events.index');
 Route::redirect('/dashboard', '/');
 
+/*
+ * Lets every screen line its match timer up with the server's clock.
+ */
+Route::get('server-time', fn () => response()->json(['now' => now()->getTimestampMs()])->header('Cache-Control', 'no-store'))->name('server-time');
+
 Route::middleware(['auth', 'verified', 'can:manage-competition'])->group(function () {
     Route::get('events/create', [EventController::class, 'create'])->name('events.create');
     Route::post('events', [EventController::class, 'store'])->name('events.store');

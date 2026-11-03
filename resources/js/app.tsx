@@ -1,11 +1,13 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { echo } from '@inertiajs/react/echo';
-import { configureEcho } from '@laravel/echo-react';
+import { configureEcho, echo as echoInstance } from '@laravel/echo-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
+import { watchReconnects } from './lib/realtime-recovery';
+import { startServerClockSync, syncServerClock } from './lib/server-clock';
 
 // wsHost/forceTLS fall back to whatever host/scheme the page itself was loaded
 // with, rather than a value baked in at build time. VITE_* vars are frozen into
@@ -26,6 +28,14 @@ configureEcho({
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const queryClient = new QueryClient();
+
+// Anything broadcast while this screen was offline is gone, so re-read the
+// page's live props and every cached query as soon as the socket is back.
+watchReconnects(echoInstance().connector, () => {
+    void queryClient.invalidateQueries();
+    void syncServerClock();
+    router.reload();
+});
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -50,3 +60,5 @@ createInertiaApp({
 
 // This will set light / dark mode on load...
 initializeTheme();
+
+startServerClockSync();

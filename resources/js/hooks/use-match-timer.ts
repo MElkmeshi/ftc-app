@@ -1,4 +1,5 @@
 import { type SoundName } from '@/hooks/use-audio-engine';
+import { serverNow } from '@/lib/server-clock';
 import { MatchPhase } from '@/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -168,11 +169,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
 
             // Transition starts / Auto ends (e.g., at 2:20)
             // Play "pick up controllers" sound
-            if (
-                remaining <= transitionRemaining &&
-                remaining > transitionRemaining - 1 &&
-                !soundsPlayedRef.current.has('transition_start')
-            ) {
+            if (remaining <= transitionRemaining && remaining > transitionRemaining - 1 && !soundsPlayedRef.current.has('transition_start')) {
                 soundsPlayedRef.current.add('transition_start');
                 playSoundRef.current?.('controllers_pickup.wav');
             }
@@ -190,21 +187,13 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
 
             // Teleop starts / Transition ends (e.g., at 2:00)
             // Play end of auto sound
-            if (
-                remaining <= teleopRemaining &&
-                remaining > teleopRemaining - 1 &&
-                !soundsPlayedRef.current.has('teleop_start')
-            ) {
+            if (remaining <= teleopRemaining && remaining > teleopRemaining - 1 && !soundsPlayedRef.current.has('teleop_start')) {
                 soundsPlayedRef.current.add('teleop_start');
                 playSoundRef.current?.('auto_end_ftc.wav');
             }
 
             // Endgame warning (last 30s of teleop, e.g., at 0:30)
-            if (
-                remaining <= endgameWarning &&
-                remaining > endgameWarning - 1 &&
-                !soundsPlayedRef.current.has('endgame')
-            ) {
+            if (remaining <= endgameWarning && remaining > endgameWarning - 1 && !soundsPlayedRef.current.has('endgame')) {
                 soundsPlayedRef.current.add('endgame');
                 playSoundRef.current?.('endgame_whistle.wav');
             }
@@ -221,7 +210,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     const tick = useCallback(() => {
         if (!startTimeRef.current) return;
 
-        const now = Date.now();
+        const now = serverNow();
         const elapsed = Math.floor((now - startTimeRef.current) / 1000);
         const totalDuration = durationSecondsRef.current;
         const clamped = Math.min(elapsed, totalDuration);
@@ -251,7 +240,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     const start = useCallback(() => {
         soundsPlayedRef.current.clear();
         durationSecondsRef.current = timingRef.current.total_with_countdown;
-        startTimeRef.current = Date.now();
+        startTimeRef.current = serverNow();
         setElapsedSeconds(0);
         setPhase('pre-match');
         setIsRunning(true);
@@ -293,7 +282,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     const resumeFrom = useCallback(
         (startedAtIso: string, durationMs?: number) => {
             const startedAt = new Date(startedAtIso).getTime();
-            const now = Date.now();
+            const now = serverNow();
             const elapsed = Math.floor((now - startedAt) / 1000);
             const totalDuration = durationMs ? Math.round(durationMs / 1000) : timing.total_with_countdown;
             durationSecondsRef.current = totalDuration;

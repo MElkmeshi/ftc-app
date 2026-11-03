@@ -80,12 +80,30 @@ export interface AllianceColorClasses {
 
 export function getAllianceColorClasses(color: string): AllianceColorClasses {
     if (color === 'red') {
-        return { bg: 'bg-red-600', bgHover: 'hover:bg-red-700', border: 'border-red-500', text: 'text-red-600', bgLight: 'bg-red-50 dark:bg-red-950' };
+        return {
+            bg: 'bg-red-600',
+            bgHover: 'hover:bg-red-700',
+            border: 'border-red-500',
+            text: 'text-red-600',
+            bgLight: 'bg-red-50 dark:bg-red-950',
+        };
     }
     if (color === 'blue') {
-        return { bg: 'bg-blue-600', bgHover: 'hover:bg-blue-700', border: 'border-blue-500', text: 'text-blue-600', bgLight: 'bg-blue-50 dark:bg-blue-950' };
+        return {
+            bg: 'bg-blue-600',
+            bgHover: 'hover:bg-blue-700',
+            border: 'border-blue-500',
+            text: 'text-blue-600',
+            bgLight: 'bg-blue-50 dark:bg-blue-950',
+        };
     }
-    return { bg: 'bg-gray-600', bgHover: 'hover:bg-gray-700', border: 'border-gray-500', text: 'text-gray-600', bgLight: 'bg-gray-50 dark:bg-gray-950' };
+    return {
+        bg: 'bg-gray-600',
+        bgHover: 'hover:bg-gray-700',
+        border: 'border-gray-500',
+        text: 'text-gray-600',
+        bgLight: 'bg-gray-50 dark:bg-gray-950',
+    };
 }
 
 export function determineWinner(match: CompetitionMatch): 'red' | 'blue' | 'tie' {
