@@ -98,6 +98,7 @@ export default function EventShow() {
                                 href: `${base}/display`,
                                 description: 'follows match control: preview, timer, results, rankings',
                             },
+                            { label: 'Pit display', href: `${base}/display/pit`, description: 'scrolling rankings and upcoming matches' },
                             { label: 'Match overlay', href: `${base}/display/match-overlay`, description: 'timer and live score for streams' },
                             { label: 'Rankings display', href: `${base}/referee/display` },
                             { label: 'Alliance selection display', href: `${base}/alliance-selection/display` },

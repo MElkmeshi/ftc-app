@@ -80,3 +80,14 @@ it('shows match control to head referees with every match', function () {
         ->has('displayModes', 7)
     );
 });
+
+it('serves the pit display publicly with rankings and the schedule', function () {
+    auth()->logout();
+    CompetitionMatch::factory()->create();
+
+    $this->get('/display/pit')->assertOk()->assertInertia(fn ($page) => $page
+        ->component('display/pit')
+        ->has('rankings')
+        ->has('matches', 1)
+    );
+});

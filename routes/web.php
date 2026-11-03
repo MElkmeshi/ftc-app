@@ -65,6 +65,14 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         ]);
     })->name('display.audience');
 
+    Route::get('display/pit', function (EventLiveProps $live) {
+        return Inertia::render('display/pit', [
+            'rankings' => $live->rankings(),
+            'rankingMethod' => RankingMethod::current()->value,
+            'matches' => $live->matches(),
+        ]);
+    })->name('display.pit');
+
     Route::get('referee/match-control', fn () => to_route('display.audience'))->name('referee.match-control');
 
     Route::get('match-control', function (EventLiveProps $live) {

@@ -9,6 +9,7 @@ import {
     ClipboardCheck,
     Home,
     KeyRound,
+    LayoutList,
     ListChecks,
     Monitor,
     MonitorPlay,
@@ -31,6 +32,7 @@ const runEventNavItems: NavItem[] = [
 
 const displayNavItems: NavItem[] = [
     { title: 'Audience Display', href: '/display', icon: Tv },
+    { title: 'Pit Display', href: '/display/pit', icon: LayoutList },
     { title: 'Match Overlay', href: '/display/match-overlay', icon: Monitor },
     { title: 'Rankings', href: '/referee/display', icon: BarChart3 },
     { title: 'Alliance Selection', href: '/alliance-selection/display', icon: Users },
