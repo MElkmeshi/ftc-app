@@ -99,6 +99,7 @@ describe('schedule drift', () => {
     const at = (iso: string) => new Date(iso).getTime();
     const match = (id: number, status: string, start: string, startedAt: string | null = null): CompetitionMatch => ({
         ...makeMatch(0),
+        type: 'qualification',
         id,
         status,
         start_time: start,
@@ -115,6 +116,12 @@ describe('schedule drift', () => {
         const matches = [match(1, 'completed', '2026-12-01T09:00:00Z'), match(2, 'upcoming', '2026-12-01T09:07:00Z')];
 
         expect(scheduleDriftMinutes(matches, at('2026-12-01T09:04:00Z'))).toBe(-3);
+    });
+
+    it('ignores playoff matches, whose times are placeholders', () => {
+        const playoff = { ...match(3, 'upcoming', '2026-12-01T05:00:00Z'), type: 'elimination' as const };
+
+        expect(scheduleDriftMinutes([match(1, 'completed', '2026-12-01T09:00:00Z'), playoff], at('2026-12-01T09:30:00Z'))).toBeNull();
     });
 
     it('says nothing before the first match is played', () => {

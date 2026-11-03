@@ -194,9 +194,11 @@ export function formatMatchTime(startTime: string | null | undefined, timeZone?:
  * on the next match to play against the current time.
  */
 export function scheduleDriftMinutes(matches: CompetitionMatch[], now: number): number | null {
-    const running = matches.find((match) => match.status === 'ongoing');
-    const reference = running ?? matches.find((match) => match.status === 'upcoming');
-    const underway = running !== undefined || matches.some((match) => match.status === 'completed');
+    // Only qualification matches follow the planned timetable; playoff times are placeholders.
+    const qualifications = matches.filter((match) => match.type === 'qualification');
+    const running = qualifications.find((match) => match.status === 'ongoing');
+    const reference = running ?? qualifications.find((match) => match.status === 'upcoming');
+    const underway = running !== undefined || qualifications.some((match) => match.status === 'completed');
 
     // Before the first match nothing is late or early yet.
     if (!reference?.start_time || !underway) {

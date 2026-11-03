@@ -91,3 +91,31 @@ it('rejects files that are not event archives', function () {
 it('only lets admins export', function () {
     $this->actingAs(User::factory()->create())->get('/api/export')->assertForbidden();
 });
+
+it('never adds alliances or broken event details from an imported file', function () {
+    $archive = exportTestEvent();
+    $archive['alliances'][999] = 'green';
+    $archive['event'] = [...$archive['event'], 'type' => 'world_finals', 'timezone' => 'Mars/Olympus', 'field_count' => 5000];
+    $file = UploadedFile::fake()->createWithContent('event.json', json_encode($archive));
+
+    $this->actingAs($this->admin)->post('/events/import', ['file' => $file, 'code' => 'copy'])->assertSessionHasErrors('file');
+    expect(Alliance::query()->where('color', 'green')->exists())->toBeFalse();
+
+    unset($archive['alliances'][999]);
+    $file = UploadedFile::fake()->createWithContent('event.json', json_encode($archive));
+    $this->actingAs($this->admin)->post('/events/import', ['file' => $file, 'code' => 'copy'])->assertRedirect('/event/copy/dashboard');
+
+    expect(Event::query()->where('code', 'copy')->sole())
+        ->type->value->toBe('other')
+        ->timezone->toBe(config('app.timezone'))
+        ->field_count->toBe(8);
+});
+
+it('turns unstorable values into an error instead of a crash', function () {
+    $archive = exportTestEvent();
+    $archive['tables']['teams'][0]['number'] = ['not' => 'a number'];
+    $file = UploadedFile::fake()->createWithContent('event.json', json_encode($archive));
+
+    $this->actingAs($this->admin)->post('/events/import', ['file' => $file, 'code' => 'copy'])->assertSessionHasErrors('file');
+    expect(Event::query()->where('code', 'copy')->exists())->toBeFalse();
+});

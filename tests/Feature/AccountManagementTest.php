@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Models\Score;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 uses(RefreshDatabase::class);
@@ -46,7 +49,7 @@ it('changes roles and resets passwords', function () {
     $oldPassword = $referee->password;
 
     $this->actingAs($this->admin)->put("/accounts/{$referee->id}", ['name' => $referee->name, 'email' => $referee->email, 'role' => 'head_referee']);
-    $this->actingAs($this->admin)->post("/accounts/{$referee->id}/reset-password");
+    $this->actingAs($this->admin)->post("/accounts/{$referee->id}/reset-password")->assertRedirect();
 
     $referee->refresh();
     expect($referee->role)->toBe(UserRole::HeadReferee)
@@ -69,4 +72,25 @@ it('deletes other accounts', function () {
     $this->actingAs($this->admin)->delete("/accounts/{$viewer->id}")->assertRedirect();
 
     expect(User::query()->find($viewer->id))->toBeNull();
+});
+
+it('keeps the scores and teams an official entered when their account is deleted', function () {
+    $referee = User::factory()->create(['role' => UserRole::Referee]);
+    $team = Team::factory()->create(['created_by' => $referee->id]);
+    $score = Score::factory()->create(['team_id' => $team->id, 'created_by' => $referee->id]);
+
+    $this->actingAs($this->admin)->delete("/accounts/{$referee->id}")->assertRedirect();
+
+    expect(Team::query()->find($team->id))->not->toBeNull()
+        ->and(Score::query()->find($score->id)?->created_by)->toBeNull();
+});
+
+it('signs an account out everywhere when its password is reset', function () {
+    $referee = User::factory()->create(['role' => UserRole::Referee]);
+    DB::table('sessions')->insert(['id' => 'tablet-session', 'user_id' => $referee->id, 'payload' => '', 'last_activity' => now()->timestamp]);
+    config(['session.driver' => 'database']);
+
+    $this->actingAs($this->admin)->post("/accounts/{$referee->id}/reset-password");
+
+    expect(DB::table('sessions')->where('user_id', $referee->id)->exists())->toBeFalse();
 });

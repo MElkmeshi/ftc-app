@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\EventType;
 use App\Models\Event;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Exports an event as one self-contained file and imports it again, on this
@@ -48,6 +52,12 @@ class EventArchive
      */
     private const DROPPED_COLUMNS = ['client_request_id'];
 
+    /**
+     * Settings that describe this server's live state (what the audience
+     * display shows), not the event itself.
+     */
+    private const SERVER_SETTING_GROUPS = ['display'];
+
     private const EVENT_COLUMNS = ['name', 'type', 'venue', 'timezone', 'start_date', 'end_date', 'field_count'];
 
     /**
@@ -60,6 +70,7 @@ class EventArchive
         foreach (array_keys(self::TABLES) as $table) {
             $tables[$table] = DB::table($table)
                 ->where('event_id', $event->id)
+                ->when($table === 'settings', fn ($query) => $query->whereNotIn('group', self::SERVER_SETTING_GROUPS))
                 ->orderBy('id')
                 ->get()
                 ->map(fn (object $row): array => collect((array) $row)->except(['event_id', ...self::AUTHOR_COLUMNS, ...self::DROPPED_COLUMNS])->all())
@@ -89,9 +100,11 @@ class EventArchive
             throw new InvalidArgumentException('This event file was made by a newer version of the app.');
         }
 
-        return DB::transaction(function () use ($archive, $code, $importedBy): Event {
+        $eventAttributes = $this->eventAttributes($archive['event']);
+
+        return DB::transaction(function () use ($archive, $code, $importedBy, $eventAttributes): Event {
             $event = Event::query()->create([
-                ...collect($archive['event'])->only(self::EVENT_COLUMNS)->all(),
+                ...$eventAttributes,
                 'code' => $code,
                 'created_by' => $importedBy,
             ]);
@@ -104,6 +117,14 @@ class EventArchive
                 $columns = array_flip(Schema::getColumnListing($table));
 
                 foreach ($archive['tables'][$table] ?? [] as $row) {
+                    if (! is_array($row)) {
+                        throw new InvalidArgumentException("The event file is inconsistent: {$table} has a malformed row.");
+                    }
+
+                    if ($table === 'settings' && in_array($row['group'] ?? null, self::SERVER_SETTING_GROUPS, true)) {
+                        continue;
+                    }
+
                     $oldId = $row['id'] ?? null;
                     $row = array_diff_key(array_intersect_key((array) $row, $columns), array_flip(['id', ...self::DROPPED_COLUMNS]));
 
@@ -115,7 +136,8 @@ class EventArchive
                     }
 
                     if (isset($row['alliance_id'])) {
-                        $row['alliance_id'] = $allianceIds[$row['alliance_id']] ?? null;
+                        $row['alliance_id'] = $allianceIds[$row['alliance_id']]
+                            ?? throw new InvalidArgumentException("The event file is inconsistent: {$table}.alliance_id points at an unknown alliance.");
                     }
 
                     foreach (self::AUTHOR_COLUMNS as $column) {
@@ -142,8 +164,10 @@ class EventArchive
 
     /**
      * Maps the archive's alliance ids onto this server's, matching by colour.
+     * Alliances are shared by every event, so an import may only use colours
+     * this server already has; it never adds new ones.
      *
-     * @param  array<int|string, string>  $archivedAlliances
+     * @param  array<int|string, mixed>  $archivedAlliances
      * @return array<int|string, int>
      */
     private function allianceIdMap(array $archivedAlliances): array
@@ -151,9 +175,41 @@ class EventArchive
         $localIds = DB::table('alliances')->pluck('id', 'color');
 
         return collect($archivedAlliances)
-            ->map(function (string $color) use ($localIds): int {
-                return $localIds[$color] ?? DB::table('alliances')->insertGetId(['color' => $color]);
-            })
+            ->map(fn (mixed $color): int => is_string($color) && isset($localIds[$color])
+                ? $localIds[$color]
+                : throw new InvalidArgumentException('The event file uses an alliance this server does not have.'))
             ->all();
+    }
+
+    /**
+     * The archived event's details, checked the same way as when an event is
+     * created by hand. Unknown or broken values fall back to safe defaults.
+     *
+     * @param  array<string, mixed>  $archived
+     * @return array<string, mixed>
+     */
+    private function eventAttributes(array $archived): array
+    {
+        $date = function (mixed $value): ?string {
+            try {
+                return is_string($value) ? CarbonImmutable::parse($value)->toDateString() : null;
+            } catch (Throwable) {
+                return null;
+            }
+        };
+
+        $startDate = $date($archived['start_date'] ?? null) ?? now()->toDateString();
+        $endDate = $date($archived['end_date'] ?? null) ?? $startDate;
+        $timezone = $archived['timezone'] ?? null;
+
+        return [
+            'name' => Str::limit(is_string($archived['name'] ?? null) && $archived['name'] !== '' ? $archived['name'] : 'Imported event', 255, ''),
+            'type' => EventType::tryFrom((string) ($archived['type'] ?? ''))?->value ?? EventType::Other->value,
+            'venue' => is_string($archived['venue'] ?? null) ? Str::limit($archived['venue'], 255, '') : null,
+            'timezone' => is_string($timezone) && in_array($timezone, timezone_identifiers_list(), true) ? $timezone : config('app.timezone'),
+            'start_date' => $startDate,
+            'end_date' => $endDate < $startDate ? $startDate : $endDate,
+            'field_count' => max(1, min(8, (int) ($archived['field_count'] ?? 1))),
+        ];
     }
 }

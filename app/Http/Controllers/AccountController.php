@@ -9,6 +9,8 @@ use App\Http\Requests\UpdateAccountRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -82,7 +84,12 @@ class AccountController extends Controller
     public function resetPassword(User $account): RedirectResponse
     {
         $password = $this->generatePassword();
-        $account->forceFill(['password' => $password])->save();
+        $account->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
+
+        // Sign the account out everywhere, so a lost tablet stops working.
+        if (config('session.driver') === 'database') {
+            DB::table(config('session.table', 'sessions'))->where('user_id', $account->id)->delete();
+        }
 
         Inertia::flash('credentials', [$this->credential($account, $password)]);
 

@@ -87,6 +87,16 @@ it('records a retried scoring tap only once', function () {
     Event::assertDispatchedTimes(ScoreUpdated::class, 1);
 });
 
+it('rejects a scoring request id reused for a different match', function () {
+    $tap = ['match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id, 'client_request_id' => (string) Str::uuid()];
+    $this->postJson('/api/scores', $tap)->assertCreated();
+
+    $otherMatch = CompetitionMatch::factory()->create(['status' => MatchStatus::ONGOING]);
+    MatchAlliance::create(['match_id' => $otherMatch->id, 'team_id' => $this->team->id, 'alliance_id' => $this->red->id, 'alliance_pos' => 1, 'score' => 0, 'created_by' => 1]);
+
+    $this->postJson('/api/scores', [...$tap, 'match_id' => $otherMatch->id])->assertJsonValidationErrors('client_request_id');
+});
+
 it('adds an alliance-wide score without affecting team scores', function () {
     Event::fake();
     $this->scoreType->update(['target' => 'alliance']);

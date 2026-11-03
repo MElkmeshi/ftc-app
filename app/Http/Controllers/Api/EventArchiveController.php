@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ImportEventRequest;
 use App\Services\CurrentEvent;
 use App\Services\EventArchive;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use InvalidArgumentException;
 use JsonException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use TypeError;
 
 class EventArchiveController extends Controller
 {
@@ -32,6 +34,10 @@ class EventArchiveController extends Controller
             $event = $archive->import(is_array($data) ? $data : [], $request->validated('code'), $request->user()->id);
         } catch (JsonException|InvalidArgumentException $exception) {
             return back()->withErrors(['file' => $exception instanceof JsonException ? 'The file is not valid JSON.' : $exception->getMessage()]);
+        } catch (QueryException|TypeError $exception) {
+            report($exception);
+
+            return back()->withErrors(['file' => 'The event file contains values this server cannot store. Nothing was imported.']);
         }
 
         return to_route('dashboard', ['event' => $event->code]);

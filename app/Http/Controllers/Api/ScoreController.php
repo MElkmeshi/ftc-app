@@ -28,10 +28,18 @@ class ScoreController extends Controller
             $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($validated['match_id']);
             $clientRequestId = $validated['client_request_id'] ?? null;
 
-            if ($clientRequestId !== null && Score::withTrashed()->where('client_request_id', $clientRequestId)->exists()) {
-                $recorded = false;
+            if ($clientRequestId !== null) {
+                $previous = Score::withTrashed()->withoutGlobalScope('event')->where('client_request_id', $clientRequestId)->first(['id', 'match_id']);
 
-                return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+                if ($previous !== null && $previous->match_id !== $match->id) {
+                    throw ValidationException::withMessages(['client_request_id' => 'This scoring request id was already used for another match.']);
+                }
+
+                if ($previous !== null) {
+                    $recorded = false;
+
+                    return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+                }
             }
             $scoreType = ScoreType::query()->findOrFail($validated['score_type_id']);
             $teamId = $validated['team_id'] ?? null;
