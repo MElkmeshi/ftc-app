@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\EventType;
 use App\Enums\MatchStatus;
 use App\Events\AllianceSelectionUpdated;
 use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
 use App\Events\ScoreUpdated;
+use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\EventController;
 use App\Models\Alliance;
@@ -14,6 +16,7 @@ use App\Models\Team;
 use App\Services\AllianceSelectionService;
 use App\Services\CurrentEvent;
 use App\Services\EliminationScheduler;
+use App\Services\EventSetupChecklist;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -24,6 +27,7 @@ Route::redirect('/dashboard', '/');
 Route::middleware(['auth', 'verified', 'can:manage-competition'])->group(function () {
     Route::get('events/create', [EventController::class, 'create'])->name('events.create');
     Route::post('events', [EventController::class, 'store'])->name('events.store');
+    Route::post('events/import', [EventArchiveController::class, 'import'])->name('events.import');
 });
 
 Route::prefix('api/event/{event}')->middleware('event')->group(__DIR__.'/api.php');
@@ -68,8 +72,12 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
     })->name('display.match-overlay');
 
     Route::middleware(['auth', 'verified'])->group(function () {
-        Route::get('dashboard', function (CurrentEvent $currentEvent) {
+        Route::get('dashboard', function (CurrentEvent $currentEvent, EventSetupChecklist $checklist) {
             return Inertia::render('dashboard', [
+                'steps' => Inertia::live(fn () => $checklist->steps(), on: MatchStatusChanged::class, channel: $currentEvent->channel('match-control'), throttle: 3000)
+                    ->live(on: AllianceSelectionUpdated::class, channel: $currentEvent->channel('alliance-selection'))
+                    ->live(on: EliminationBracketUpdated::class, channel: $currentEvent->channel('elimination')),
+                'eventTypes' => array_map(fn (EventType $type): array => ['value' => $type->value, 'label' => $type->label()], EventType::cases()),
                 'stats' => Inertia::defer(fn () => [
                     'total_teams' => Team::count(),
                     'total_matches' => CompetitionMatch::count(),

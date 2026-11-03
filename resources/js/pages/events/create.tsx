@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type EventTypeOption, type EventTypeValue } from '@/types';
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { Info } from 'lucide-react';
+import { Info, Upload } from 'lucide-react';
 import { type FormEventHandler } from 'react';
 
 interface CreateEventProps {
@@ -73,7 +73,7 @@ export default function CreateEvent() {
 
             <div className="mx-auto w-full max-w-2xl p-4">
                 <h1 className="text-2xl font-bold">Create an event</h1>
-                <p className="mb-6 text-muted-foreground">
+                <p className="text-muted-foreground mb-6">
                     Each event has its own teams, schedule, scoring and displays. You can host as many events as you like on one server.
                 </p>
 
@@ -103,9 +103,9 @@ export default function CreateEvent() {
                             placeholder="tripoli_spring"
                             onChange={(e) => setData('code', e.target.value.toLowerCase())}
                         />
-                        <p className="text-xs text-muted-foreground">
-                            Lowercase letters, numbers and underscores. It appears in every URL (e.g. <code>/event/{data.code || 'code'}</code>) and can't
-                            be changed later.
+                        <p className="text-muted-foreground text-xs">
+                            Lowercase letters, numbers and underscores. It appears in every URL (e.g. <code>/event/{data.code || 'code'}</code>) and
+                            can't be changed later.
                         </p>
                         <InputError message={errors.code} />
                     </div>
@@ -160,7 +160,12 @@ export default function CreateEvent() {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="timezone">Time zone</Label>
-                            <select id="timezone" className={selectClassName} value={data.timezone} onChange={(e) => setData('timezone', e.target.value)}>
+                            <select
+                                id="timezone"
+                                className={selectClassName}
+                                value={data.timezone}
+                                onChange={(e) => setData('timezone', e.target.value)}
+                            >
                                 {timezones.map((zone) => (
                                     <option key={zone} value={zone}>
                                         {zone}
@@ -171,7 +176,7 @@ export default function CreateEvent() {
                         </div>
                     </div>
 
-                    <div className="grid gap-2 rounded-lg border bg-muted/40 p-4">
+                    <div className="bg-muted/40 grid gap-2 rounded-lg border p-4">
                         <Label htmlFor="copy_game_from">Game setup</Label>
                         <select
                             id="copy_game_from"
@@ -186,7 +191,7 @@ export default function CreateEvent() {
                                 </option>
                             ))}
                         </select>
-                        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
                             <Info className="mt-0.5 size-3.5 shrink-0" />
                             Reuse another event's game so a league can run every meet with the same rules. Teams and matches are never copied.
                         </p>
@@ -199,7 +204,55 @@ export default function CreateEvent() {
                         </Button>
                     </div>
                 </form>
+
+                <ImportEventForm />
             </div>
         </AppLayout>
+    );
+}
+
+/** Restores an event from a file downloaded on any server's event dashboard. */
+function ImportEventForm() {
+    const { data, setData, post, errors, processing, progress } = useForm<{ file: File | null; code: string }>({ file: null, code: '' });
+
+    const submit: FormEventHandler = (e) => {
+        e.preventDefault();
+        post('/events/import', { forceFormData: true });
+    };
+
+    return (
+        <section className="mt-10 border-t pt-6">
+            <h2 className="text-lg font-semibold">Import an event file</h2>
+            <p className="text-muted-foreground mb-4 text-sm">
+                Bring in an event exported from this or another server, with its teams, game, schedule, scores and playoffs.
+            </p>
+            <form onSubmit={submit} className="grid gap-4 sm:grid-cols-[1fr_12rem_auto] sm:items-start">
+                <div className="grid gap-2">
+                    <Label htmlFor="import_file">Event file (.json)</Label>
+                    <Input
+                        id="import_file"
+                        type="file"
+                        accept="application/json,.json"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            setData((previous) => ({
+                                file,
+                                code: previous.code || (file ? suggestCode(file.name.replace(/-\d.*$/, '').replace(/\.json$/i, '')) : ''),
+                            }));
+                        }}
+                    />
+                    <InputError message={errors.file} />
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="import_code">New event code</Label>
+                    <Input id="import_code" value={data.code} onChange={(e) => setData('code', e.target.value.toLowerCase())} className="font-mono" />
+                    <InputError message={errors.code} />
+                </div>
+                <Button type="submit" variant="outline" disabled={processing || !data.file} className="sm:mt-6">
+                    <Upload className="mr-1 size-4" />
+                    {progress ? `${progress.percentage ?? 0}%` : 'Import'}
+                </Button>
+            </form>
+        </section>
     );
 }

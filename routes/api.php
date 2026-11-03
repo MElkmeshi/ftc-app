@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AllianceSelectionController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EliminationController;
+use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\ScoreController;
@@ -59,6 +60,7 @@ Route::middleware(['auth', 'can:manage-competition'])->group(function () {
     Route::put('/groups/{group}', [GroupController::class, 'update']);
     Route::delete('/groups/{group}', [GroupController::class, 'destroy']);
     Route::put('/settings/competition', [SettingsController::class, 'updateCompetitionSettings']);
+    Route::get('/export', [EventArchiveController::class, 'export']);
     Route::delete('/settings/competition/reset', [SettingsController::class, 'resetCompetitionSettings']);
 
     Route::prefix('alliance-selection')->group(function () {
