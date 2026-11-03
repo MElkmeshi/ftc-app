@@ -65,6 +65,11 @@ async function get<T>(url: string): Promise<T> {
     return request<T>('get', url);
 }
 
+/** Laravel serialises `response()->json(null)` as `{}`, so "no match" must be turned back into null. */
+export function presentMatch(match: Partial<CompetitionMatch> | null): CompetitionMatch | null {
+    return match?.id ? (match as CompetitionMatch) : null;
+}
+
 async function post<T>(url: string, data?: unknown): Promise<T> {
     return request<T>('post', url, data);
 }
@@ -86,8 +91,8 @@ export const useApi = () => {
         return get(`/api/matches/${id}`);
     }, []);
 
-    const getActiveMatch = useCallback(async (): Promise<CompetitionMatch> => {
-        return get('/api/matches/active');
+    const getActiveMatch = useCallback(async (): Promise<CompetitionMatch | null> => {
+        return presentMatch(await get<Partial<CompetitionMatch> | null>('/api/matches/active'));
     }, []);
 
     const updateScore = useCallback(async (matchId: number, scoreData: { match_alliances: { id: number; score: number }[] }) => {
@@ -111,7 +116,7 @@ export const useApi = () => {
     }, []);
 
     const getLoadedMatch = useCallback(async (): Promise<CompetitionMatch | null> => {
-        return get('/api/matches/loaded');
+        return presentMatch(await get<Partial<CompetitionMatch> | null>('/api/matches/loaded'));
     }, []);
 
     const startMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {

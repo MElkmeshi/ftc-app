@@ -96,4 +96,30 @@ describe('useMatchTimer', () => {
         expect(result.current.phase).toBe('post-match');
         expect(result.current.isRunning).toBe(false);
     });
+
+    it('stays on the final result after stopping, and reset returns to pre-match without the abort sound', () => {
+        const playSound = vi.fn();
+        const { result } = renderHook(() => useMatchTimer({ timing: TIMING, playSound }));
+
+        act(() => result.current.resumeFrom(new Date('2026-01-01T00:00:00.000Z').toISOString(), 173_000));
+        act(() => result.current.stop());
+
+        expect(result.current.phase).toBe('post-match');
+
+        act(() => result.current.reset());
+
+        expect(result.current.phase).toBe('pre-match');
+        expect(result.current.isRunning).toBe(false);
+        expect(playSound).not.toHaveBeenCalledWith('canel_match.wav');
+    });
+
+    it('plays the abort sound when a match is cancelled', () => {
+        const playSound = vi.fn();
+        const { result } = renderHook(() => useMatchTimer({ timing: TIMING, playSound }));
+
+        act(() => result.current.cancel());
+
+        expect(playSound).toHaveBeenCalledWith('canel_match.wav');
+        expect(result.current.phase).toBe('pre-match');
+    });
 });

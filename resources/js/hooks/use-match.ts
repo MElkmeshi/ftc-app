@@ -1,8 +1,8 @@
+import { eventChannel } from '@/lib/event';
 import { CompetitionMatch, MatchStatusChangedEvent, ScoreType, ScoreUpdatedEvent } from '@/types';
 import { useEchoPublic } from '@laravel/echo-react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
-import { eventChannel } from '@/lib/event';
 
 async function cacheMatch(queryClient: QueryClient, match: CompetitionMatch) {
     await Promise.all([
@@ -56,7 +56,7 @@ export function useMatch(id: number | null, refetchInterval?: number) {
 
 export function useActiveMatch(refetchInterval?: number) {
     const api = useApi();
-    return useQuery<CompetitionMatch>({
+    return useQuery<CompetitionMatch | null>({
         queryKey: ['active-match'],
         queryFn: api.getActiveMatch,
         refetchInterval: refetchInterval || false,

@@ -7,8 +7,6 @@ import { useEffect, useRef } from 'react';
 interface UseActiveMatchTimerOptions {
     playSound?: (name: SoundName) => void;
     onMatchEnd?: () => void;
-    /** Call cancel() when there is no active match and the timer is in post-match (useful for display overlays). */
-    resetOnIdle?: boolean;
 }
 
 /**
@@ -18,7 +16,7 @@ interface UseActiveMatchTimerOptions {
  * tracking both match ID and started_at timestamp.
  */
 export function useActiveMatchTimer(options: UseActiveMatchTimerOptions = {}) {
-    const { playSound, onMatchEnd, resetOnIdle = false } = options;
+    const { playSound, onMatchEnd } = options;
 
     const { data: activeMatch } = useActiveMatch(15000);
     const { data: matches = [] } = useMatches(15000);
@@ -55,10 +53,8 @@ export function useActiveMatchTimer(options: UseActiveMatchTimerOptions = {}) {
             } else {
                 timer.stop();
             }
-        } else if (resetOnIdle && !activeMatch && timer.phase === 'post-match') {
-            timer.cancel();
         }
-    }, [activeMatch, timer, resetOnIdle, matches]);
+    }, [activeMatch, timer, matches]);
 
     return { timer, activeMatch, matchConfig };
 }

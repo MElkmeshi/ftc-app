@@ -33,6 +33,8 @@ interface MatchTimerActions {
     start: () => void;
     stop: () => void;
     cancel: () => void;
+    /** Silently return to pre-match (no abort sound), e.g. when a display moves on to the next match. */
+    reset: () => void;
     /**
      * Resume a running match. When `durationMs` is provided (the server's fixed
      * snapshot taken when the match started), it is frozen for the life of this
@@ -266,18 +268,22 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
         setPhase('post-match');
     }, []);
 
-    const cancel = useCallback(() => {
+    const reset = useCallback(() => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
         }
-        playSoundRef.current?.('canel_match.wav');
         setIsRunning(false);
         setElapsedSeconds(0);
         setPhase('pre-match');
         soundsPlayedRef.current.clear();
         startTimeRef.current = null;
     }, []);
+
+    const cancel = useCallback(() => {
+        playSoundRef.current?.('canel_match.wav');
+        reset();
+    }, [reset]);
 
     const resumeFrom = useCallback(
         (startedAtIso: string, durationMs?: number) => {
@@ -348,6 +354,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
         start,
         stop,
         cancel,
+        reset,
         resumeFrom,
     };
 }

@@ -2,6 +2,7 @@ import { AudioUnlockPrompt } from '@/components/audio-unlock-prompt';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { useLoadedMatch, useMatch } from '@/hooks/use-match';
+import { eventChannel } from '@/lib/event';
 import { formatTime, getAllianceScore, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type MatchPhase, type MatchStatusChangedEvent } from '@/types';
@@ -10,7 +11,6 @@ import { useEchoPublic } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Hand, Joystick, Radio, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
-import { eventChannel } from '@/lib/event';
 
 /**
  * Broadcast-style phase treatment: icon + accent color per match phase.
@@ -29,7 +29,7 @@ const PHASE_STYLE: Record<MatchPhase, { icon: typeof Bot; accent: string; bar: s
 export default function MatchOverlay() {
     const queryClient = useQueryClient();
     const { playSound, unlocked } = useAudioEngine();
-    const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ resetOnIdle: true, playSound });
+    const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound });
     // Safety-net poll — MatchStatusChanged (below) is the primary sync path; this only
     // covers a missed broadcast (e.g. a dropped Reverb connection).
     const { data: loadedMatch } = useLoadedMatch(5000);
@@ -54,12 +54,18 @@ export default function MatchOverlay() {
         }
     }, [timer.isRunning, match?.id]);
 
-    // Clear ended match ref when a new match is loaded
+    // Keep the final score up until the operator loads a different match, then return to pre-match.
     useEffect(() => {
-        if (loadedMatch && loadedMatch.id !== lastEndedMatchIdRef.current) {
-            lastEndedMatchIdRef.current = null;
+        if (!loadedMatch || loadedMatch.id === lastEndedMatchIdRef.current) {
+            return;
         }
-    }, [loadedMatch]);
+
+        lastEndedMatchIdRef.current = null;
+
+        if (!activeMatch && timer.phase === 'post-match') {
+            timer.reset();
+        }
+    }, [loadedMatch, activeMatch, timer]);
 
     // Fetch the last ended match data to show final scores
     const { data: endedMatch } = useMatch(lastEndedMatchIdRef.current, 5000);
@@ -99,7 +105,13 @@ export default function MatchOverlay() {
                             className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950 px-6 py-1.5 shadow-[0_0_24px_rgba(0,0,0,0.6)]"
                             style={{ fontFamily: 'var(--font-scoreboard)' }}
                         >
-                            <span className={cn('inline-block h-2 w-2 rounded-full', timer.isRunning && 'animate-pulse', phaseStyle.accent.replace('text-', 'bg-'))} />
+                            <span
+                                className={cn(
+                                    'inline-block h-2 w-2 rounded-full',
+                                    timer.isRunning && 'animate-pulse',
+                                    phaseStyle.accent.replace('text-', 'bg-'),
+                                )}
+                            />
                             <span className="text-sm font-semibold tracking-[0.2em] text-white/90 uppercase">Match {displayMatch.number}</span>
                         </div>
                     </div>
@@ -159,7 +171,10 @@ export default function MatchOverlay() {
                         </div>
                     ) : isMatchLoaded ? (
                         <div className="mt-1 flex flex-col items-center gap-0.5">
-                            <div className="text-5xl leading-none font-semibold text-emerald-300 tabular-nums" style={{ fontFamily: 'var(--font-scoreboard-display)' }}>
+                            <div
+                                className="text-5xl leading-none font-semibold text-emerald-300 tabular-nums"
+                                style={{ fontFamily: 'var(--font-scoreboard-display)' }}
+                            >
                                 0:00
                             </div>
                             <span className="text-xs font-medium text-white/40">On deck</span>
