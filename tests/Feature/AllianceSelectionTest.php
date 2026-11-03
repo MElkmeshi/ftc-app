@@ -8,6 +8,7 @@ use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
 use App\Models\MatchAlliance;
+use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\AllianceSelectionService;
@@ -77,6 +78,30 @@ it('ranks teams correctly from qualification matches', function () {
     expect($rankings[0]['total_score'])->toBe(120);
     expect($rankings[1]['team_id'])->toBe($teams[0]->id);
     expect($rankings[1]['total_score'])->toBe(100);
+});
+
+it('ranks by win/loss record when the event uses FTC-style rankings', function () {
+    Setting::set('ranking', 'method', 'record');
+    $teams = Team::factory()->count(3)->create();
+
+    // Team 0 wins twice by small margins; team 1 scores big but loses once.
+    createCompletedQualificationMatch($teams[0]->id, $teams[1]->id, 60, 50, 1);
+    createCompletedQualificationMatch($teams[0]->id, $teams[2]->id, 30, 10, 2);
+    createCompletedQualificationMatch($teams[1]->id, $teams[2]->id, 200, 200, 3);
+
+    $rankings = app(AllianceSelectionService::class)->getRankings();
+
+    expect($rankings[0])
+        ->team_id->toBe($teams[0]->id)
+        ->wins->toBe(2)->losses->toBe(0)
+        ->ranking_points->toBe(2)
+        ->average_score->toBe(45);
+
+    expect($rankings[1])
+        ->team_id->toBe($teams[1]->id)
+        ->ties->toBe(1)->losses->toBe(1)
+        ->ranking_points->toBe(0.5)
+        ->highest_score->toBe(200);
 });
 
 it('creates alliance groups for top N teams', function () {

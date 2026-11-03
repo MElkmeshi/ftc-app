@@ -4,9 +4,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 const inertia = vi.hoisted(() => ({
     useProp: vi.fn<(name: string) => { value: TeamDisplay[] | undefined; loading: boolean; loaded: boolean }>(),
+    rankingMethod: 'total_score',
 }));
 
-vi.mock('@inertiajs/react', () => ({ Head: () => null, useProp: inertia.useProp }));
+vi.mock('@inertiajs/react', () => ({
+    Head: () => null,
+    useProp: inertia.useProp,
+    usePage: () => ({ props: { rankingMethod: inertia.rankingMethod } }),
+}));
 
 const { default: RefereeDisplay } = await import('@/pages/referee/display');
 
@@ -19,6 +24,13 @@ function makeTeam(overrides: Partial<TeamDisplay> = {}): TeamDisplay {
         team_score: 10,
         alliance_score: 20,
         total_score: 30,
+        played: 2,
+        wins: 1,
+        losses: 1,
+        ties: 0,
+        ranking_points: 1,
+        average_score: 25,
+        highest_score: 40,
         ...overrides,
     };
 }
@@ -45,5 +57,17 @@ describe('RefereeDisplay', () => {
         render(<RefereeDisplay />);
 
         expect(screen.getByText('No Completed Matches')).toBeInTheDocument();
+    });
+
+    it('shows win/loss records and ranking points for FTC-style rankings', () => {
+        inertia.rankingMethod = 'record';
+        inertia.useProp.mockReturnValue({ value: [makeTeam({ wins: 3, losses: 1, ties: 1, ranking_points: 1.4 })], loading: false, loaded: true });
+
+        render(<RefereeDisplay />);
+
+        expect(screen.getByText('3-1-1')).toBeInTheDocument();
+        expect(screen.getByText('1.40')).toBeInTheDocument();
+        expect(screen.getByText('Ranking pts')).toBeInTheDocument();
+        inertia.rankingMethod = 'total_score';
     });
 });

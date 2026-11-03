@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\RankingMethod;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,4 +57,14 @@ it('resets competition settings back to config defaults', function () {
 
     $response->assertSuccessful();
     expect(Setting::where('group', 'competition')->count())->toBe(0);
+});
+
+it('lets admins choose how rankings are ordered', function () {
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)->put('/admin/ranking-method', ['method' => 'record'])->assertRedirect();
+    expect(RankingMethod::current())->toBe(RankingMethod::Record);
+
+    $this->actingAs($admin)->put('/admin/ranking-method', ['method' => 'coin_flip'])->assertSessionHasErrors('method');
+    $this->actingAs(User::factory()->create())->put('/admin/ranking-method', ['method' => 'total_score'])->assertForbidden();
 });

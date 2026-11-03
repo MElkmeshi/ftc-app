@@ -2,12 +2,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Deferred, Head, useHttp, usePage } from '@inertiajs/react';
-import { useState } from 'react';
 import type { MatchTimingConfig } from '@/hooks/use-match-timer';
-import { eventApiUrl } from '@/lib/event';
+import AppLayout from '@/layouts/app-layout';
+import { eventApiUrl, eventUrl } from '@/lib/event';
+import { type BreadcrumbItem } from '@/types';
+import { Deferred, Head, useForm, useHttp, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Admin', href: '/admin/teams' },
@@ -103,7 +103,7 @@ function SettingsForm() {
                                 value={form.data.pre_match_countdown}
                                 onChange={(e) => handleChange('pre_match_countdown', parseInt(e.target.value))}
                             />
-                            <p className="text-sm text-muted-foreground">3-2-1 countdown before match starts</p>
+                            <p className="text-muted-foreground text-sm">3-2-1 countdown before match starts</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -124,7 +124,7 @@ function SettingsForm() {
                                 value={form.data.autonomous}
                                 onChange={(e) => handleChange('autonomous', parseInt(e.target.value))}
                             />
-                            <p className="text-sm text-muted-foreground">FTC Standard: 30 seconds</p>
+                            <p className="text-muted-foreground text-sm">FTC Standard: 30 seconds</p>
                         </div>
 
                         <div className="grid gap-2">
@@ -137,7 +137,7 @@ function SettingsForm() {
                                 value={form.data.transition}
                                 onChange={(e) => handleChange('transition', parseInt(e.target.value))}
                             />
-                            <p className="text-sm text-muted-foreground">FTC Standard: 8 seconds</p>
+                            <p className="text-muted-foreground text-sm">FTC Standard: 8 seconds</p>
                         </div>
 
                         <div className="grid gap-2">
@@ -150,7 +150,7 @@ function SettingsForm() {
                                 value={form.data.teleop}
                                 onChange={(e) => handleChange('teleop', parseInt(e.target.value))}
                             />
-                            <p className="text-sm text-muted-foreground">FTC Standard: 120 seconds (2:00)</p>
+                            <p className="text-muted-foreground text-sm">FTC Standard: 120 seconds (2:00)</p>
                         </div>
 
                         <div className="grid gap-2">
@@ -163,7 +163,7 @@ function SettingsForm() {
                                 value={form.data.endgame_warning}
                                 onChange={(e) => handleChange('endgame_warning', parseInt(e.target.value))}
                             />
-                            <p className="text-sm text-muted-foreground">Warning sound before match ends</p>
+                            <p className="text-muted-foreground text-sm">Warning sound before match ends</p>
                         </div>
 
                         <div className="grid gap-2">
@@ -176,7 +176,7 @@ function SettingsForm() {
                                 value={form.data.controllers_warning_offset}
                                 onChange={(e) => handleChange('controllers_warning_offset', parseInt(e.target.value))}
                             />
-                            <p className="text-sm text-muted-foreground">Seconds before teleop to warn</p>
+                            <p className="text-muted-foreground text-sm">Seconds before teleop to warn</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -188,19 +188,19 @@ function SettingsForm() {
                     </CardHeader>
                     <CardContent className="grid gap-4 md:grid-cols-3">
                         <div>
-                            <p className="text-sm text-muted-foreground">Total Match Duration</p>
+                            <p className="text-muted-foreground text-sm">Total Match Duration</p>
                             <p className="text-2xl font-bold">{formatTime(totalMatch)}</p>
-                            <p className="text-sm text-muted-foreground">{totalMatch} seconds</p>
+                            <p className="text-muted-foreground text-sm">{totalMatch} seconds</p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">With Countdown</p>
+                            <p className="text-muted-foreground text-sm">With Countdown</p>
                             <p className="text-2xl font-bold">{formatTime(totalWithCountdown)}</p>
-                            <p className="text-sm text-muted-foreground">{totalWithCountdown} seconds</p>
+                            <p className="text-muted-foreground text-sm">{totalWithCountdown} seconds</p>
                         </div>
                         <div>
-                            <p className="text-sm text-muted-foreground">FTC Standard</p>
+                            <p className="text-muted-foreground text-sm">FTC Standard</p>
                             <p className="text-2xl font-bold text-green-600">2:38</p>
-                            <p className="text-sm text-muted-foreground">158 seconds match</p>
+                            <p className="text-muted-foreground text-sm">158 seconds match</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -236,10 +236,53 @@ function SettingsSkeleton() {
     );
 }
 
+interface RankingMethodOption {
+    value: string;
+    label: string;
+    description: string;
+}
+
+/** Chooses how qualification rankings are ordered on every rankings screen and for alliance selection. */
+function RankingMethodCard() {
+    const { rankingMethod, rankingMethods } = usePage<{ rankingMethod: string; rankingMethods: RankingMethodOption[] }>().props;
+    const form = useForm({ method: rankingMethod });
+
+    const choose = (method: string) => {
+        form.setData('method', method);
+        form.transform(() => ({ method }));
+        form.put(eventUrl('/admin/ranking-method'), { preserveScroll: true });
+    };
+
+    return (
+        <Card className="mb-6">
+            <CardHeader>
+                <CardTitle>Rankings</CardTitle>
+                <CardDescription>How teams are ordered in the rankings and for alliance selection.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2">
+                {rankingMethods.map((method) => (
+                    <button
+                        key={method.value}
+                        type="button"
+                        disabled={form.processing}
+                        onClick={() => choose(method.value)}
+                        className={`rounded-lg border-2 p-4 text-left transition ${form.data.method === method.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
+                    >
+                        <div className="font-medium">{method.label}</div>
+                        <p className="text-muted-foreground mt-1 text-sm">{method.description}</p>
+                    </button>
+                ))}
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function CompetitionSettingsPage() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Competition Settings" />
+
+            <RankingMethodCard />
 
             <Deferred data="settings" fallback={<SettingsSkeleton />}>
                 <SettingsForm />

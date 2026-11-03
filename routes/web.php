@@ -3,6 +3,7 @@
 use App\Enums\DisplayMode;
 use App\Enums\EventType;
 use App\Enums\MatchStatus;
+use App\Enums\RankingMethod;
 use App\Events\AllianceSelectionUpdated;
 use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
@@ -13,11 +14,14 @@ use App\Http\Controllers\EventController;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\MatchAlliance;
+use App\Models\Setting;
 use App\Models\Team;
 use App\Services\CurrentEvent;
 use App\Services\EventSetupChecklist;
 use App\Support\EventLiveProps;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 Route::get('/', [EventController::class, 'index'])->name('home');
@@ -56,6 +60,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         return Inertia::render('display/audience', [
             'display' => $live->audienceDisplay(),
             'rankings' => $live->rankings(),
+            'rankingMethod' => RankingMethod::current()->value,
             'bracket' => $live->bracket(),
         ]);
     })->name('display.audience');
@@ -79,7 +84,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
     })->name('elimination.bracket');
 
     Route::get('referee/display', function (EventLiveProps $live) {
-        return Inertia::render('referee/display', ['rankings' => $live->rankings()]);
+        return Inertia::render('referee/display', ['rankings' => $live->rankings(), 'rankingMethod' => RankingMethod::current()->value]);
     })->name('referee.display');
 
     Route::get('display/match-overlay', function () {
@@ -168,8 +173,17 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('admin/competition-settings', function () {
             return Inertia::render('admin/competition-settings', [
                 'settings' => Inertia::defer(fn () => app(SettingsController::class)->getCompetitionSettings()->getData(true)),
+                'rankingMethod' => RankingMethod::current()->value,
+                'rankingMethods' => array_map(fn (RankingMethod $method): array => ['value' => $method->value, 'label' => $method->label(), 'description' => $method->description()], RankingMethod::cases()),
             ]);
         })->middleware('can:manage-competition')->name('admin.competition-settings');
+
+        Route::put('admin/ranking-method', function (Request $request) {
+            $validated = $request->validate(['method' => ['required', Rule::enum(RankingMethod::class)]]);
+            Setting::set('ranking', 'method', $validated['method']);
+
+            return back();
+        })->middleware('can:manage-competition')->name('admin.ranking-method');
 
     });
 });

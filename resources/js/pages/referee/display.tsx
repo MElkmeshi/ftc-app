@@ -1,7 +1,6 @@
-import { getAllianceColorClasses } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type TeamDisplay } from '@/types';
-import { Head, useProp } from '@inertiajs/react';
+import { Head, usePage, useProp } from '@inertiajs/react';
 import { Trophy } from 'lucide-react';
 
 const PODIUM_STYLES = ['bg-yellow-400 text-slate-900', 'bg-slate-300 text-slate-900', 'bg-amber-600 text-white'];
@@ -10,6 +9,8 @@ export default function RefereeDisplay() {
     // Live prop: the server reloads it when a match ends or a score changes
     // (see routes/web.php), so there's no polling here.
     const { value: teams = [] } = useProp<TeamDisplay[]>('rankings');
+    const { rankingMethod } = usePage<{ rankingMethod?: string }>().props;
+    const byRecord = rankingMethod === 'record';
 
     if (teams.length === 0) {
         return (
@@ -34,7 +35,11 @@ export default function RefereeDisplay() {
                         <Trophy className="size-10 text-yellow-400" />
                         <div>
                             <h1 className="text-4xl font-bold text-white">Team Rankings</h1>
-                            <p className="text-base text-white/55">Cumulative scores from all completed qualification matches</p>
+                            <p className="text-base text-white/55">
+                                {byRecord
+                                    ? 'Ranked by win/loss record from completed qualification matches'
+                                    : 'Cumulative scores from all completed qualification matches'}
+                            </p>
                         </div>
                     </div>
                     <div className="text-lg text-white/50">
@@ -48,9 +53,10 @@ export default function RefereeDisplay() {
                             <col className="w-24" />
                             <col className="w-36" />
                             <col />
-                            <col className="w-36" />
-                            <col className="w-36" />
-                            <col className="w-36" />
+                            <col className="w-32" />
+                            <col className="w-24" />
+                            <col className="w-32" />
+                            <col className="w-32" />
                             <col className="w-40" />
                         </colgroup>
                         <thead>
@@ -58,15 +64,15 @@ export default function RefereeDisplay() {
                                 <th className="px-6 py-3 text-left">Rank</th>
                                 <th className="px-4 py-3 text-left">Team</th>
                                 <th className="px-4 py-3 text-left">Name</th>
-                                <th className="px-4 py-3 text-center">Alliance</th>
-                                <th className="px-4 py-3 text-right">Team pts</th>
-                                <th className="px-4 py-3 text-right">Alliance pts</th>
-                                <th className="px-6 py-3 text-right">Total</th>
+                                <th className="px-4 py-3 text-center">W-L-T</th>
+                                <th className="px-4 py-3 text-right">Played</th>
+                                <th className="px-4 py-3 text-right">{byRecord ? 'Avg score' : 'Team pts'}</th>
+                                <th className="px-4 py-3 text-right">{byRecord ? 'Best' : 'Alliance pts'}</th>
+                                <th className="px-6 py-3 text-right">{byRecord ? 'Ranking pts' : 'Total'}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {teams.map((team, index) => {
-                                const colorClasses = getAllianceColorClasses(team.alliance_color);
                                 const podiumStyle = PODIUM_STYLES[index];
 
                                 return (
@@ -88,14 +94,15 @@ export default function RefereeDisplay() {
                                         <td className="truncate px-4 py-3 text-2xl text-white/85" title={team.team_name}>
                                             {team.team_name}
                                         </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={cn('rounded-full px-4 py-1 text-base font-bold text-white uppercase', colorClasses.bg)}>
-                                                {team.alliance_color}
-                                            </span>
+                                        <td className="px-4 py-3 text-center text-2xl font-semibold text-white/80 tabular-nums">
+                                            {team.wins}-{team.losses}-{team.ties}
                                         </td>
-                                        <td className="px-4 py-3 text-right text-2xl font-semibold text-white/60 tabular-nums">{team.team_score}</td>
+                                        <td className="px-4 py-3 text-right text-2xl font-semibold text-white/60 tabular-nums">{team.played}</td>
                                         <td className="px-4 py-3 text-right text-2xl font-semibold text-white/60 tabular-nums">
-                                            {team.alliance_score}
+                                            {byRecord ? team.average_score : team.team_score}
+                                        </td>
+                                        <td className="px-4 py-3 text-right text-2xl font-semibold text-white/60 tabular-nums">
+                                            {byRecord ? team.highest_score : team.alliance_score}
                                         </td>
                                         <td className="px-6 py-3 text-right">
                                             <span
@@ -104,7 +111,7 @@ export default function RefereeDisplay() {
                                                     podiumStyle ? 'bg-yellow-400/15 text-yellow-300' : 'text-white',
                                                 )}
                                             >
-                                                {team.total_score}
+                                                {byRecord ? team.ranking_points.toFixed(2) : team.total_score}
                                             </span>
                                         </td>
                                     </tr>

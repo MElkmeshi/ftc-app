@@ -158,6 +158,14 @@ export interface TeamDisplay {
     team_score: number;
     alliance_score: number;
     total_score: number;
+    played: number;
+    wins: number;
+    losses: number;
+    ties: number;
+    ranking_points: number;
+    average_score: number;
+    highest_score: number;
+    rank?: number;
 }
 
 export interface AllianceGroup {

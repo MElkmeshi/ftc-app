@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\MatchStatus;
+use App\Enums\RankingMethod;
 use App\Models\AllianceGroup;
 use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
@@ -35,6 +36,8 @@ class AllianceSelectionService
         $teamScores = [];
 
         foreach ($completedMatches as $match) {
+            $allianceTotals = $this->allianceTotals($match);
+
             foreach ($match->matchAlliances as $ma) {
                 if (! $ma->counts_for_ranking) {
                     continue;
@@ -51,41 +54,103 @@ class AllianceSelectionService
 
                 $teamId = $ma->team->id;
 
-                if (! isset($teamScores[$teamId])) {
-                    $teamScores[$teamId] = [
-                        'team_id' => $ma->team->id,
-                        'team_number' => $ma->team->number,
-                        'team_name' => $ma->team->name,
-                        'alliance_color' => $ma->alliance?->color,
-                        'team_score' => 0,
-                        'alliance_score' => 0,
-                        'total_score' => 0,
-                    ];
-                }
+                $teamScores[$teamId] ??= [
+                    'team_id' => $ma->team->id,
+                    'team_number' => $ma->team->number,
+                    'team_name' => $ma->team->name,
+                    'alliance_color' => $ma->alliance?->color,
+                    'team_score' => 0,
+                    'alliance_score' => 0,
+                    'total_score' => 0,
+                    'played' => 0,
+                    'wins' => 0,
+                    'losses' => 0,
+                    'ties' => 0,
+                    'ranking_points' => 0,
+                    'average_score' => 0,
+                    'highest_score' => 0,
+                    'match_points' => 0,
+                ];
 
-                $teamScores[$teamId]['team_score'] += $ma->score ?? 0;
+                $team = &$teamScores[$teamId];
+
+                $team['team_score'] += $ma->score ?? 0;
 
                 $allianceWideScore = $match->scores
                     ->where('alliance_id', $ma->alliance_id)
                     ->whereNull('team_id')
                     ->sum('points');
 
-                $teamScores[$teamId]['alliance_score'] += $allianceWideScore;
-                $teamScores[$teamId]['total_score'] = $teamScores[$teamId]['team_score'] + $teamScores[$teamId]['alliance_score'];
+                $team['alliance_score'] += $allianceWideScore;
+                $team['total_score'] = $team['team_score'] + $team['alliance_score'];
+
+                $ownTotal = $allianceTotals[$ma->alliance_id] ?? 0;
+                $opponentTotal = collect($allianceTotals)->except($ma->alliance_id)->max() ?? 0;
+
+                $team['played']++;
+                $team['match_points'] += $ownTotal;
+                $team['highest_score'] = max($team['highest_score'], $ownTotal);
+
+                match ($ownTotal <=> $opponentTotal) {
+                    1 => $team['wins']++,
+                    -1 => $team['losses']++,
+                    0 => $team['ties']++,
+                };
+
+                $team['ranking_points'] = $this->tidyNumber((2 * $team['wins'] + $team['ties']) / $team['played']);
+                $team['average_score'] = $this->tidyNumber($team['match_points'] / $team['played']);
+
+                unset($team);
             }
         }
 
+        $order = match (RankingMethod::current()) {
+            RankingMethod::Record => [['ranking_points', 'desc'], ['average_score', 'desc'], ['highest_score', 'desc'], ['team_number', 'asc']],
+            RankingMethod::TotalScore => [['total_score', 'desc'], ['team_number', 'asc']],
+        };
+
         return collect($teamScores)
-            ->sortBy([
-                ['total_score', 'desc'],
-                ['team_number', 'asc'],
-            ])
+            ->map(fn (array $team): array => collect($team)->except('match_points')->all())
+            ->sortBy($order)
             ->values()
             ->map(function ($team, $index) {
                 $team['rank'] = $index + 1;
 
                 return $team;
             });
+    }
+
+    /**
+     * Two decimal places, as a whole number when there is no fraction, so values
+     * look the same before and after a JSON round trip.
+     */
+    private function tidyNumber(float|int $value): float|int
+    {
+        $rounded = round($value, 2);
+
+        return floor($rounded) === $rounded ? (int) $rounded : $rounded;
+    }
+
+    /**
+     * Each alliance's score in one match: its teams' points plus alliance-wide points.
+     *
+     * @return array<int, int>
+     */
+    private function allianceTotals(CompetitionMatch $match): array
+    {
+        $totals = [];
+
+        foreach ($match->matchAlliances as $ma) {
+            $totals[$ma->alliance_id] = ($totals[$ma->alliance_id] ?? 0) + ($ma->score ?? 0);
+        }
+
+        foreach ($match->scores->whereNull('team_id') as $score) {
+            if ($score->alliance_id !== null) {
+                $totals[$score->alliance_id] = ($totals[$score->alliance_id] ?? 0) + $score->points;
+            }
+        }
+
+        return $totals;
     }
 
     /**
