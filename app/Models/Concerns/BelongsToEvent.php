@@ -29,6 +29,15 @@ trait BelongsToEvent
     }
 
     /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @return EventScopedBuilder<static>
+     */
+    public function newEloquentBuilder($query): EventScopedBuilder
+    {
+        return new EventScopedBuilder($query);
+    }
+
+    /**
      * Stamps the current event on insert. This is done here rather than in a
      * `creating` listener so it still happens when model events are faked.
      */

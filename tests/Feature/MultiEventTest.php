@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\MatchType;
+use App\Models\CompetitionMatch;
 use App\Models\Event;
 use App\Models\Group;
+use App\Models\Score;
 use App\Models\ScoreType;
 use App\Models\Setting;
 use App\Models\Team;
@@ -113,4 +116,25 @@ it('archives and restores an event', function () {
 
     $this->actingAs($this->admin)->post('/event/testevent/archive');
     expect($this->event->fresh()->isArchived())->toBeFalse();
+});
+
+it('keeps other events\' matches when deleting, regenerating or resetting playoffs', function () {
+    $foreign = inOtherEvent(function () {
+        $match = CompetitionMatch::factory()->create();
+        CompetitionMatch::factory()->create(['type' => MatchType::ELIMINATION]);
+        $team = Team::factory()->create();
+        Score::factory()->create(['match_id' => $match->id, 'team_id' => $team->id]);
+
+        return $match;
+    });
+    CompetitionMatch::factory()->create();
+
+    $this->actingAs($this->admin)->deleteJson('/api/matches/delete-all')->assertOk();
+    $this->actingAs($this->admin)->deleteJson('/api/elimination/reset')->assertOk();
+
+    expect(CompetitionMatch::query()->count())->toBe(0);
+    inOtherEvent(function () use ($foreign): void {
+        expect(CompetitionMatch::query()->count())->toBe(2)
+            ->and(Score::query()->where('match_id', $foreign->id)->count())->toBe(1);
+    });
 });

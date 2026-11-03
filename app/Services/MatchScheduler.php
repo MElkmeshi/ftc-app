@@ -56,7 +56,7 @@ class MatchScheduler
         // Initialize tracking arrays
         $this->initializeTracking($teamIds);
 
-        // Only this event's rows are visible here, so this clears the current event's schedule.
+        // Scoped to the current event by EventScopedBuilder (forceDelete skips global scopes otherwise).
         Score::withTrashed()->forceDelete();
         MatchAlliance::withTrashed()->forceDelete();
         CompetitionMatch::withTrashed()->forceDelete();

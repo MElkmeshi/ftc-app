@@ -238,7 +238,7 @@ class MatchController extends Controller
 
     public function deleteAll(): JsonResponse
     {
-        // Only this event's rows are visible here, so this clears the current event's matches.
+        // Scoped to the current event by EventScopedBuilder (forceDelete skips global scopes otherwise).
         DB::transaction(function (): void {
             Score::withTrashed()->forceDelete();
             MatchAlliance::withTrashed()->forceDelete();
