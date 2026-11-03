@@ -2,14 +2,20 @@
     "agents": [
         "claude_code"
     ],
+    "cloud": true,
     "guidelines": true,
     "herd_mcp": true,
     "mcp": true,
     "nightwatch_mcp": false,
     "sail": false,
     "skills": [
-        "pest-testing",
+        "infer-conventions",
+        "deploying-to-cloud",
+        "laravel-best-practices",
+        "testing-best-practices",
         "inertia-react-development",
-        "tailwindcss-development"
+        "echo-react-development",
+        "tailwindcss-development",
+        "echo-development"
     ]
 }
