@@ -10,6 +10,7 @@ import { useEchoPublic } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Hand, Joystick, Radio, Zap } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
+import { eventChannel } from '@/lib/event';
 
 /**
  * Broadcast-style phase treatment: icon + accent color per match phase.
@@ -35,7 +36,7 @@ export default function MatchOverlay() {
     const { data: match } = useMatch(activeMatch?.id ?? null, 5000);
     const lastEndedMatchIdRef = useRef<number | null>(null);
 
-    useEchoPublic<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
+    useEchoPublic<MatchStatusChangedEvent>(eventChannel('match-control'), 'MatchStatusChanged', (event) => {
         queryClient.invalidateQueries({ queryKey: ['matches'] });
         queryClient.invalidateQueries({ queryKey: ['active-match'] });
 

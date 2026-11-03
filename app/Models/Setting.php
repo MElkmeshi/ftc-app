@@ -2,11 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEvent;
+use App\Services\CurrentEvent;
 use Illuminate\Database\Eloquent\Model;
 
 class Setting extends Model
 {
-    protected $fillable = ['group', 'name', 'locked', 'payload'];
+    use BelongsToEvent;
+
+    protected $fillable = [
+        'event_id', 'group', 'name', 'locked', 'payload'];
 
     protected function casts(): array
     {
@@ -21,6 +26,10 @@ class Setting extends Model
      */
     public static function get(string $group, string $name, mixed $default = null): mixed
     {
+        if (app(CurrentEvent::class)->id() === null) {
+            return $default;
+        }
+
         $setting = static::where('group', $group)
             ->where('name', $name)
             ->first();

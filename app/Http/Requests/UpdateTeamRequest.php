@@ -2,18 +2,20 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesWithinEvent;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateTeamRequest extends FormRequest
 {
+    use ValidatesWithinEvent;
+
     /**
      * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
         return [
-            'number' => ['required', 'integer', Rule::unique('teams', 'number')->ignore($this->route('team'))],
+            'number' => ['required', 'integer', $this->uniqueInEvent('teams', 'number')->ignore($this->route('team'))],
             'name' => ['required', 'string', 'max:255'],
         ];
     }

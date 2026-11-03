@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Score extends Model
 {
-    use HasFactory, SoftDeletes;
+    use BelongsToEvent, HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'match_id', 'team_id', 'alliance_id', 'score_type_id', 'points', 'created_by', 'updated_by',
+        'event_id', 'match_id', 'team_id', 'alliance_id', 'score_type_id', 'points', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [

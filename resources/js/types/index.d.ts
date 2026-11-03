@@ -28,7 +28,32 @@ export interface SharedData {
     auth: Auth;
     ziggy: Config & { location: string };
     sidebarOpen: boolean;
+    /** The event being viewed; null on server-wide pages (event list, settings). */
+    event: CompetitionEvent | null;
     [key: string]: unknown;
+}
+
+export type EventTypeValue = 'scrimmage' | 'league_meet' | 'qualifier' | 'championship' | 'off_season' | 'workshop' | 'other';
+
+export interface EventTypeOption {
+    value: EventTypeValue;
+    label: string;
+}
+
+/** A competition hosted on this server (named to avoid clashing with the DOM `Event`). */
+export interface CompetitionEvent {
+    id: number;
+    code: string;
+    name: string;
+    type: EventTypeValue;
+    venue: string | null;
+    timezone: string;
+    start_date: string | null;
+    end_date: string | null;
+    field_count: number;
+    archived_at: string | null;
+    teams_count?: number;
+    matches_count?: number;
 }
 
 export interface User {

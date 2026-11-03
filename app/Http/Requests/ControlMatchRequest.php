@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesWithinEvent;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class ControlMatchRequest extends FormRequest
 {
+    use ValidatesWithinEvent;
+
     public function authorize(): bool
     {
         return $this->user()?->can('control-matches') ?? false;
@@ -16,7 +18,7 @@ class ControlMatchRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'match_id' => ['required', 'integer', Rule::exists('matches', 'id')->whereNull('deleted_at')],
+            'match_id' => ['required', 'integer', $this->existsInEvent('matches')->whereNull('deleted_at')],
         ];
     }
 

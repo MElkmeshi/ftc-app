@@ -1,3 +1,4 @@
+import { resolveEventHref } from '@/lib/event';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useScoringPage } from '@/hooks/use-scoring-page';
@@ -135,7 +136,7 @@ export default function RefereeScoring4() {
                         </div>
                     )}
 
-                    <Link href="/referee/scoring" className="text-xs text-white/40 hover:text-white/70">
+                    <Link href={resolveEventHref("/referee/scoring")} className="text-xs text-white/40 hover:text-white/70">
                         ← Layouts
                     </Link>
                 </div>

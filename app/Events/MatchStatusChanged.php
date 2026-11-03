@@ -15,10 +15,13 @@ class MatchStatusChanged implements ShouldBroadcastNow
 
     public string $action;
 
+    public string $eventCode;
+
     public function __construct(CompetitionMatch $match, string $action)
     {
         $this->match = $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
         $this->action = $action;
+        $this->eventCode = $match->event()->value('code');
     }
 
     /**
@@ -27,8 +30,8 @@ class MatchStatusChanged implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [
-            new Channel('match-control'),
-            new Channel('matches.'.$this->match->id),
+            new Channel("event.{$this->eventCode}.match-control"),
+            new Channel("event.{$this->eventCode}.matches.{$this->match->id}"),
         ];
     }
 

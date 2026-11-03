@@ -1,0 +1,116 @@
+<?php
+
+use App\Models\Event;
+use App\Models\Group;
+use App\Models\ScoreType;
+use App\Models\Setting;
+use App\Models\Team;
+use App\Models\User;
+use App\Services\CurrentEvent;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    $this->admin = User::factory()->admin()->create();
+    $this->otherEvent = Event::factory()->create(['code' => 'otherevent']);
+});
+
+/**
+ * Creates rows for the other event without changing the test's current event.
+ *
+ * @template TReturn
+ *
+ * @param  callable(): TReturn  $callback
+ * @return TReturn
+ */
+function inOtherEvent(callable $callback): mixed
+{
+    return app(CurrentEvent::class)->using(test()->otherEvent, $callback);
+}
+
+it('only lists the requested event\'s teams', function () {
+    Team::factory()->create(['number' => 100]);
+    inOtherEvent(fn () => Team::factory()->create(['number' => 200]));
+
+    $this->getJson('/api/event/testevent/teams')->assertOk()->assertJsonCount(1)->assertJsonPath('0.number', 100);
+    $this->getJson('/api/event/otherevent/teams')->assertOk()->assertJsonCount(1)->assertJsonPath('0.number', 200);
+});
+
+it('lets two events use the same team number', function () {
+    inOtherEvent(fn () => Team::factory()->create(['number' => 4242]));
+
+    $this->actingAs($this->admin)
+        ->postJson('/api/teams', ['number' => 4242, 'name' => 'Same Number'])
+        ->assertCreated();
+});
+
+it('cannot edit another event\'s team through this event\'s URL', function () {
+    $foreignTeam = inOtherEvent(fn () => Team::factory()->create());
+
+    $this->actingAs($this->admin)
+        ->putJson('/api/teams/'.$foreignTeam->id, ['number' => 1, 'name' => 'Hijacked'])
+        ->assertNotFound();
+});
+
+it('rejects score types from another event', function () {
+    $foreignGroup = inOtherEvent(fn () => Group::factory()->create());
+
+    $this->actingAs($this->admin)
+        ->postJson('/api/score-types', ['name' => 'Goal', 'points' => 5, 'target' => 'team', 'group_id' => $foreignGroup->id])
+        ->assertJsonValidationErrors('group_id');
+});
+
+it('creates an event and copies the game from another event', function () {
+    inOtherEvent(function (): void {
+        $group = Group::factory()->create(['name' => 'Autonomous']);
+        ScoreType::factory()->create(['name' => 'Park', 'points' => 3, 'group_id' => $group->id]);
+        Setting::set('competition', 'teleop', 90);
+        Team::factory()->create();
+    });
+
+    $this->actingAs($this->admin)->post('/events', [
+        'code' => 'Spring_Meet',
+        'name' => 'Spring Meet',
+        'type' => 'league_meet',
+        'timezone' => 'Africa/Tripoli',
+        'start_date' => '2026-12-01',
+        'end_date' => '2026-12-01',
+        'field_count' => 2,
+        'copy_game_from' => 'otherevent',
+    ])->assertRedirect('/event/spring_meet/dashboard');
+
+    $created = Event::query()->where('code', 'spring_meet')->firstOrFail();
+
+    app(CurrentEvent::class)->using($created, function (): void {
+        expect(ScoreType::query()->with('group')->sole())
+            ->name->toBe('Park')
+            ->group->name->toBe('Autonomous');
+        expect(Setting::get('competition', 'teleop'))->toBe(90);
+        expect(Team::query()->count())->toBe(0);
+    });
+});
+
+it('rejects event codes that would break URLs', function (string $code) {
+    $this->actingAs($this->admin)->post('/events', [
+        'code' => $code,
+        'name' => 'Bad',
+        'type' => 'scrimmage',
+        'timezone' => 'UTC',
+        'start_date' => '2026-12-01',
+        'end_date' => '2026-12-01',
+        'field_count' => 1,
+    ])->assertSessionHasErrors('code');
+})->with(['has space', 'dash-code', 'x', 'testevent']);
+
+it('only lets admins create events', function () {
+    $this->actingAs(User::factory()->create())->get('/events/create')->assertForbidden();
+});
+
+it('archives and restores an event', function () {
+    $this->actingAs($this->admin)->post('/event/testevent/archive')->assertRedirect();
+    expect($this->event->fresh()->isArchived())->toBeTrue();
+
+    $this->actingAs($this->admin)->post('/event/testevent/archive');
+    expect($this->event->fresh()->isArchived())->toBeFalse();
+});

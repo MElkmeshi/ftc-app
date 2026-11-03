@@ -92,7 +92,7 @@ describe('MatchControl', () => {
         const endedMatch = makeMatch({ status: 'completed', ended_at: new Date().toISOString() });
 
         act(() => {
-            echo.emit('match-control', 'MatchStatusChanged', { match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
         });
 
         expect(await screen.findByText(/RED ALLIANCE WINS!/i)).toBeInTheDocument();
@@ -108,13 +108,13 @@ describe('MatchControl', () => {
 
         const endedMatch = makeMatch({ id: 1, status: 'completed', ended_at: new Date().toISOString() });
         act(() => {
-            echo.emit('match-control', 'MatchStatusChanged', { match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
         });
         expect(await screen.findByText(/WINS!/i)).toBeInTheDocument();
 
         const nextMatch = makeMatch({ id: 2, status: 'ongoing', ended_at: null });
         act(() => {
-            echo.emit('match-control', 'MatchStatusChanged', { match: nextMatch, action: 'started' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match: nextMatch, action: 'started' } satisfies MatchStatusChangedEvent);
         });
 
         expect(screen.queryByText(/WINS!/i)).not.toBeInTheDocument();
@@ -126,13 +126,13 @@ describe('MatchControl', () => {
 
         const endedMatch = makeMatch({ status: 'completed', ended_at: new Date().toISOString() });
         act(() => {
-            echo.emit('match-control', 'MatchStatusChanged', { match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
         });
         await screen.findByText(/WINS!/i);
 
         // A second 'ended' for the same match (e.g. a retried broadcast) shouldn't re-trigger anything unexpected.
         act(() => {
-            echo.emit('match-control', 'MatchStatusChanged', { match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
         });
 
         expect(screen.getAllByText(/WINS!/i)).toHaveLength(1);

@@ -64,7 +64,7 @@ describe('alliance selection display', () => {
         };
 
         await act(async () => {
-            echo.emit('alliance-selection', 'AllianceSelectionUpdated', event);
+            echo.emit('event.testevent.alliance-selection', 'AllianceSelectionUpdated', event);
         });
 
         expect(await screen.findByText(/invited #9999/i)).toBeInTheDocument();
@@ -78,7 +78,7 @@ describe('alliance selection display', () => {
         await waitFor(() => expect(screen.getByText('Alliance Selection')).toBeInTheDocument());
 
         await act(async () => {
-            echo.emit('alliance-selection', 'AllianceSelectionUpdated', {
+            echo.emit('event.testevent.alliance-selection', 'AllianceSelectionUpdated', {
                 action: 'declined',
                 groups: [makeGroup(1), makeGroup(2)],
                 declined_teams: [makeTeam(77, '7777')],
@@ -98,7 +98,7 @@ describe('alliance selection display', () => {
         await waitFor(() => expect(screen.getByText('Alliance Selection')).toBeInTheDocument());
 
         await act(async () => {
-            echo.emit('alliance-selection', 'AllianceSelectionUpdated', {
+            echo.emit('event.testevent.alliance-selection', 'AllianceSelectionUpdated', {
                 action: 'accepted',
                 groups: [makeGroup(1, { picked_team: makeTeam(11, '1111') }), makeGroup(2)],
                 declined_teams: [],

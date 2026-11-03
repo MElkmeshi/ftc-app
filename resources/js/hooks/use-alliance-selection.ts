@@ -2,6 +2,7 @@ import { AllianceGroup, AllianceSelectionStatus, AllianceSelectionUpdatedEvent, 
 import { useEchoPublic } from '@laravel/echo-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
+import { eventChannel } from '@/lib/event';
 
 const ALLIANCE_SELECTION_KEYS = [
     ['alliance-groups'],
@@ -27,7 +28,7 @@ function useInvalidateAllianceSelection() {
 export function useAllianceSelectionEcho(onUpdate?: (event: AllianceSelectionUpdatedEvent) => void) {
     const queryClient = useQueryClient();
 
-    useEchoPublic<AllianceSelectionUpdatedEvent>('alliance-selection', 'AllianceSelectionUpdated', (event) => {
+    useEchoPublic<AllianceSelectionUpdatedEvent>(eventChannel('alliance-selection'), 'AllianceSelectionUpdated', (event) => {
         queryClient.setQueryData(['alliance-groups'], event.groups);
         queryClient.setQueryData(['declined-teams'], event.declined_teams);
         queryClient.setQueryData<AllianceSelectionStatus>(['alliance-selection-status'], {

@@ -2,11 +2,13 @@
 
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ResolveEvent;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -18,6 +20,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->prepend(HandleCors::class);
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+
+        $middleware->alias(['event' => ResolveEvent::class]);
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: ResolveEvent::class);
 
         $middleware->web(append: [
             HandleAppearance::class,

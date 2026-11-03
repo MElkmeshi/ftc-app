@@ -15,9 +15,12 @@ class ScoreUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
 
     public CompetitionMatch $match;
 
+    public string $eventCode;
+
     public function __construct(CompetitionMatch $match)
     {
         $this->match = $match->loadMissing('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+        $this->eventCode = $match->event()->value('code');
     }
 
     /**
@@ -29,8 +32,8 @@ class ScoreUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
     public function broadcastOn(): array
     {
         return [
-            new Channel('matches.'.$this->match->id),
-            new Channel('match-control'),
+            new Channel("event.{$this->eventCode}.matches.{$this->match->id}"),
+            new Channel("event.{$this->eventCode}.match-control"),
         ];
     }
 

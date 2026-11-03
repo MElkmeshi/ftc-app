@@ -2,11 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesWithinEvent;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreScoreRequest extends FormRequest
 {
+    use ValidatesWithinEvent;
+
     public function authorize(): bool
     {
         return $this->user()?->can('score-matches') ?? false;
@@ -16,10 +18,10 @@ class StoreScoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'match_id' => ['required', 'integer', Rule::exists('matches', 'id')->whereNull('deleted_at')],
-            'team_id' => ['nullable', 'integer', 'required_without:alliance_id', 'prohibits:alliance_id', Rule::exists('teams', 'id')->whereNull('deleted_at')],
+            'match_id' => ['required', 'integer', $this->existsInEvent('matches')->whereNull('deleted_at')],
+            'team_id' => ['nullable', 'integer', 'required_without:alliance_id', 'prohibits:alliance_id', $this->existsInEvent('teams')->whereNull('deleted_at')],
             'alliance_id' => ['nullable', 'integer', 'required_without:team_id', 'prohibits:team_id', 'exists:alliances,id'],
-            'score_type_id' => ['required', 'integer', 'exists:score_types,id'],
+            'score_type_id' => ['required', 'integer', $this->existsInEvent('score_types')],
         ];
     }
 

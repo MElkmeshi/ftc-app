@@ -28,7 +28,7 @@ test('the rankings display serves rankings as a live prop on the match-control c
 
     expect(liveProps($response)['rankings'])->toBe([
         'listeners' => [[
-            'channel' => ['name' => 'match-control', 'type' => 'public'],
+            'channel' => ['name' => 'event.testevent.match-control', 'type' => 'public'],
             'events' => [MatchStatusChanged::class, ScoreUpdated::class],
         ]],
         'throttle' => 3000,
@@ -45,9 +45,9 @@ test('the elimination bracket display serves the bracket as a live prop', functi
     );
 
     expect(liveProps($response)['bracket']['listeners'])->toBe([
-        ['channel' => ['name' => 'elimination', 'type' => 'public'], 'events' => [EliminationBracketUpdated::class]],
-        ['channel' => ['name' => 'match-control', 'type' => 'public'], 'events' => [MatchStatusChanged::class, ScoreUpdated::class]],
-        ['channel' => ['name' => 'alliance-selection', 'type' => 'public'], 'events' => [AllianceSelectionUpdated::class]],
+        ['channel' => ['name' => 'event.testevent.elimination', 'type' => 'public'], 'events' => [EliminationBracketUpdated::class]],
+        ['channel' => ['name' => 'event.testevent.match-control', 'type' => 'public'], 'events' => [MatchStatusChanged::class, ScoreUpdated::class]],
+        ['channel' => ['name' => 'event.testevent.alliance-selection', 'type' => 'public'], 'events' => [AllianceSelectionUpdated::class]],
     ]);
 });
 
@@ -68,7 +68,7 @@ test('dashboard stats stay deferred and are live', function () {
 
     expect(liveProps($response)['stats'])->toBe([
         'listeners' => [[
-            'channel' => ['name' => 'match-control', 'type' => 'public'],
+            'channel' => ['name' => 'event.testevent.match-control', 'type' => 'public'],
             'events' => [MatchStatusChanged::class],
         ]],
         'throttle' => 3000,

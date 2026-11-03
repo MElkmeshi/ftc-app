@@ -1,3 +1,4 @@
+import { resolveEventHref } from '@/lib/event';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MatchTimerBanner } from '@/components/match-timer-banner';
@@ -75,7 +76,7 @@ export default function RefereeScoring2() {
                         </div>
                     )}
 
-                    <Link href="/referee/scoring" className="text-xs text-muted-foreground hover:underline ml-auto">
+                    <Link href={resolveEventHref("/referee/scoring")} className="text-xs text-muted-foreground hover:underline ml-auto">
                         ← Pick layout
                     </Link>
                 </div>

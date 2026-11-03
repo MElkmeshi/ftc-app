@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,12 +10,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MatchAlliance extends Model
 {
-    use HasFactory, SoftDeletes;
+    use BelongsToEvent, HasFactory, SoftDeletes;
 
     protected $attributes = ['score' => 0];
 
     protected $fillable = [
-        'match_id', 'team_id', 'alliance_id', 'alliance_pos', 'score', 'counts_for_ranking', 'alliance_group_id', 'created_by', 'updated_by',
+        'event_id', 'match_id', 'team_id', 'alliance_id', 'alliance_pos', 'score', 'counts_for_ranking', 'alliance_group_id', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [

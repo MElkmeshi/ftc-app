@@ -262,5 +262,5 @@ it('retains alliance point snapshots including zero and negative values', functi
 it('broadcasts score updates on the match channel and the match-control channel', function () {
     $channels = collect((new ScoreUpdated($this->match))->broadcastOn())->map->name->all();
 
-    expect($channels)->toBe(['matches.'.$this->match->id, 'match-control']);
+    expect($channels)->toBe(['event.testevent.matches.'.$this->match->id, 'event.testevent.match-control']);
 });

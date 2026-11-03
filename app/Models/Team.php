@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Team extends Model
 {
-    use HasFactory, SoftDeletes;
+    use BelongsToEvent, HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'number', 'name', 'created_by', 'updated_by',
+        'event_id', 'number', 'name', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [

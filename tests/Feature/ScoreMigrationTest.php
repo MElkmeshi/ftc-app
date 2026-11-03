@@ -26,12 +26,15 @@ it('preserves legacy totals and backfills score history including deleted entrie
     $type = ScoreType::factory()->create(['points' => 10]);
     foreach ([null, now()] as $deletedAt) {
         DB::table('scores')->insert([
-            'match_id' => $match->id, 'team_id' => $team->id, 'score_type_id' => $type->id,
+            'event_id' => $this->event->id, 'match_id' => $match->id, 'team_id' => $team->id, 'score_type_id' => $type->id,
             'created_by' => 1, 'deleted_at' => $deletedAt,
         ]);
     }
 
     $migration->up();
+    // The later events migration moves pre-existing rows into an event; mimic that backfill here.
+    DB::table('scores')->whereNull('event_id')->update(['event_id' => $this->event->id]);
+
     expect($member->fresh()->score)->toBe(17);
     expect((int) $match->scores()->sum('points'))->toBe(17);
     expect($match->scores()->whereNull('score_type_id')->firstOrFail()->points)->toBe(7);

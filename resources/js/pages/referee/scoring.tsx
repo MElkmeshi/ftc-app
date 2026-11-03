@@ -1,3 +1,4 @@
+import { resolveEventHref } from '@/lib/event';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
@@ -224,7 +225,7 @@ export default function RefereeScoring() {
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     <VariantCard
-                        href="/referee/scoring2"
+                        href={resolveEventHref("/referee/scoring2")}
                         icon={<Grid3x3 className="h-5 w-5" />}
                         title="Action Grid"
                         subtitle="Layout 2 · Compact"
@@ -234,7 +235,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href="/referee/scoring3"
+                        href={resolveEventHref("/referee/scoring3")}
                         icon={<Layers className="h-5 w-5" />}
                         title="Team Tabs"
                         subtitle="Layout 3 · Per-team"
@@ -244,7 +245,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href="/referee/scoring4"
+                        href={resolveEventHref("/referee/scoring4")}
                         icon={<Monitor className="h-5 w-5" />}
                         title="Stadium Dark"
                         subtitle="Layout 4 · Dark UI"
@@ -254,7 +255,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href="/referee/scoring5"
+                        href={resolveEventHref("/referee/scoring5")}
                         icon={<Star className="h-5 w-5" />}
                         title="Scoring Only"
                         subtitle="Layout 5 · Positive points"
@@ -264,7 +265,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href="/referee/scoring6"
+                        href={resolveEventHref("/referee/scoring6")}
                         icon={<AlertTriangle className="h-5 w-5" />}
                         title="Fouls Only"
                         subtitle="Layout 6 · Negative points"
@@ -274,7 +275,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href="/referee/scoring7"
+                        href={resolveEventHref("/referee/scoring7")}
                         icon={<SplitSquareHorizontal className="h-5 w-5" />}
                         title="Fouls — Both Alliances"
                         subtitle="Layout 7 · Red &amp; Blue side by side"

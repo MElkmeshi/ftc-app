@@ -2,6 +2,7 @@ import { CompetitionMatch, MatchStatusChangedEvent, ScoreType, ScoreUpdatedEvent
 import { useEchoPublic } from '@laravel/echo-react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
+import { eventChannel } from '@/lib/event';
 
 async function cacheMatch(queryClient: QueryClient, match: CompetitionMatch) {
     await Promise.all([
@@ -20,7 +21,7 @@ async function cacheMatch(queryClient: QueryClient, match: CompetitionMatch) {
 export function useMatches(refetchInterval?: number) {
     const api = useApi();
     const queryClient = useQueryClient();
-    useEchoPublic<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', ({ match, action }) => {
+    useEchoPublic<MatchStatusChangedEvent>(eventChannel('match-control'), 'MatchStatusChanged', ({ match, action }) => {
         cacheMatch(queryClient, match);
         if (action === 'loaded') {
             queryClient.setQueryData(['loaded-match'], match);
@@ -39,10 +40,10 @@ export function useMatches(refetchInterval?: number) {
 export function useMatch(id: number | null, refetchInterval?: number) {
     const api = useApi();
     const queryClient = useQueryClient();
-    useEchoPublic<ScoreUpdatedEvent>(id ? `matches.${id}` : '', 'ScoreUpdated', ({ match }) => {
+    useEchoPublic<ScoreUpdatedEvent>(id ? eventChannel(`matches.${id}`) : '', 'ScoreUpdated', ({ match }) => {
         if (match.id === id) cacheMatch(queryClient, match);
     });
-    useEchoPublic<MatchStatusChangedEvent>(id ? `matches.${id}` : '', 'MatchStatusChanged', ({ match }) => {
+    useEchoPublic<MatchStatusChangedEvent>(id ? eventChannel(`matches.${id}`) : '', 'MatchStatusChanged', ({ match }) => {
         if (match.id === id) cacheMatch(queryClient, match);
     });
     return useQuery<CompetitionMatch>({

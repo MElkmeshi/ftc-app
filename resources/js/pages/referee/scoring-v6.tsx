@@ -1,3 +1,4 @@
+import { resolveEventHref } from '@/lib/event';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -111,7 +112,7 @@ export default function RefereeFoulsOnly() {
                         </div>
                     )}
 
-                    <Link href="/referee/scoring" className="text-xs text-muted-foreground hover:underline">
+                    <Link href={resolveEventHref("/referee/scoring")} className="text-xs text-muted-foreground hover:underline">
                         ← Layouts
                     </Link>
                 </div>

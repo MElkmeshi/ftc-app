@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEvent;
 use Database\Factories\EliminationSeriesFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,10 +12,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class EliminationSeries extends Model
 {
     /** @use HasFactory<EliminationSeriesFactory> */
-    use HasFactory;
+    use BelongsToEvent, HasFactory;
 
     protected $fillable = [
-        'round', 'alliance_group_1_id', 'alliance_group_2_id', 'winner_alliance_group_id', 'status', 'created_by', 'updated_by',
+        'event_id', 'round', 'alliance_group_1_id', 'alliance_group_2_id', 'winner_alliance_group_id', 'status', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [

@@ -2,18 +2,21 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesWithinEvent;
 use Illuminate\Foundation\Http\FormRequest;
 
 class InviteTeamRequest extends FormRequest
 {
+    use ValidatesWithinEvent;
+
     /**
      * @return array<string, array<int, string>>
      */
     public function rules(): array
     {
         return [
-            'alliance_group_id' => ['required', 'integer', 'exists:alliance_groups,id'],
-            'team_id' => ['required', 'integer', 'exists:teams,id'],
+            'alliance_group_id' => ['required', 'integer', $this->existsInEvent('alliance_groups')],
+            'team_id' => ['required', 'integer', $this->existsInEvent('teams')],
         ];
     }
 }

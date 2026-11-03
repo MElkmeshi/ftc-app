@@ -9,7 +9,6 @@ use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Models\Team;
 use Exception;
-use Illuminate\Support\Facades\DB;
 
 class MatchScheduler
 {
@@ -57,24 +56,10 @@ class MatchScheduler
         // Initialize tracking arrays
         $this->initializeTracking($teamIds);
 
-        // Disable foreign key checks based on database driver
-        $driver = DB::getDriverName();
-        if ($driver === 'mysql') {
-            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        } elseif ($driver === 'sqlite') {
-            DB::statement('PRAGMA foreign_keys = OFF;');
-        }
-
-        Score::truncate();
-        MatchAlliance::truncate();
-        CompetitionMatch::truncate();
-
-        // Re-enable foreign key checks
-        if ($driver === 'mysql') {
-            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-        } elseif ($driver === 'sqlite') {
-            DB::statement('PRAGMA foreign_keys = ON;');
-        }
+        // Only this event's rows are visible here, so this clears the current event's schedule.
+        Score::withTrashed()->forceDelete();
+        MatchAlliance::withTrashed()->forceDelete();
+        CompetitionMatch::withTrashed()->forceDelete();
 
         $matchNumber = 1;
         $iterations = 0;

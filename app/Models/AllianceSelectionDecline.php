@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEvent;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AllianceSelectionDecline extends Model
 {
+    use BelongsToEvent;
+
     protected $fillable = [
-        'team_id', 'alliance_group_id', 'created_by',
+        'event_id', 'team_id', 'alliance_group_id', 'created_by',
     ];
 
     protected $hidden = [

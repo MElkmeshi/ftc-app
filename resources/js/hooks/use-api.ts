@@ -11,6 +11,7 @@ import {
 } from '@/types';
 import { http } from '@inertiajs/react';
 import { useCallback } from 'react';
+import { eventApiUrl } from '@/lib/event';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -19,7 +20,7 @@ const client = http.getClient();
 async function request<T>(method: Method, url: string, data?: unknown): Promise<T> {
     const response = await client.request({
         method,
-        url,
+        url: eventApiUrl(url),
         data: data ? JSON.stringify(data) : undefined,
         headers: {
             Accept: 'application/json',

@@ -4,6 +4,7 @@ namespace App\Events;
 
 use App\Models\AllianceGroup;
 use App\Models\Team;
+use App\Services\CurrentEvent;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
@@ -23,14 +24,18 @@ class AllianceSelectionUpdated implements ShouldBroadcastNow
         public Collection $declinedTeams,
         public bool $complete,
         public ?int $currentPickSeed,
-    ) {}
+    ) {
+        $this->eventCode = app(CurrentEvent::class)->require()->code;
+    }
+
+    public string $eventCode;
 
     /**
      * @return array<Channel>
      */
     public function broadcastOn(): array
     {
-        return [new Channel('alliance-selection')];
+        return [new Channel("event.{$this->eventCode}.alliance-selection")];
     }
 
     /**

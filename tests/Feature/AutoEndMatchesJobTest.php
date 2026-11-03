@@ -22,8 +22,8 @@ it('ends expired matches using their own duration and broadcasts once', function
     $match = CompetitionMatch::factory()->create([
         'status' => MatchStatus::ONGOING, 'started_at' => now()->subSeconds(60), 'duration_ms' => 60000,
     ]);
-    (new AutoEndMatchesJob)->handle(app(MatchTimingService::class));
-    (new AutoEndMatchesJob)->handle(app(MatchTimingService::class));
+    app()->call([new AutoEndMatchesJob, 'handle']);
+    app()->call([new AutoEndMatchesJob, 'handle']);
 
     expect($match->fresh()->status)->toBe(MatchStatus::COMPLETED);
     expect($match->fresh()->ended_at->equalTo(now()))->toBeTrue();
@@ -36,7 +36,7 @@ it('does not end long matches early even after settings change', function () {
         'status' => MatchStatus::ONGOING, 'started_at' => now()->subSeconds(200), 'duration_ms' => 300000,
     ]);
     Setting::set('competition', 'teleop', 10);
-    (new AutoEndMatchesJob)->handle(app(MatchTimingService::class));
+    app()->call([new AutoEndMatchesJob, 'handle']);
     expect($match->fresh()->status)->toBe(MatchStatus::ONGOING);
     Event::assertNothingDispatched();
 });
@@ -47,14 +47,14 @@ it('uses configured timing for legacy matches without a duration snapshot', func
     $match = CompetitionMatch::factory()->create([
         'status' => MatchStatus::ONGOING, 'started_at' => now()->subMilliseconds($duration), 'duration_ms' => null,
     ]);
-    (new AutoEndMatchesJob)->handle(app(MatchTimingService::class));
+    app()->call([new AutoEndMatchesJob, 'handle']);
     expect($match->fresh()->status)->toBe(MatchStatus::COMPLETED);
 });
 
 it('ignores upcoming matches and matches without a start time', function () {
     $upcoming = CompetitionMatch::factory()->create(['status' => MatchStatus::UPCOMING, 'started_at' => now()->subHour()]);
     $noStart = CompetitionMatch::factory()->create(['status' => MatchStatus::ONGOING, 'started_at' => null]);
-    (new AutoEndMatchesJob)->handle(app(MatchTimingService::class));
+    app()->call([new AutoEndMatchesJob, 'handle']);
     expect($upcoming->fresh()->status)->toBe(MatchStatus::UPCOMING);
     expect($noStart->fresh()->status)->toBe(MatchStatus::ONGOING);
     Event::assertNothingDispatched();

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEvent;
 use Database\Factories\AllianceGroupFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,10 +11,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class AllianceGroup extends Model
 {
     /** @use HasFactory<AllianceGroupFactory> */
-    use HasFactory;
+    use BelongsToEvent, HasFactory;
 
     protected $fillable = [
-        'seed', 'captain_team_id', 'picked_team_id', 'pending_team_id', 'created_by', 'updated_by',
+        'event_id', 'seed', 'captain_team_id', 'picked_team_id', 'pending_team_id', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [

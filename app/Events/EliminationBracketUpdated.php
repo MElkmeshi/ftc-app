@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Services\CurrentEvent;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
@@ -12,12 +13,19 @@ use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
  */
 class EliminationBracketUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommit
 {
+    public string $eventCode;
+
+    public function __construct()
+    {
+        $this->eventCode = app(CurrentEvent::class)->require()->code;
+    }
+
     /**
      * @return array<Channel>
      */
     public function broadcastOn(): array
     {
-        return [new Channel('elimination')];
+        return [new Channel("event.{$this->eventCode}.elimination")];
     }
 
     /**

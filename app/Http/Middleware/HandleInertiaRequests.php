@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\CurrentEvent;
 use App\Services\MatchTimingService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
@@ -53,6 +54,7 @@ class HandleInertiaRequests extends Middleware
                 ...(new Ziggy)->toArray(),
                 'location' => $request->url(),
             ],
+            'event' => fn () => app(CurrentEvent::class)->get(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'matchConfig' => fn () => [
                 'timing' => $this->matchTiming->current(),

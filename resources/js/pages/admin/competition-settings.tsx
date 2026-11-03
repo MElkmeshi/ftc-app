@@ -7,6 +7,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Deferred, Head, useHttp, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import type { MatchTimingConfig } from '@/hooks/use-match-timer';
+import { eventApiUrl } from '@/lib/event';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Admin', href: '/admin/teams' },
@@ -34,7 +35,7 @@ function SettingsForm() {
         e.preventDefault();
         setMessage(null);
 
-        form.put('/api/settings/competition', {
+        form.put(eventApiUrl('/api/settings/competition'), {
             onSuccess: () => {
                 setMessage({ type: 'success', text: 'Settings saved successfully!' });
             },
@@ -52,7 +53,7 @@ function SettingsForm() {
 
         setMessage(null);
 
-        form.delete('/api/settings/competition/reset', {
+        form.delete(eventApiUrl('/api/settings/competition/reset'), {
             onSuccess: () => {
                 setMessage({ type: 'success', text: 'Settings reset to defaults!' });
             },

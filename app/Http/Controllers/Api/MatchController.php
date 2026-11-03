@@ -11,11 +11,13 @@ use App\Http\Requests\ControlMatchRequest;
 use App\Http\Requests\GenerateScheduleRequest;
 use App\Http\Requests\UpdateMatchScoreRequest;
 use App\Models\AllianceGroup;
+use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
 use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Services\AllianceSelectionService;
+use App\Services\CurrentEvent;
 use App\Services\MatchScheduler;
 use App\Services\MatchTimingService;
 use Illuminate\Http\JsonResponse;
@@ -101,7 +103,7 @@ class MatchController extends Controller
             'duration_ms' => $matchTiming->currentDurationMs(),
         ]);
 
-        cache()->forget('loaded_match_id');
+        cache()->forget($this->loadedMatchCacheKey());
 
         $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
 
@@ -160,7 +162,7 @@ class MatchController extends Controller
         $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType'])
             ->findOrFail($request->input('match_id'));
 
-        cache()->put('loaded_match_id', $match->id, now()->addHours(1));
+        cache()->put($this->loadedMatchCacheKey(), $match->id, now()->addHours(12));
 
         broadcast(new MatchStatusChanged($match, 'loaded'));
 
@@ -169,7 +171,7 @@ class MatchController extends Controller
 
     public function loadedMatch(): JsonResponse
     {
-        $matchId = cache()->get('loaded_match_id');
+        $matchId = cache()->get($this->loadedMatchCacheKey());
 
         if (! $matchId) {
             return response()->json(null);
@@ -201,24 +203,15 @@ class MatchController extends Controller
 
     public function deleteAll(): JsonResponse
     {
-        $driver = DB::getDriverName();
-        if ($driver === 'mysql') {
-            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        } elseif ($driver === 'sqlite') {
-            DB::statement('PRAGMA foreign_keys = OFF;');
-        }
-
-        Score::truncate();
-        MatchAlliance::truncate();
-        CompetitionMatch::truncate();
-        EliminationSeries::truncate();
-        AllianceGroup::truncate();
-
-        if ($driver === 'mysql') {
-            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-        } elseif ($driver === 'sqlite') {
-            DB::statement('PRAGMA foreign_keys = ON;');
-        }
+        // Only this event's rows are visible here, so this clears the current event's matches.
+        DB::transaction(function (): void {
+            Score::withTrashed()->forceDelete();
+            MatchAlliance::withTrashed()->forceDelete();
+            CompetitionMatch::withTrashed()->forceDelete();
+            EliminationSeries::query()->delete();
+            AllianceSelectionDecline::query()->delete();
+            AllianceGroup::query()->delete();
+        });
 
         broadcast(new EliminationBracketUpdated);
 
@@ -228,5 +221,10 @@ class MatchController extends Controller
     public function teamsDisplay(AllianceSelectionService $selection): JsonResponse
     {
         return response()->json($selection->getRankings());
+    }
+
+    private function loadedMatchCacheKey(): string
+    {
+        return 'event.'.app(CurrentEvent::class)->require()->id.'.loaded_match_id';
     }
 }

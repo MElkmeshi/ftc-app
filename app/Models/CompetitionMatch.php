@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\MatchStatus;
 use App\Enums\MatchType;
+use App\Models\Concerns\BelongsToEvent;
 use Database\Factories\MatchFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class CompetitionMatch extends Model
 {
     /** @use HasFactory<MatchFactory> */
-    use HasFactory, SoftDeletes;
+    use BelongsToEvent, HasFactory, SoftDeletes;
 
     protected static function newFactory(): MatchFactory
     {
@@ -24,7 +25,7 @@ class CompetitionMatch extends Model
     protected $table = 'matches';
 
     protected $fillable = [
-        'number', 'type', 'round', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'ended_at', 'cancelled_at', 'created_by', 'updated_by',
+        'event_id', 'number', 'type', 'round', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'ended_at', 'cancelled_at', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [

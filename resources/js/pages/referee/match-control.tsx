@@ -10,6 +10,7 @@ import { Head } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { eventChannel } from '@/lib/event';
 
 type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch; matchId: number } | null;
 
@@ -81,7 +82,7 @@ export default function MatchControl() {
     // Primary sync path: the server broadcasts every match-control action as it
     // happens, carrying the full match (final scores included on 'ended'), so the
     // client never needs to poll or guess at state — it just applies the event.
-    useEchoPublic<MatchStatusChangedEvent>('match-control', 'MatchStatusChanged', (event) => {
+    useEchoPublic<MatchStatusChangedEvent>(eventChannel('match-control'), 'MatchStatusChanged', (event) => {
         queryClient.invalidateQueries({ queryKey: ['matches'] });
         queryClient.invalidateQueries({ queryKey: ['active-match'] });
 
