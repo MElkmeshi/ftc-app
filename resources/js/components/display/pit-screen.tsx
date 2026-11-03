@@ -1,5 +1,5 @@
 import { AutoScroll } from '@/components/audience/auto-scroll';
-import { formatMatchTime, getAllianceMembers, getMatchTitle } from '@/lib/match-utils';
+import { formatMatchTime, getAllianceMembers, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type SharedData, type TeamDisplay } from '@/types';
 import { Head, usePage, useProp } from '@inertiajs/react';
@@ -44,11 +44,16 @@ function RankingsTable({ teams, byRecord }: { teams: TeamDisplay[]; byRecord: bo
     );
 }
 
-function MatchRow({ match, timeZone, live }: { match: CompetitionMatch; timeZone?: string; live?: boolean }) {
+function MatchRow({ match, timeZone, live, fieldCount }: { match: CompetitionMatch; timeZone?: string; live?: boolean; fieldCount: number }) {
+    const field = getFieldLabel(match, fieldCount);
+
     return (
         <div className={cn('rounded-xl border p-3', live ? 'border-emerald-400 bg-emerald-500/10' : 'border-white/10 bg-white/5')}>
             <div className="mb-1 flex items-baseline justify-between">
-                <span className="text-xl font-bold">{getMatchTitle(match)}</span>
+                <span className="text-xl font-bold">
+                    {getMatchTitle(match)}
+                    {field && <span className="ml-2 text-base font-medium text-sky-300">{field}</span>}
+                </span>
                 <span className={cn('text-lg tabular-nums', live ? 'font-bold text-emerald-300' : 'text-white/60')}>
                     {live ? 'ON FIELD' : formatMatchTime(match.start_time, timeZone)}
                 </span>
@@ -78,6 +83,7 @@ export function PitScreen() {
     const { event, rankingMethod } = usePage<SharedData & { rankingMethod?: string }>().props;
     const { value: teams = [] } = useProp<TeamDisplay[]>('rankings');
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
+    const fieldCount = Math.max(1, event?.field_count ?? 1);
 
     const onField = matches.find((match) => match.status === 'ongoing');
     const upcoming = matches.filter((match) => match.status === 'upcoming').slice(0, UPCOMING_COUNT);
@@ -105,9 +111,9 @@ export function PitScreen() {
                     <h2 className="flex items-center gap-2 text-2xl font-bold">
                         <Clock className="size-6 text-sky-300" /> Up next
                     </h2>
-                    {onField && <MatchRow match={onField} timeZone={event?.timezone} live />}
+                    {onField && <MatchRow match={onField} timeZone={event?.timezone} fieldCount={fieldCount} live />}
                     {upcoming.map((match) => (
-                        <MatchRow key={match.id} match={match} timeZone={event?.timezone} />
+                        <MatchRow key={match.id} match={match} timeZone={event?.timezone} fieldCount={fieldCount} />
                     ))}
                     {!onField && upcoming.length === 0 && <p className="text-xl text-white/50">No more scheduled matches.</p>}
                 </section>

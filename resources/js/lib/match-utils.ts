@@ -152,6 +152,11 @@ export function getAllianceBreakdown(match: CompetitionMatch, color: string, gro
 }
 
 /** "Qualification 12", "Semifinal 1 · Match 2", ... */
+/** "Field 2" at a multi-field event; null at a single-field event, where it would be noise. */
+export function getFieldLabel(match: Pick<CompetitionMatch, 'field'>, fieldCount: number): string | null {
+    return fieldCount > 1 && match.field ? `Field ${match.field}` : null;
+}
+
 export function getMatchTitle(match: Pick<CompetitionMatch, 'number' | 'type' | 'round'>): string {
     if (match.type !== 'elimination') {
         return `Qualification ${match.number}`;

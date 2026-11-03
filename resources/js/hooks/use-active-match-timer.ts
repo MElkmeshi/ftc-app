@@ -7,6 +7,8 @@ import { useEffect, useRef } from 'react';
 interface UseActiveMatchTimerOptions {
     playSound?: (name: SoundName) => void;
     onMatchEnd?: () => void;
+    /** Only follow matches on this field (a field display at a multi-field event). */
+    field?: number | null;
 }
 
 /**
@@ -16,9 +18,10 @@ interface UseActiveMatchTimerOptions {
  * tracking both match ID and started_at timestamp.
  */
 export function useActiveMatchTimer(options: UseActiveMatchTimerOptions = {}) {
-    const { playSound, onMatchEnd } = options;
+    const { playSound, onMatchEnd, field = null } = options;
 
-    const { data: activeMatch } = useActiveMatch(15000);
+    const { data: anyActiveMatch } = useActiveMatch(15000);
+    const activeMatch = field && anyActiveMatch && anyActiveMatch.field !== field ? null : anyActiveMatch;
     const { data: matches = [] } = useMatches(15000);
     const { config: matchConfig } = useMatchConfig();
 

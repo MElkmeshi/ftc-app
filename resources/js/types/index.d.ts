@@ -129,6 +129,8 @@ export interface CompetitionMatch {
     number: number;
     type: 'qualification' | 'elimination';
     round: string | null;
+    /** Which field the match is played on (1 at a single-field event). */
+    field?: number;
     elimination_series_id: number | null;
     start_time: string;
     started_at: string | null;

@@ -1,6 +1,7 @@
 import { TeamChip } from '@/components/audience/team-chip';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { type SoundName } from '@/hooks/use-audio-engine';
+import { useFieldCount } from '@/hooks/use-field-count';
 import { useGroups } from '@/hooks/use-groups';
 import { useMatch } from '@/hooks/use-match';
 import {
@@ -9,6 +10,7 @@ import {
     getAllianceBreakdown,
     getAllianceMembers,
     getAllianceScore,
+    getFieldLabel,
     getMatchTitle,
     getPhaseColors,
     getPhaseLabel,
@@ -58,12 +60,15 @@ function AllianceColumn({ match, color, children }: { match: CompetitionMatch; c
 }
 
 function PreviewScreen({ match }: { match: CompetitionMatch }) {
+    const field = getFieldLabel(match, useFieldCount());
+
     return (
         <div className={cn(SCREEN, 'items-center justify-center gap-10 px-12')}>
             <Head title={`${getMatchTitle(match)} · Preview`} />
             <div className="text-center">
                 <p className="text-2xl tracking-[0.3em] text-white/50 uppercase">Up next</p>
                 <h1 className="text-7xl font-black">{getMatchTitle(match)}</h1>
+                {field && <p className="mt-2 text-3xl font-bold text-sky-300">{field}</p>}
             </div>
             <div className="flex w-full max-w-6xl items-stretch gap-8">
                 <div className="flex flex-1 flex-col items-center gap-6 rounded-3xl border-4 border-red-500 bg-red-500/10 p-8">
@@ -90,6 +95,7 @@ export function MatchScreen({
     teleopSeconds,
     flipped = false,
     waitingLabel = 'Waiting for match',
+    fieldLabel = null,
 }: {
     match: CompetitionMatch | null | undefined;
     timer: ReturnType<typeof useActiveMatchTimer>['timer'];
@@ -97,6 +103,8 @@ export function MatchScreen({
     /** Put blue on the left, for a screen that faces the field from the other side. */
     flipped?: boolean;
     waitingLabel?: string;
+    /** e.g. "Field 2", shown next to the title at a multi-field event. */
+    fieldLabel?: string | null;
 }) {
     const phaseColors = getPhaseColors(timer.phase);
     const clock =
@@ -111,6 +119,7 @@ export function MatchScreen({
             <Head title={match ? getMatchTitle(match) : 'Match'} />
             <header className="border-b border-white/10 bg-white/5 px-8 py-4 text-center text-3xl font-bold">
                 {match ? getMatchTitle(match) : waitingLabel}
+                {fieldLabel && <span className="ml-3 text-white/60">· {fieldLabel}</span>}
             </header>
 
             <div className={cn('flex flex-1 items-center justify-center gap-8 px-10', flipped && 'flex-row-reverse')}>
@@ -199,6 +208,7 @@ function ResultsScreen({ match }: { match: CompetitionMatch }) {
 export function AudienceScreen({ playSound }: { playSound?: (name: SoundName) => void }) {
     const { value: display } = useProp<AudienceDisplayState>('display');
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound });
+    const fieldCount = useFieldCount();
 
     const mode = display?.mode ?? 'blank';
     const matchId = mode === 'match' ? (activeMatch?.id ?? display?.match_id ?? null) : (display?.match_id ?? null);

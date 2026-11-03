@@ -12,7 +12,7 @@ import { useEffect, useRef } from 'react';
 function DisplayScreen({ config, playSound }: { config: DisplayConfig; playSound?: ReturnType<typeof useAudioEngine>['playSound'] }) {
     switch (config.type) {
         case 'field':
-            return <FieldScreen playSound={playSound} flipped={config.flipped} />;
+            return <FieldScreen playSound={playSound} flipped={config.flipped} field={config.field} />;
         case 'pit':
             return <PitScreen />;
         case 'overlay':
@@ -50,8 +50,8 @@ export default function Display() {
 
     return (
         <>
-            {/* Keyed by type so switching screens starts each one with fresh timers. */}
-            <DisplayScreen key={config.type} config={config} playSound={playsSound ? playSound : undefined} />
+            {/* Keyed by type and field so switching screens starts each one with fresh timers. */}
+            <DisplayScreen key={`${config.type}-${config.field ?? 'all'}`} config={config} playSound={playsSound ? playSound : undefined} />
             {playsSound && !unlocked && <AudioUnlockPrompt />}
             <DisplaySettings config={config} onChange={changeConfig} defaultOpen={!isDisplayConfigured(search)} />
         </>

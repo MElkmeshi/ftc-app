@@ -11,6 +11,7 @@ use App\Models\Event;
 use App\Models\Team;
 use App\Services\CurrentEvent;
 use App\Services\EventGameCopier;
+use App\Services\FieldAssignment;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -72,9 +73,14 @@ class EventController extends Controller
         ]);
     }
 
-    public function update(UpdateEventRequest $request, CurrentEvent $currentEvent): RedirectResponse
+    public function update(UpdateEventRequest $request, CurrentEvent $currentEvent, FieldAssignment $fields): RedirectResponse
     {
-        $currentEvent->require()->update($request->validated());
+        $event = $currentEvent->require();
+        $event->update($request->validated());
+
+        if ($event->wasChanged('field_count')) {
+            $fields->reassignUpcoming();
+        }
 
         return back();
     }

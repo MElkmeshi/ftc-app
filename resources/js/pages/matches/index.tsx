@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useApi } from '@/hooks/use-api';
+import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useMatches, useStartMatch } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
 import { formatMatchTime } from '@/lib/match-utils';
@@ -269,6 +270,7 @@ function DeleteAllMatchesDialog() {
 export default function MatchesIndex({ positions, allianceLabels }: MatchesPageProps) {
     const { data: matches = [], isLoading } = useMatches();
     const eventTimezone = usePage<SharedData>().props.event?.timezone;
+    const fieldCount = useFieldCount();
     const loadMatch = useLoadMatch();
     const startMatch = useStartMatch();
     const endMatch = useEndMatch();
@@ -315,6 +317,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                     <tr className="border-b">
                                         <th className="px-4 py-2 text-left font-medium">Match #</th>
                                         <th className="px-4 py-2 text-left font-medium">Time</th>
+                                        {fieldCount > 1 && <th className="px-4 py-2 text-left font-medium">Field</th>}
                                         <th className="px-4 py-2 text-left font-medium">Status</th>
                                         {positions.map((pos) => {
                                             const allianceColor = allianceLabels[pos.alliance_id] ?? 'Alliance';
@@ -331,7 +334,10 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                 <tbody>
                                     {matches.length === 0 ? (
                                         <tr>
-                                            <td colSpan={positions.length + 4} className="text-muted-foreground px-4 py-8 text-center">
+                                            <td
+                                                colSpan={positions.length + (fieldCount > 1 ? 5 : 4)}
+                                                className="text-muted-foreground px-4 py-8 text-center"
+                                            >
                                                 No matches found
                                             </td>
                                         </tr>
@@ -342,6 +348,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                                 <td className="px-4 py-2 whitespace-nowrap tabular-nums">
                                                     {formatMatchTime(match.start_time, eventTimezone)}
                                                 </td>
+                                                {fieldCount > 1 && <td className="px-4 py-2 tabular-nums">{match.field}</td>}
                                                 <td className="px-4 py-2">
                                                     <Badge className={cn('capitalize', statusColor(match.status))}>{match.status}</Badge>
                                                 </td>

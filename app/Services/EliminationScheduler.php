@@ -131,6 +131,7 @@ class EliminationScheduler
     ): CompetitionMatch {
         $match = CompetitionMatch::create([
             'number' => $matchNumber,
+            'field' => app(FieldAssignment::class)->fieldFor($matchNumber),
             'type' => MatchType::ELIMINATION,
             'round' => $series->round,
             'elimination_series_id' => $series->id,

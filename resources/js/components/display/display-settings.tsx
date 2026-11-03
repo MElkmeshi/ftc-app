@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useFieldCount } from '@/hooks/use-field-count';
 import { DISPLAY_TYPES, type DisplayConfig, displayTypeOption } from '@/lib/display-config';
 import { cn } from '@/lib/utils';
 import { Settings } from 'lucide-react';
@@ -51,6 +52,8 @@ export function DisplaySettings({
     const [draft, setDraft] = useState(config);
     const cursorMoved = useCursorMovedRecently();
     const option = displayTypeOption(draft.type);
+    const fieldCount = useFieldCount();
+    const fieldChoices: (number | null)[] = [null, ...Array.from({ length: fieldCount }, (_, index) => index + 1)];
 
     const openSettings = () => {
         setDraft(config);
@@ -101,6 +104,29 @@ export function DisplaySettings({
                             </button>
                         ))}
                     </div>
+
+                    {option.canFlip && fieldCount > 1 && (
+                        <div className="grid gap-2">
+                            <Label>Field</Label>
+                            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Field">
+                                {fieldChoices.map((field) => (
+                                    <button
+                                        key={field ?? 'all'}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={draft.field === field}
+                                        onClick={() => setDraft({ ...draft, field })}
+                                        className={cn(
+                                            'rounded-md border-2 px-3 py-1.5 text-sm font-medium transition',
+                                            draft.field === field ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50',
+                                        )}
+                                    >
+                                        {field ? `Field ${field}` : 'All fields'}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid gap-3">
                         {option.playsSound && (

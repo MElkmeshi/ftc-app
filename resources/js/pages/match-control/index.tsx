@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useApi } from '@/hooks/use-api';
+import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useStartMatch } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
 import { eventUrl } from '@/lib/event';
@@ -11,6 +12,7 @@ import {
     formatTime,
     getAllianceMembers,
     getAllianceScore,
+    getFieldLabel,
     getMatchTitle,
     getPhaseColors,
     getPhaseLabel,
@@ -78,6 +80,7 @@ function MatchList({
     onSelect: (match: CompetitionMatch) => void;
 }) {
     const eventTimezone = usePage<SharedData>().props.event?.timezone;
+    const fieldCount = useFieldCount();
     const hasPlayoffs = matches.some((match) => match.type === 'elimination');
     const [filter, setFilter] = useState<MatchFilter>(() =>
         matches.some((m) => m.type === 'elimination' && m.status !== 'completed') ? 'elimination' : 'qualification',
@@ -118,6 +121,7 @@ function MatchList({
                             <tr>
                                 <th className="px-4 py-2 font-medium">Match</th>
                                 <th className="px-2 py-2 font-medium">Time</th>
+                                {fieldCount > 1 && <th className="px-2 py-2 font-medium">Field</th>}
                                 <th className="px-2 py-2 font-medium">Red</th>
                                 <th className="px-2 py-2 font-medium">Blue</th>
                                 <th className="px-2 py-2 text-center font-medium">Score</th>
@@ -142,6 +146,7 @@ function MatchList({
                                         <td className="text-muted-foreground px-2 py-2 whitespace-nowrap tabular-nums">
                                             {formatMatchTime(match.start_time, eventTimezone)}
                                         </td>
+                                        {fieldCount > 1 && <td className="px-2 py-2 tabular-nums">{match.field}</td>}
                                         <td className="px-2 py-2">
                                             <TeamNumbers match={match} color="red" />
                                         </td>
@@ -236,6 +241,7 @@ function AllianceSummary({ match, color }: { match: CompetitionMatch; color: 're
 }
 
 export default function MatchControlConsole() {
+    const fieldCount = useFieldCount();
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
     const { value: display } = useProp<AudienceDisplayState>('display');
     const { value: displayModes = [] } = useProp<DisplayModeOption[]>('displayModes');
@@ -326,6 +332,9 @@ export default function MatchControlConsole() {
                                             {(STATUS_BADGES[selected.status] ?? STATUS_BADGES.upcoming).label}
                                         </Badge>
                                     </div>
+                                    {getFieldLabel(selected, fieldCount) && (
+                                        <p className="text-muted-foreground text-sm font-medium">{getFieldLabel(selected, fieldCount)}</p>
+                                    )}
                                     {isLoaded && <p className="text-sm text-emerald-600">Loaded — the audience display is showing the preview.</p>}
                                 </CardHeader>
                                 <CardContent className="space-y-4">

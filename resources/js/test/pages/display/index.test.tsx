@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const inertia = vi.hoisted(() => ({ url: '/event/main/display', get: vi.fn() }));
+const inertia = vi.hoisted(() => ({ url: '/event/main/display', fieldCount: 1, get: vi.fn() }));
 
 vi.mock('@inertiajs/react', () => ({
-    usePage: () => ({ url: inertia.url }),
+    usePage: () => ({ url: inertia.url, props: { event: { field_count: inertia.fieldCount } } }),
     router: { get: inertia.get },
 }));
 
@@ -13,7 +13,12 @@ vi.mock('@/hooks/use-audio-engine', () => ({ useAudioEngine: () => audio }));
 
 vi.mock('@/components/display/audience-screen', () => ({ AudienceScreen: () => <div>audience screen</div> }));
 vi.mock('@/components/display/field-screen', () => ({
-    FieldScreen: ({ flipped }: { flipped: boolean }) => <div>field screen{flipped ? ' flipped' : ''}</div>,
+    FieldScreen: ({ flipped, field }: { flipped: boolean; field: number | null }) => (
+        <div>
+            field screen{flipped ? ' flipped' : ''}
+            {field ? ` on field ${field}` : ''}
+        </div>
+    ),
 }));
 vi.mock('@/components/display/pit-screen', () => ({ PitScreen: () => <div>pit screen</div> }));
 vi.mock('@/components/display/stream-overlay-screen', () => ({ StreamOverlayScreen: () => <div>overlay screen</div> }));
@@ -25,6 +30,7 @@ describe('Display', () => {
         inertia.get.mockClear();
         audio.playSound.mockClear();
         audio.unlocked = false;
+        inertia.fieldCount = 1;
     });
 
     it('opens the settings on a screen that has not chosen a type yet, and saves the choice in the address', () => {
@@ -84,5 +90,31 @@ describe('Display', () => {
         audio.unlocked = true;
         muted.rerender(<Display />);
         expect(audio.playSound).not.toHaveBeenCalled();
+    });
+
+    it('lets a field screen follow one field at a multi-field event', () => {
+        inertia.fieldCount = 2;
+        inertia.url = '/event/main/display';
+        const { unmount } = render(<Display />);
+
+        fireEvent.click(screen.getByRole('radio', { name: /Field.*drive teams/ }));
+        fireEvent.click(screen.getByRole('radio', { name: 'Field 2' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Show on this screen' }));
+
+        expect(inertia.get).toHaveBeenCalledWith(expect.stringMatching(/\?type=field&field=2$/), {}, expect.anything());
+        unmount();
+
+        inertia.url = '/event/main/display?type=field&field=2';
+        render(<Display />);
+        expect(screen.getByText('field screen on field 2')).toBeInTheDocument();
+    });
+
+    it('does not offer a field choice at a single-field event', () => {
+        inertia.url = '/event/main/display';
+        render(<Display />);
+
+        fireEvent.click(screen.getByRole('radio', { name: /Field.*drive teams/ }));
+
+        expect(screen.queryByRole('radiogroup', { name: 'Field' })).not.toBeInTheDocument();
     });
 });

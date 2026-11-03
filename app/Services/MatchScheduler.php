@@ -78,6 +78,7 @@ class MatchScheduler
             // Create the match
             $competitionMatch = CompetitionMatch::create([
                 'number' => $matchNumber,
+                'field' => app(FieldAssignment::class)->fieldFor($matchNumber),
                 'start_time' => now()->addMinutes($matchNumber * 10),
                 'status' => MatchStatus::UPCOMING,
                 'created_by' => $createdBy,

@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { displayConfigQuery, displayPlaysSound, isDisplayConfigured, parseDisplayConfig } from './display-config';
+import { type DisplayConfig, displayConfigQuery, displayPlaysSound, isDisplayConfigured, parseDisplayConfig } from './display-config';
+
+const config = (overrides: Partial<DisplayConfig>): DisplayConfig => ({ type: 'audience', mute: false, flipped: false, field: null, ...overrides });
 
 describe('display config', () => {
     it('reads the type and options from the address', () => {
-        expect(parseDisplayConfig('?type=field&mute=1&flipped=1')).toEqual({ type: 'field', mute: true, flipped: true });
+        expect(parseDisplayConfig('?type=field&mute=1&flipped=1&field=2')).toEqual({ type: 'field', mute: true, flipped: true, field: 2 });
     });
 
-    it('falls back to the audience display for a missing or unknown type', () => {
-        expect(parseDisplayConfig('')).toEqual({ type: 'audience', mute: false, flipped: false });
+    it('falls back to the audience display for a missing or unknown type, and to every field for a bad field', () => {
+        expect(parseDisplayConfig('')).toEqual(config({}));
         expect(parseDisplayConfig('?type=scoreboard').type).toBe('audience');
+        expect(parseDisplayConfig('?type=field&field=0').field).toBeNull();
+        expect(parseDisplayConfig('?type=field&field=two').field).toBeNull();
     });
 
     it('knows whether the screen has been set up', () => {
@@ -17,14 +21,14 @@ describe('display config', () => {
     });
 
     it('drops options that do not apply to the chosen type', () => {
-        expect(displayConfigQuery({ type: 'pit', mute: true, flipped: true })).toBe('?type=pit');
-        expect(displayConfigQuery({ type: 'field', mute: true, flipped: true })).toBe('?type=field&mute=1&flipped=1');
-        expect(displayConfigQuery({ type: 'audience', mute: false, flipped: true })).toBe('?type=audience');
+        expect(displayConfigQuery(config({ type: 'pit', mute: true, flipped: true, field: 2 }))).toBe('?type=pit');
+        expect(displayConfigQuery(config({ type: 'field', mute: true, flipped: true, field: 2 }))).toBe('?type=field&mute=1&flipped=1&field=2');
+        expect(displayConfigQuery(config({ type: 'audience', flipped: true, field: 2 }))).toBe('?type=audience');
     });
 
     it('only plays sound on unmuted screens that have sounds', () => {
-        expect(displayPlaysSound({ type: 'audience', mute: false, flipped: false })).toBe(true);
-        expect(displayPlaysSound({ type: 'audience', mute: true, flipped: false })).toBe(false);
-        expect(displayPlaysSound({ type: 'pit', mute: false, flipped: false })).toBe(false);
+        expect(displayPlaysSound(config({}))).toBe(true);
+        expect(displayPlaysSound(config({ mute: true }))).toBe(false);
+        expect(displayPlaysSound(config({ type: 'pit' }))).toBe(false);
     });
 });

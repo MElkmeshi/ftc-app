@@ -10,6 +10,8 @@ export interface DisplayConfig {
     mute: boolean;
     /** Blue on the left: for a field screen watched from the far side. */
     flipped: boolean;
+    /** The one field this screen follows at a multi-field event; null follows every field. */
+    field: number | null;
 }
 
 export interface DisplayTypeOption {
@@ -17,6 +19,7 @@ export interface DisplayTypeOption {
     label: string;
     description: string;
     playsSound: boolean;
+    /** Field screens can swap sides and follow one field. */
     canFlip: boolean;
 }
 
@@ -51,7 +54,7 @@ export const DISPLAY_TYPES: DisplayTypeOption[] = [
     },
 ];
 
-export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = { type: 'audience', mute: false, flipped: false };
+export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = { type: 'audience', mute: false, flipped: false, field: null };
 
 export function displayTypeOption(type: DisplayType): DisplayTypeOption {
     return DISPLAY_TYPES.find((option) => option.value === type) ?? DISPLAY_TYPES[0];
@@ -69,11 +72,13 @@ export function isDisplayConfigured(search: string): boolean {
 export function parseDisplayConfig(search: string): DisplayConfig {
     const params = new URLSearchParams(search);
     const type = params.get('type');
+    const field = Number(params.get('field'));
 
     return {
         type: isDisplayType(type) ? type : DEFAULT_DISPLAY_CONFIG.type,
         mute: params.get('mute') === '1',
         flipped: params.get('flipped') === '1',
+        field: Number.isInteger(field) && field >= 1 ? field : null,
     };
 }
 
@@ -88,6 +93,10 @@ export function displayConfigQuery(config: DisplayConfig): string {
 
     if (config.flipped && option.canFlip) {
         params.set('flipped', '1');
+    }
+
+    if (config.field && option.canFlip) {
+        params.set('field', String(config.field));
     }
 
     return `?${params.toString()}`;
