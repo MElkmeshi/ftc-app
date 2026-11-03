@@ -31,7 +31,17 @@ export interface SharedData {
     sidebarOpen: boolean;
     /** The event being viewed; null on server-wide pages (event list, settings). */
     event: CompetitionEvent | null;
+    /** The game being edited, or the game the current event plays, with its pictures. */
+    currentGame: GameLook | null;
     [key: string]: unknown;
+}
+
+/** The pictures that make a game look like itself on displays and tablets. */
+export interface GameLook {
+    id: number;
+    name: string;
+    logo_url: string | null;
+    background_url: string | null;
 }
 
 export type EventTypeValue = 'scrimmage' | 'league_meet' | 'qualifier' | 'championship' | 'off_season' | 'workshop' | 'other';
@@ -55,9 +65,7 @@ export interface GameEventSummary {
 }
 
 /** The game a scoring or timing page is editing. */
-export interface GameSummary {
-    id: number;
-    name: string;
+export interface GameSummary extends GameLook {
     events: GameEventSummary[];
 }
 
@@ -133,6 +141,8 @@ export interface ScoreType {
     points: number;
     target: 'team' | 'alliance';
     group_id: number | null;
+    /** A picture of the game piece or action, when the game has one. */
+    icon_url?: string | null;
     group?: Group;
 }
 

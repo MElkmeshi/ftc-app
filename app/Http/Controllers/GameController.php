@@ -30,6 +30,7 @@ class GameController extends Controller
                 'name' => $game->name,
                 'description' => $game->description,
                 'ranking_method' => $game->ranking_method->label(),
+                'logo_url' => $game->logo_url,
                 'score_types_count' => $game->score_types_count,
                 'groups_count' => $game->groups_count,
                 'events' => $game->eventSummaries(),
@@ -101,13 +102,15 @@ class GameController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, events: list<array{code: string, name: string, has_played_matches: bool}>}
+     * @return array{id: int, name: string, logo_url: ?string, background_url: ?string, events: list<array{code: string, name: string, has_played_matches: bool}>}
      */
     private function summary(Game $game): array
     {
         return [
             'id' => $game->id,
             'name' => $game->name,
+            'logo_url' => $game->logo_url,
+            'background_url' => $game->background_url,
             'events' => $game->eventSummaries(),
         ];
     }

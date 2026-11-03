@@ -1,3 +1,4 @@
+import { ScoreTypeIcon } from '@/components/game-look';
 import { resolveEventHref } from '@/lib/event';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -126,7 +127,7 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
                                         <CardContent className="p-3">
                                             <div className="mb-2 flex items-start justify-between">
                                                 <div>
-                                                    <p className="text-sm font-medium leading-tight">{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
+                                                    <p className="flex items-center gap-1.5 text-sm font-medium leading-tight"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
                                                     <p className="text-base font-black text-rose-600">{scoreType.points} pts</p>
                                                 </div>
                                                 {count > 0 && (
@@ -167,7 +168,7 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
                                         <CardContent className="p-3">
                                             <div className="mb-2 flex items-start justify-between">
                                                 <div>
-                                                    <p className="text-sm font-medium leading-tight">{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
+                                                    <p className="flex items-center gap-1.5 text-sm font-medium leading-tight"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
                                                     <p className="text-base font-black text-rose-600">{scoreType.points} pts</p>
                                                 </div>
                                                 {count > 0 && (

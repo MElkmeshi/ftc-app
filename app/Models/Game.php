@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enums\MatchStatus;
 use App\Enums\RankingMethod;
+use App\Services\GameAssets;
 use Database\Factories\GameFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,12 +30,21 @@ class Game extends Model
     public const TIMING_KEYS = ['pre_match_countdown', 'autonomous', 'transition', 'teleop', 'endgame_warning', 'controllers_warning_offset'];
 
     protected $fillable = [
-        'name', 'description', 'timing', 'ranking_method', 'created_by',
+        'name', 'description', 'timing', 'ranking_method', 'logo_path', 'background_path', 'created_by',
     ];
 
     protected $hidden = [
-        'created_by',
+        'created_by', 'logo_path', 'background_path',
     ];
+
+    protected $appends = [
+        'logo_url', 'background_url',
+    ];
+
+    protected static function booted(): void
+    {
+        static::deleted(fn (Game $game) => app(GameAssets::class)->deleteAll($game));
+    }
 
     /**
      * @return array<string, string>
@@ -44,6 +55,22 @@ class Game extends Model
             'timing' => 'array',
             'ranking_method' => RankingMethod::class,
         ];
+    }
+
+    /**
+     * @return Attribute<?string, never>
+     */
+    protected function logoUrl(): Attribute
+    {
+        return Attribute::get(fn (): ?string => GameAssets::url($this->logo_path));
+    }
+
+    /**
+     * @return Attribute<?string, never>
+     */
+    protected function backgroundUrl(): Attribute
+    {
+        return Attribute::get(fn (): ?string => GameAssets::url($this->background_path));
     }
 
     /**
@@ -115,20 +142,23 @@ class Game extends Model
         ]);
 
         $groupIdMap = [];
+        $scoreTypeIdMap = [];
 
         foreach ($this->groups()->orderBy('id')->get() as $group) {
             $groupIdMap[$group->id] = $copy->groups()->create($group->only(['name', 'description', 'display_order']))->id;
         }
 
         foreach ($this->scoreTypes()->orderBy('id')->get() as $scoreType) {
-            $copy->scoreTypes()->create([
+            $scoreTypeIdMap[$scoreType->id] = $copy->scoreTypes()->create([
                 'name' => $scoreType->name,
                 'points' => $scoreType->points,
                 'target' => $scoreType->target,
                 'group_id' => $scoreType->group_id !== null ? ($groupIdMap[$scoreType->group_id] ?? null) : null,
                 'created_by' => $createdBy,
-            ]);
+            ])->id;
         }
+
+        app(GameAssets::class)->copy($this, $copy, $scoreTypeIdMap);
 
         return $copy;
     }

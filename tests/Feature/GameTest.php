@@ -25,6 +25,7 @@ it('lists games with the events that play them', function () {
     CompetitionMatch::factory()->create(['status' => MatchStatus::COMPLETED]);
     ScoreType::factory()->create();
     Game::factory()->create(['name' => 'Unused game']);
+    $this->game->update(['name' => 'Workshop game']);
 
     $this->actingAs($this->admin)->get('/games')->assertInertia(fn (Assert $page) => $page
         ->component('games/index')

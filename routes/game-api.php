@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\GameAssetController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\ScoreTypeController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Services\GameAssets;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -24,4 +26,8 @@ Route::middleware(['auth', 'can:manage-competition'])->group(function () {
     Route::put('/settings/competition', [SettingsController::class, 'updateCompetitionSettings']);
     Route::delete('/settings/competition/reset', [SettingsController::class, 'resetCompetitionSettings']);
     Route::put('/ranking-method', [SettingsController::class, 'updateRankingMethod']);
+    Route::post('/game-images/{slot}', [GameAssetController::class, 'storeGameImage'])->whereIn('slot', array_keys(GameAssets::GAME_SLOTS));
+    Route::delete('/game-images/{slot}', [GameAssetController::class, 'destroyGameImage'])->whereIn('slot', array_keys(GameAssets::GAME_SLOTS));
+    Route::post('/score-types/{scoreType}/icon', [GameAssetController::class, 'storeScoreTypeIcon']);
+    Route::delete('/score-types/{scoreType}/icon', [GameAssetController::class, 'destroyScoreTypeIcon']);
 });

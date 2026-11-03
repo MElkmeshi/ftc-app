@@ -1,4 +1,5 @@
 import { GameBanner, gameBreadcrumbs } from '@/components/game-banner';
+import { ImageUploadField } from '@/components/image-upload-field';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,7 @@ import { useCreateScoreType, useDeleteScoreType, useUpdateScoreType } from '@/ho
 import AppLayout from '@/layouts/app-layout';
 import { type GameSummary, type Group, type ScoreType } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -344,6 +346,7 @@ export default function ScoreTypesPage() {
     const { data: scoreTypes = [], isLoading } = useScoreTypes();
     const { data: groups = [] } = useGroups();
     const { game } = usePage<{ game: GameSummary }>().props;
+    const queryClient = useQueryClient();
 
     return (
         <AppLayout breadcrumbs={gameBreadcrumbs(game, 'scoring')}>
@@ -377,6 +380,7 @@ export default function ScoreTypesPage() {
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr className="border-b">
+                                        <th className="px-4 py-2 text-left font-medium">Picture</th>
                                         <th className="px-4 py-2 text-left font-medium">Name</th>
                                         <th className="px-4 py-2 text-left font-medium">Points</th>
                                         <th className="px-4 py-2 text-left font-medium">Target</th>
@@ -387,13 +391,21 @@ export default function ScoreTypesPage() {
                                 <tbody>
                                     {scoreTypes.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="text-muted-foreground px-4 py-8 text-center">
+                                            <td colSpan={6} className="text-muted-foreground px-4 py-8 text-center">
                                                 No score types found
                                             </td>
                                         </tr>
                                     ) : (
                                         scoreTypes.map((st) => (
                                             <tr key={st.id} className="hover:bg-muted/50 border-b">
+                                                <td className="px-4 py-2">
+                                                    <ImageUploadField
+                                                        label={`${st.name} picture`}
+                                                        imageUrl={st.icon_url}
+                                                        uploadUrl={`/api/score-types/${st.id}/icon`}
+                                                        onChange={() => queryClient.invalidateQueries({ queryKey: ['score-types'] })}
+                                                    />
+                                                </td>
                                                 <td className="px-4 py-2 font-medium">{st.name}</td>
                                                 <td className="px-4 py-2">{st.points}</td>
                                                 <td className="px-4 py-2">

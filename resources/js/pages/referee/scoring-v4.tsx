@@ -1,3 +1,4 @@
+import { ScoreTypeIcon } from '@/components/game-look';
 import { resolveEventHref } from '@/lib/event';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MatchTimerBanner } from '@/components/match-timer-banner';
@@ -24,8 +25,8 @@ function SplitTile({ scoreType, count, isPending, accentColor, onAdd, onRemove }
     return (
         <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold uppercase tracking-widest text-white/50">
-                    {scoreType.name.replace(/_/g, ' ')}
+                <span className="text-xs font-bold uppercase tracking-widest text-white/50 flex items-center gap-1.5">
+                    <ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ')}
                 </span>
                 <span className="text-xs font-bold text-white/40">
                     {scoreType.points > 0 ? '+' : ''}{scoreType.points} pts

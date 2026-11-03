@@ -1,3 +1,4 @@
+import { ScoreTypeIcon } from '@/components/game-look';
 import { resolveEventHref } from '@/lib/event';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -133,7 +134,7 @@ export default function RefereeScoring2() {
                                                     return (
                                                         <div key={scoreType.id} className="rounded-lg border bg-card p-3 flex flex-col gap-2">
                                                             <div className="flex items-start justify-between gap-1">
-                                                                <p className="text-xs font-semibold leading-tight">{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
+                                                                <p className="flex items-center gap-1.5 text-xs font-semibold leading-tight"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
                                                                 <span className="text-xs font-bold shrink-0">{scoreType.points > 0 ? '+' : ''}{scoreType.points}</span>
                                                             </div>
                                                             <p className={cn('text-center text-3xl font-black tabular-nums', count > 0 ? colorClasses.text : 'text-muted-foreground')}>{count}</p>
@@ -173,7 +174,7 @@ export default function RefereeScoring2() {
                                                     return (
                                                         <div key={scoreType.id} className="rounded-lg border bg-card p-3 flex flex-col gap-2">
                                                             <div className="flex items-start justify-between gap-1">
-                                                                <p className="text-xs font-semibold leading-tight">{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
+                                                                <p className="flex items-center gap-1.5 text-xs font-semibold leading-tight"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
                                                                 <span className="text-xs font-bold shrink-0">{scoreType.points > 0 ? '+' : ''}{scoreType.points}</span>
                                                             </div>
                                                             <p className={cn('text-center text-3xl font-black tabular-nums', count > 0 ? colorClasses.text : 'text-muted-foreground')}>{count}</p>

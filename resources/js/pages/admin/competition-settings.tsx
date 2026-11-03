@@ -1,4 +1,5 @@
 import { GameBanner, gameBreadcrumbs } from '@/components/game-banner';
+import { ImageUploadField } from '@/components/image-upload-field';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import type { MatchTimingConfig } from '@/hooks/use-match-timer';
 import AppLayout from '@/layouts/app-layout';
 import { eventApiUrl } from '@/lib/event';
 import { type GameSummary } from '@/types';
-import { Deferred, Head, useForm, useHttp, usePage } from '@inertiajs/react';
+import { Deferred, Head, router, useForm, useHttp, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 interface CompetitionSettings {
@@ -273,6 +274,42 @@ function RankingMethodCard() {
     );
 }
 
+/** The pictures that change from game to game: its logo and the background behind display screens. */
+function GameLookCard({ game }: { game: GameSummary }) {
+    const refresh = () => router.reload({ only: ['game', 'currentGame'] });
+
+    return (
+        <Card className="mb-6">
+            <CardHeader>
+                <CardTitle>Logo &amp; background</CardTitle>
+                <CardDescription>Shown on the audience display. PNG, JPG, WebP or SVG up to 4 MB; SVGs with scripts are refused.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-2">
+                    <Label>Logo</Label>
+                    <ImageUploadField
+                        label="Game logo"
+                        imageUrl={game.logo_url}
+                        uploadUrl="/api/game-images/logo"
+                        onChange={refresh}
+                        previewClassName="h-16 w-32"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Display background</Label>
+                    <ImageUploadField
+                        label="Display background"
+                        imageUrl={game.background_url}
+                        uploadUrl="/api/game-images/background"
+                        onChange={refresh}
+                        previewClassName="h-16 w-28"
+                    />
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function CompetitionSettingsPage() {
     const { game } = usePage<{ game: GameSummary }>().props;
 
@@ -281,6 +318,8 @@ export default function CompetitionSettingsPage() {
             <Head title={`${game.name} · Match Timing`} />
 
             <GameBanner game={game} page="settings" />
+
+            <GameLookCard game={game} />
 
             <RankingMethodCard />
 

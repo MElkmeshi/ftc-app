@@ -1,4 +1,5 @@
 import { TeamChip } from '@/components/audience/team-chip';
+import { GameBackground, GameLogo, useGameLook } from '@/components/game-look';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { type SoundName } from '@/hooks/use-audio-engine';
 import { useFieldCount } from '@/hooks/use-field-count';
@@ -23,15 +24,18 @@ import { type AudienceDisplayState, type CompetitionMatch, type SharedData } fro
 import { Head, usePage, useProp } from '@inertiajs/react';
 import { Trophy } from 'lucide-react';
 
-const SCREEN = 'relative flex h-screen w-screen flex-col overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white';
+const SCREEN =
+    'relative isolate flex h-screen w-screen flex-col overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white';
 
 export function BlankScreen() {
     const { event, name } = usePage<SharedData>().props;
+    const game = useGameLook();
 
     return (
         <div className={cn(SCREEN, 'items-center justify-center gap-4')}>
             <Head title={event?.name ?? 'Audience Display'} />
-            <Trophy className="size-24 text-yellow-400/80" />
+            <GameBackground />
+            {game?.logo_url ? <GameLogo className="h-48 max-w-[60vw]" /> : <Trophy className="size-24 text-yellow-400/80" />}
             <h1 className="text-center text-7xl font-black tracking-tight">{event?.name}</h1>
             <p className="text-2xl tracking-[0.3em] text-white/50 uppercase">{name}</p>
         </div>
@@ -45,6 +49,7 @@ export function MessageScreen({ message }: { message: string }) {
     return (
         <div className={cn(SCREEN, 'items-center justify-center gap-8 px-16')}>
             <Head title="Message" />
+            <GameBackground />
             <p className="text-2xl tracking-[0.3em] text-white/50 uppercase">{event?.name}</p>
             <p className="max-w-6xl text-center text-6xl leading-tight font-bold break-words whitespace-pre-line">{message}</p>
         </div>
@@ -130,7 +135,9 @@ export function MatchScreen({
     return (
         <div className={SCREEN}>
             <Head title={match ? getMatchTitle(match) : 'Match'} />
-            <header className="border-b border-white/10 bg-white/5 px-8 py-4 text-center text-3xl font-bold">
+            <GameBackground />
+            <header className="relative border-b border-white/10 bg-white/5 px-8 py-4 text-center text-3xl font-bold">
+                <GameLogo className="absolute top-1/2 left-6 h-12 max-w-48 -translate-y-1/2" />
                 {match ? getMatchTitle(match) : waitingLabel}
                 {fieldLabel && <span className="ml-3 text-white/60">· {fieldLabel}</span>}
             </header>

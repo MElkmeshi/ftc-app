@@ -1,3 +1,4 @@
+import { ScoreTypeIcon } from '@/components/game-look';
 import { resolveEventHref } from '@/lib/event';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -170,7 +171,7 @@ export default function RefereeScoring3() {
                                                 <Card key={scoreType.id}>
                                                     <CardContent className="flex items-center justify-between gap-4 p-5">
                                                         <div className="flex-1">
-                                                            <p className="font-semibold">{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
+                                                            <p className="flex items-center gap-1.5 font-semibold"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
                                                             <p className="text-sm text-muted-foreground">{scoreType.points > 0 ? '+' : ''}{scoreType.points} pts each</p>
                                                         </div>
                                                         <div className="flex items-center gap-4">
@@ -216,7 +217,7 @@ export default function RefereeScoring3() {
                                             <Card key={scoreType.id}>
                                                 <CardContent className="flex items-center justify-between gap-4 p-5">
                                                     <div className="flex-1">
-                                                        <p className="font-semibold">{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
+                                                        <p className="flex items-center gap-1.5 font-semibold"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
                                                         <p className="text-sm text-muted-foreground">{scoreType.points > 0 ? '+' : ''}{scoreType.points} pts each</p>
                                                     </div>
                                                     <div className="flex items-center gap-4">
