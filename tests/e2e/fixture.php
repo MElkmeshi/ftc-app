@@ -5,20 +5,27 @@
  * running local app, so the Playwright suite has real data to drive without
  * touching whatever the operator already had in the database.
  *
+ * Everything lives in its own disposable event (code `e2e`), so the suite
+ * never sees or deletes another event's teams, matches or alliances.
+ *
  * Usage: php tests/e2e/fixture.php seed|cleanup
  */
 
+use App\Enums\EventType;
 use App\Enums\MatchStatus;
+use App\Enums\UserRole;
 use App\Enums\MatchType;
 use App\Models\Alliance;
 use App\Models\AllianceGroup;
 use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
+use App\Models\Event;
 use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\CurrentEvent;
 use Illuminate\Contracts\Console\Kernel;
 
 require __DIR__.'/../../vendor/autoload.php';
@@ -31,8 +38,24 @@ const E2E_MATCH_NUMBERS = [9901, 9902, 9903];
 const E2E_UPCOMING_MATCH_NUMBER = 9904;
 const E2E_EMAIL = 'e2e-playwright@local.test';
 const E2E_PASSWORD = 'e2e-password';
+const E2E_EVENT_CODE = 'e2e';
 
 function cleanup(): void
+{
+    $event = Event::query()->where('code', E2E_EVENT_CODE)->first();
+
+    if ($event === null) {
+        return;
+    }
+
+    app(CurrentEvent::class)->using($event, 'cleanupEventRows');
+    $event->delete();
+}
+
+/**
+ * Runs inside the e2e event, so every query below is scoped to it.
+ */
+function cleanupEventRows(): void
 {
     $teamIds = Team::withTrashed()->whereIn('number', E2E_TEAM_NUMBERS)->pluck('id');
     $matchIds = CompetitionMatch::withTrashed()
@@ -72,8 +95,25 @@ function seed(): void
         ['name' => 'Playwright Operator', 'password' => bcrypt(E2E_PASSWORD)],
     );
 
-    /** `email_verified_at` isn't mass-assignable, so it has to be forced on. */
-    $operator->forceFill(['email_verified_at' => now()])->save();
+    /** `email_verified_at` and `role` aren't mass-assignable, so they have to be forced on. */
+    $operator->forceFill(['email_verified_at' => now(), 'role' => UserRole::Admin])->save();
+
+    $event = Event::query()->create([
+        'code' => E2E_EVENT_CODE,
+        'name' => 'Playwright E2E',
+        'type' => EventType::Scrimmage,
+        'timezone' => config('app.timezone'),
+        'start_date' => now()->toDateString(),
+        'end_date' => now()->toDateString(),
+        'field_count' => 1,
+        'created_by' => $operator->id,
+    ]);
+
+    app(CurrentEvent::class)->using($event, fn () => seedEventRows($operator));
+}
+
+function seedEventRows(User $operator): void
+{
 
     $teams = collect(E2E_TEAM_NUMBERS)->map(fn (int $number) => Team::create([
         'number' => $number,
@@ -142,6 +182,7 @@ function seed(): void
         'email' => E2E_EMAIL,
         'password' => E2E_PASSWORD,
         'teams' => $teams->pluck('number'),
+        'event' => E2E_EVENT_CODE,
         'upcoming_match' => E2E_UPCOMING_MATCH_NUMBER,
     ], JSON_PRETTY_PRINT)."\n";
 }

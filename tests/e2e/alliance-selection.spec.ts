@@ -44,7 +44,7 @@ test.describe('alliance selection end to end', () => {
         adminContext = await browser.newContext({ ignoreHTTPSErrors: true });
         admin = await adminContext.newPage();
         await login(admin);
-        await admin.goto('/admin/alliance-selection');
+        await admin.goto('/event/e2e/admin/alliance-selection');
 
         /**
          * The audience screen gets its own cookie jar: at a real event it is a
@@ -54,7 +54,7 @@ test.describe('alliance selection end to end', () => {
         displayContext = await browser.newContext({ ignoreHTTPSErrors: true });
         display = await displayContext.newPage();
         display.on('request', (request) => {
-            if (request.url().includes('/api/alliance-selection/')) {
+            if (request.url().includes('/api/event/e2e/alliance-selection/')) {
                 displayApiCalls += 1;
             }
         });
@@ -64,7 +64,7 @@ test.describe('alliance selection end to end', () => {
             displaySockets.push(record);
         });
 
-        await display.goto('/alliance-selection/display');
+        await display.goto('/event/e2e/alliance-selection/display');
         await expect(display.getByRole('heading', { name: 'Alliance Selection' })).toBeVisible();
     });
 
@@ -95,7 +95,7 @@ test.describe('alliance selection end to end', () => {
         await expect(display.getByText('Waiting for alliance selection to begin...')).toBeVisible();
 
         const status = await display.evaluate(async () => {
-            const response = await fetch('/api/alliance-selection/reset', {
+            const response = await fetch('/api/event/e2e/alliance-selection/reset', {
                 method: 'DELETE',
                 headers: { Accept: 'application/json' },
             });

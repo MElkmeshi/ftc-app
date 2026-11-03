@@ -34,14 +34,14 @@ test.describe('match control pushes to the overlay', () => {
         operatorContext = await browser.newContext({ ignoreHTTPSErrors: true });
         matches = await operatorContext.newPage();
         await login(matches);
-        await matches.goto('/competition-matches');
+        await matches.goto('/event/e2e/competition-matches');
 
         audienceContext = await browser.newContext({ ignoreHTTPSErrors: true });
         overlay = await audienceContext.newPage();
         overlay.on('websocket', (socket) => {
             socket.on('framereceived', (frame) => overlaySockets.push(frame.payload.toString()));
         });
-        await overlay.goto('/display/match-overlay');
+        await overlay.goto('/event/e2e/display/match-overlay');
     });
 
     test.afterAll(async () => {
