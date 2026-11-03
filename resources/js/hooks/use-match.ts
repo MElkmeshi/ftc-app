@@ -1,8 +1,12 @@
 import { apiScope, eventChannel } from '@/lib/event';
-import { CompetitionMatch, MatchStatusChangedEvent, ScoreType, ScoreUpdatedEvent } from '@/types';
+import { applyScoreCount } from '@/lib/score-count';
+import { CompetitionMatch, MatchStatusChangedEvent, ScoreTarget, ScoreType, ScoreUpdatedEvent } from '@/types';
 import { useEchoPublic } from '@laravel/echo-react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
+
+/** Every scoring write shares this key, so a reload waits for them and they are sent one at a time, in order. */
+export const SCORING_MUTATION_KEY = ['scoring'];
 
 async function cacheMatch(queryClient: QueryClient, match: CompetitionMatch) {
     await Promise.all([
@@ -230,7 +234,9 @@ export function useEndMatch() {
     const api = useApi();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (matchId: number) => api.endMatch(matchId),
+        /** `force` commits even though some alliances' referees have not submitted. */
+        mutationFn: (params: number | { matchId: number; force?: boolean }) =>
+            typeof params === 'number' ? api.endMatch(params) : api.endMatch(params.matchId, params.force),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['matches'] });
             queryClient.invalidateQueries({ queryKey: ['active-match'] });
@@ -247,5 +253,56 @@ export function useCancelMatch() {
             queryClient.invalidateQueries({ queryKey: ['matches'] });
             queryClient.invalidateQueries({ queryKey: ['active-match'] });
         },
+    });
+}
+
+/**
+ * Sets how many times a score type is scored for one robot or alliance, like
+ * FTC Live's referee snapshots. Taps go out one at a time and in order, the
+ * tablet shows the new count at once, and the server's answer is only applied
+ * once no later tap is still waiting (so the count never jumps back).
+ */
+export function useSetScoreCount() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: SCORING_MUTATION_KEY,
+        scope: { id: 'scoring' },
+        mutationFn: (params: { match: CompetitionMatch; scoreType: ScoreType; target: ScoreTarget; count: number }) =>
+            api.setScoreCount({
+                match_id: params.match.id,
+                score_type_id: params.scoreType.id,
+                team_id: params.target.teamId,
+                alliance_id: params.target.allianceId,
+                count: params.count,
+            }),
+        onMutate: async ({ match, scoreType, target, count }) => {
+            await queryClient.cancelQueries({ queryKey: ['matches', match.id], exact: true });
+            const scoreTypes = queryClient.getQueryData<ScoreType[]>(['score-types', apiScope()]) ?? [scoreType];
+            queryClient.setQueryData<CompetitionMatch>(['matches', match.id], (current) =>
+                current ? applyScoreCount(current, scoreType, scoreTypes, target, count) : current,
+            );
+        },
+        onError: (_error, { match }) => queryClient.invalidateQueries({ queryKey: ['matches', match.id], exact: true }),
+        onSuccess: ({ match }) => {
+            if (queryClient.isMutating({ mutationKey: SCORING_MUTATION_KEY }) <= 1) {
+                return cacheMatch(queryClient, match);
+            }
+        },
+    });
+}
+
+/** Submits an alliance's scores (locking them), or reopens them for changes. */
+export function useSetAllianceSubmitted() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationKey: SCORING_MUTATION_KEY,
+        scope: { id: 'scoring' },
+        mutationFn: (params: { matchId: number; allianceId: number; submitted: boolean }) =>
+            api.setAllianceSubmitted(params.matchId, params.allianceId, params.submitted),
+        onSuccess: ({ match }) => cacheMatch(queryClient, match),
     });
 }

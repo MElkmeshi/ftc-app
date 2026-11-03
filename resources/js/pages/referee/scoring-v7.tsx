@@ -7,10 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useRefereeField } from '@/hooks/use-referee-field';
-import { useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
+import { useEndMatch, useMatch, useMatches, useScoreTypes, useSetScoreCount } from '@/hooks/use-match';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { countScores } from '@/lib/score-count';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import { type BreadcrumbItem, type CompetitionMatch, type ScoreType } from '@/types';
+import { type BreadcrumbItem, type CompetitionMatch, type ScoreTarget, type ScoreType } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { AlertTriangle, CheckCircle, Minus, Plus, Trophy, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -50,18 +52,6 @@ function getAllianceScoreTypeCount(match: CompetitionMatch, scoreTypeId: number,
 
 function getTeamScoreTypeCount(match: CompetitionMatch, scoreTypeId: number, teamId: number): number {
     return (match.scores ?? []).filter((s) => s.score_type_id === scoreTypeId && s.team_id === teamId).length;
-}
-
-function getLatestScoreId(match: CompetitionMatch, scoreTypeId: number, options: { allianceId?: number; teamId?: number }): number | null {
-    const scores = (match.scores ?? [])
-        .filter((s) => {
-            if (s.score_type_id !== scoreTypeId) return false;
-            if (options.allianceId) return s.alliance_id === options.allianceId && !s.team_id;
-            if (options.teamId) return s.team_id === options.teamId;
-            return false;
-        })
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return scores[0]?.id ?? null;
 }
 
 // ─── FoulColumn ──────────────────────────────────────────────────────────────
@@ -208,8 +198,7 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
 export default function RefereeFoulsBoth() {
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
-    const addScore = useAddScore();
-    const deleteScore = useDeleteScore();
+    const setScoreCount = useSetScoreCount();
     const endMatch = useEndMatch();
 
     const [refereeField] = useRefereeField();
@@ -262,26 +251,20 @@ export default function RefereeFoulsBoth() {
             .map(([groupName, { alliance, team }]) => ({ groupName, alliance, team }));
     })();
 
-    const handleAddScore = (scoreTypeId: number, options: { teamId?: number; allianceId?: number }) => {
-        if (!match) return;
-        if (options.allianceId) {
-            addScore.mutate({ match_id: match.id, alliance_id: options.allianceId, score_type_id: scoreTypeId });
-        } else if (options.teamId) {
-            addScore.mutate({ match_id: match.id, team_id: options.teamId, score_type_id: scoreTypeId });
-        }
-    };
-
-    const handleRemoveScore = (scoreTypeId: number, options: { teamId?: number; allianceId?: number }) => {
-        if (!match) return;
+    /** Sends the new absolute count, one more or one less than shown. */
+    const changeCount = (scoreTypeId: number, target: ScoreTarget, delta: 1 | -1) => {
         const scoreType = scoreTypes.find((st) => st.id === scoreTypeId);
-        if (!scoreType) return;
-        const scoreId = getLatestScoreId(match, scoreTypeId, options);
-        if (scoreId) {
-            deleteScore.mutate({ scoreId, matchId: match.id, teamId: options.teamId, points: scoreType.points });
-        }
+        if (!match || !scoreType) return;
+        const current = countScores(match, scoreTypeId, target);
+        if (current + delta < 0) return;
+        setScoreCount.mutate({ match, scoreType, target, count: current + delta });
     };
 
-    const isPending = addScore.isPending || deleteScore.isPending;
+    const handleAddScore = (scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, 1);
+    const handleRemoveScore = (scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, -1);
+    const waitingFor = match ? match.match_alliances.map((ma) => ma.alliance).filter((alliance, index, all) => all.findIndex((a) => a.id === alliance.id) === index && !match.submissions?.some((entry) => entry.alliance_id === alliance.id)) : [];
+
+    const isPending = false;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -360,16 +343,21 @@ export default function RefereeFoulsBoth() {
                     <Card className="border-2 border-amber-500/50 bg-amber-50 dark:bg-amber-950/30">
                         <CardContent className="flex items-center justify-between p-4">
                             <div>
-                                <p className="font-bold">Submit Match #{match.number}</p>
-                                <p className="text-sm text-muted-foreground">Finalizes scoring and ends the match</p>
+                                <p className="font-bold">Commit Match #{match.number}</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {waitingFor.length === 0
+                                        ? 'Every alliance has submitted. Committing ends the match.'
+                                        : `Waiting for ${waitingFor.map((alliance) => alliance.color).join(' and ')} to submit.`}
+                                </p>
+                                {endMatch.error && <p className="text-destructive text-sm">{getApiErrorMessage(endMatch.error)}</p>}
                             </div>
                             <Button
                                 onClick={() => endMatch.mutate(match.id, { onSuccess: () => setSelectedMatchId(null) })}
-                                disabled={endMatch.isPending}
+                                disabled={endMatch.isPending || waitingFor.length > 0}
                                 className="bg-amber-600 hover:bg-amber-500 text-white"
                             >
                                 <CheckCircle className="mr-2 h-4 w-4" />
-                                {endMatch.isPending ? 'Submitting…' : 'Submit'}
+                                {endMatch.isPending ? 'Committing…' : 'Commit'}
                             </Button>
                         </CardContent>
                     </Card>

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 class CompetitionMatch extends Model
 {
@@ -25,7 +26,7 @@ class CompetitionMatch extends Model
     protected $table = 'matches';
 
     protected $fillable = [
-        'event_id', 'number', 'type', 'round', 'field', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'ended_at', 'cancelled_at', 'created_by', 'updated_by',
+        'event_id', 'number', 'type', 'round', 'field', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'ended_at', 'cancelled_at', 'submissions', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -43,6 +44,7 @@ class CompetitionMatch extends Model
             'field' => 'integer',
             'ended_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'submissions' => 'array',
         ];
     }
 
@@ -79,5 +81,26 @@ class CompetitionMatch extends Model
     public function updater()
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Whether the referees of this alliance have submitted their scores, which
+     * locks that alliance's scoring until they reopen it or the match ends.
+     */
+    public function isSubmittedFor(int $allianceId): bool
+    {
+        return collect($this->submissions ?? [])->contains('alliance_id', $allianceId);
+    }
+
+    /**
+     * The alliances playing this match whose referees have not submitted yet.
+     *
+     * @return Collection<int, Alliance>
+     */
+    public function alliancesAwaitingSubmission(): Collection
+    {
+        return $this->matchAlliances->pluck('alliance')->unique('id')
+            ->reject(fn (Alliance $alliance): bool => $this->isSubmittedFor($alliance->id))
+            ->values();
     }
 }

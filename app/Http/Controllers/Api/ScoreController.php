@@ -2,19 +2,25 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\MatchStatus;
 use App\Enums\ScoreKind;
 use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SetScoreCountRequest;
 use App\Http\Requests\StoreScoreRequest;
 use App\Models\CompetitionMatch;
+use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Models\ScoreType;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class ScoreController extends Controller
 {
+    private const MATCH_RELATIONS = ['matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType'];
+
     /**
      * Records one scoring tap. Tablets send a client_request_id with every tap
      * and retry it after a dropped connection; a repeated id returns the match
@@ -39,46 +45,21 @@ class ScoreController extends Controller
                 if ($previous !== null) {
                     $recorded = false;
 
-                    return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+                    return $match->load(self::MATCH_RELATIONS);
                 }
             }
-            $scoreType = ScoreType::query()->findOrFail($validated['score_type_id']);
-            $teamId = $validated['team_id'] ?? null;
-            $allianceId = $validated['alliance_id'] ?? null;
-            $target = $teamId !== null ? 'team' : 'alliance';
 
-            if ($scoreType->target->value !== $target) {
-                throw ValidationException::withMessages(['score_type_id' => 'This score type does not apply to the selected target.']);
-            }
-
-            $matchAlliance = $match->matchAlliances()
-                ->where($target === 'team' ? 'team_id' : 'alliance_id', $teamId ?? $allianceId)
-                ->first();
-
-            if (! $matchAlliance) {
-                throw ValidationException::withMessages([$target.'_id' => 'The selected target is not assigned to this match.']);
-            }
+            [$scoreType, $teamId, $matchAlliance] = $this->resolveTarget($match, $validated);
 
             if (! $this->makeRoomFor($match, $scoreType, $teamId, $matchAlliance->alliance_id)) {
                 $recorded = false;
 
-                return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+                return $match->load(self::MATCH_RELATIONS);
             }
 
-            $match->scores()->create([
-                'team_id' => $teamId,
-                'alliance_id' => $matchAlliance->alliance_id,
-                'score_type_id' => $scoreType->id,
-                'points' => $scoreType->points,
-                'client_request_id' => $clientRequestId,
-                'created_by' => $request->user()->id,
-            ]);
+            $this->addScores($match, $scoreType, $teamId, $matchAlliance, 1, $request->user()->id, $clientRequestId);
 
-            if ($teamId !== null) {
-                $matchAlliance->increment('score', $scoreType->points);
-            }
-
-            return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+            return $match->load(self::MATCH_RELATIONS);
         }, 3);
 
         if (! $recorded) {
@@ -90,6 +71,47 @@ class ScoreController extends Controller
         return response()->json(['match' => $match], 201);
     }
 
+    /**
+     * Sets how many times a score type is scored for one robot or alliance,
+     * like FTC Live's referee snapshots: the tablet says "5 artifacts", not
+     * "+1", so a resent or late request can never count a tap twice.
+     */
+    public function setCount(SetScoreCountRequest $request): JsonResponse
+    {
+        $changed = false;
+
+        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, &$changed): CompetitionMatch {
+            $validated = $request->validated();
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($validated['match_id']);
+
+            [$scoreType, $teamId, $matchAlliance] = $this->resolveTarget($match, $validated);
+
+            $wanted = $scoreType->kind === ScoreKind::COUNT ? $validated['count'] : min($validated['count'], 1);
+            $existing = $this->targetScores($match, [$scoreType->id], $teamId, $matchAlliance->alliance_id)->sortByDesc('id')->values();
+
+            if ($wanted === $existing->count()) {
+                return $match->load(self::MATCH_RELATIONS);
+            }
+
+            $changed = true;
+
+            if ($wanted < $existing->count()) {
+                $existing->take($existing->count() - $wanted)->each(fn (Score $score) => $this->removeScore($match, $score));
+            } else {
+                $this->makeRoomFor($match, $scoreType, $teamId, $matchAlliance->alliance_id);
+                $this->addScores($match, $scoreType, $teamId, $matchAlliance, $wanted - $existing->count(), $request->user()->id);
+            }
+
+            return $match->load(self::MATCH_RELATIONS);
+        }, 3);
+
+        if ($changed) {
+            broadcast(new ScoreUpdated($match))->toOthers();
+        }
+
+        return response()->json(['match' => $match]);
+    }
+
     public function destroy(Score $score): JsonResponse
     {
         $match = $score->getConnection()->transaction(function () use ($score): CompetitionMatch {
@@ -98,16 +120,63 @@ class ScoreController extends Controller
 
             if ($currentScore->score_type_id === null) {
                 Gate::authorize('control-matches');
+            } elseif ($currentScore->alliance_id !== null) {
+                $this->ensureOpenFor($match, $currentScore->alliance_id);
             }
 
             $this->removeScore($match, $currentScore);
 
-            return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+            return $match->load(self::MATCH_RELATIONS);
         }, 3);
 
         broadcast(new ScoreUpdated($match))->toOthers();
 
         return response()->json(['match' => $match]);
+    }
+
+    /**
+     * Finds the score type and the robot or alliance being scored, and checks
+     * that they belong to this match and that the alliance is still open.
+     *
+     * @param  array{score_type_id: int, team_id?: ?int, alliance_id?: ?int}  $validated
+     * @return array{0: ScoreType, 1: ?int, 2: MatchAlliance}
+     */
+    private function resolveTarget(CompetitionMatch $match, array $validated): array
+    {
+        $scoreType = ScoreType::query()->findOrFail($validated['score_type_id']);
+        $teamId = $validated['team_id'] ?? null;
+        $allianceId = $validated['alliance_id'] ?? null;
+        $target = $teamId !== null ? 'team' : 'alliance';
+
+        if ($scoreType->target->value !== $target) {
+            throw ValidationException::withMessages(['score_type_id' => 'This score type does not apply to the selected target.']);
+        }
+
+        $matchAlliance = $match->matchAlliances()
+            ->where($target === 'team' ? 'team_id' : 'alliance_id', $teamId ?? $allianceId)
+            ->first();
+
+        if (! $matchAlliance) {
+            throw ValidationException::withMessages([$target.'_id' => 'The selected target is not assigned to this match.']);
+        }
+
+        $this->ensureOpenFor($match, $matchAlliance->alliance_id);
+
+        return [$scoreType, $teamId, $matchAlliance];
+    }
+
+    /**
+     * While a match is running, an alliance whose referees submitted their
+     * scores is locked until they reopen it. Head referees can still add
+     * fouls, and correct scores after the match ends.
+     */
+    private function ensureOpenFor(CompetitionMatch $match, int $allianceId): void
+    {
+        if ($match->status === MatchStatus::ONGOING && $match->isSubmittedFor($allianceId) && Gate::denies('control-matches')) {
+            throw ValidationException::withMessages([
+                'alliance_id' => 'These scores were submitted. Reopen them on the tablet to make changes.',
+            ]);
+        }
     }
 
     /**
@@ -124,18 +193,10 @@ class ScoreController extends Controller
         }
 
         $sameTypes = $scoreType->kind === ScoreKind::CHOICE && $scoreType->choice_set !== null
-            ? ScoreType::query()->where('kind', ScoreKind::CHOICE)->where('choice_set', $scoreType->choice_set)->pluck('id')
-            : collect([$scoreType->id]);
+            ? ScoreType::query()->where('kind', ScoreKind::CHOICE)->where('choice_set', $scoreType->choice_set)->pluck('id')->all()
+            : [$scoreType->id];
 
-        $existing = $match->scores()
-            ->lockForUpdate()
-            ->whereIn('score_type_id', $sameTypes)
-            ->when(
-                $teamId !== null,
-                fn ($query) => $query->where('team_id', $teamId),
-                fn ($query) => $query->whereNull('team_id')->where('alliance_id', $allianceId),
-            )
-            ->get();
+        $existing = $this->targetScores($match, $sameTypes, $teamId, $allianceId);
 
         if ($existing->contains('score_type_id', $scoreType->id)) {
             return false;
@@ -144,6 +205,43 @@ class ScoreController extends Controller
         $existing->each(fn (Score $score) => $this->removeScore($match, $score));
 
         return true;
+    }
+
+    /**
+     * The scores of the given types for one robot, or for the alliance as a whole.
+     *
+     * @param  list<int>  $scoreTypeIds
+     * @return Collection<int, Score>
+     */
+    private function targetScores(CompetitionMatch $match, array $scoreTypeIds, ?int $teamId, int $allianceId): Collection
+    {
+        return $match->scores()
+            ->lockForUpdate()
+            ->whereIn('score_type_id', $scoreTypeIds)
+            ->when(
+                $teamId !== null,
+                fn ($query) => $query->where('team_id', $teamId),
+                fn ($query) => $query->whereNull('team_id')->where('alliance_id', $allianceId),
+            )
+            ->get();
+    }
+
+    private function addScores(CompetitionMatch $match, ScoreType $scoreType, ?int $teamId, MatchAlliance $matchAlliance, int $times, int $userId, ?string $clientRequestId = null): void
+    {
+        for ($i = 0; $i < $times; $i++) {
+            $match->scores()->create([
+                'team_id' => $teamId,
+                'alliance_id' => $matchAlliance->alliance_id,
+                'score_type_id' => $scoreType->id,
+                'points' => $scoreType->points,
+                'client_request_id' => $i === 0 ? $clientRequestId : null,
+                'created_by' => $userId,
+            ]);
+        }
+
+        if ($teamId !== null) {
+            $matchAlliance->increment('score', $scoreType->points * $times);
+        }
     }
 
     private function removeScore(CompetitionMatch $match, Score $score): void

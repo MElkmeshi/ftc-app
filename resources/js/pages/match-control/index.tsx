@@ -23,7 +23,8 @@ import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
 import { type AudienceDisplayState, type BreadcrumbItem, type CompetitionMatch, type DisplayModeValue, type SharedData } from '@/types';
 import { Head, router, usePage, useProp } from '@inertiajs/react';
-import { ChevronRight, Clock, ExternalLink, Flag, Megaphone, Octagon, Play, Square, Upload } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { CheckCircle, ChevronRight, Clock, ExternalLink, Flag, Megaphone, Octagon, Play, Square, Tablet, TriangleAlert, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 interface DisplayModeOption {
@@ -211,7 +212,38 @@ function ScheduleDrift({ matches }: { matches: CompetitionMatch[] }) {
     );
 }
 
-function AllianceSummary({ match, color }: { match: CompetitionMatch; color: 'red' | 'blue' }) {
+/**
+ * Where an alliance's referee is during a running match: submitted, still
+ * scoring on a tablet (two tablets is a warning), or no tablet connected.
+ */
+function RefereeStatus({ match, color, tablets }: { match: CompetitionMatch; color: 'red' | 'blue'; tablets: string[] }) {
+    const allianceId = getAllianceMembers(match, color)[0]?.alliance.id;
+    const submission = match.submissions?.find((entry) => entry.alliance_id === allianceId);
+
+    if (submission) {
+        return (
+            <p className="mt-2 flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <CheckCircle className="size-3.5" /> Submitted by {submission.by}
+            </p>
+        );
+    }
+
+    if (tablets.length > 1) {
+        return (
+            <p className="text-destructive mt-2 flex items-center gap-1 text-xs font-semibold">
+                <TriangleAlert className="size-3.5" /> {tablets.length} tablets: {tablets.join(', ')}
+            </p>
+        );
+    }
+
+    return (
+        <p className="text-muted-foreground mt-2 flex items-center gap-1 text-xs">
+            <Tablet className="size-3.5" /> {tablets.length === 1 ? `Scoring: ${tablets[0]}` : 'No referee tablet'}
+        </p>
+    );
+}
+
+function AllianceSummary({ match, color, tablets }: { match: CompetitionMatch; color: 'red' | 'blue'; tablets?: string[] }) {
     return (
         <div
             className={cn(
@@ -237,6 +269,7 @@ function AllianceSummary({ match, color }: { match: CompetitionMatch; color: 're
                     </li>
                 ))}
             </ul>
+            {match.status === 'ongoing' && tablets && <RefereeStatus match={match} color={color} tablets={tablets} />}
         </div>
     );
 }
@@ -280,6 +313,7 @@ export default function MatchControlConsole() {
 
     const [chosenId, setChosenId] = useState<number | null>(null);
     const [confirmingAbort, setConfirmingAbort] = useState(false);
+    const [confirmingForce, setConfirmingForce] = useState(false);
     const [displayError, setDisplayError] = useState<string | null>(null);
 
     const ongoing = matches.find((match) => match.status === 'ongoing') ?? null;
@@ -295,6 +329,23 @@ export default function MatchControlConsole() {
             null,
         [matches, chosenId, ongoing, display?.match_id, nextUpcoming],
     );
+
+    // Which tablets are scoring each alliance of the running match.
+    const { data: seats } = useQuery({
+        queryKey: ['referee-seats', selected?.id],
+        queryFn: () => api.getRefereeSeats(selected!.id),
+        enabled: selected?.status === 'ongoing',
+        refetchInterval: 5000,
+        refetchIntervalInBackground: true,
+    });
+    const tabletsFor = (color: 'red' | 'blue') => (selected ? (seats?.seats[String(getAllianceMembers(selected, color)[0]?.alliance.id)] ?? []) : []);
+    const awaitingSubmission =
+        selected?.status === 'ongoing'
+            ? (['red', 'blue'] as const).filter((color) => {
+                  const allianceId = getAllianceMembers(selected, color)[0]?.alliance.id;
+                  return allianceId !== undefined && !selected.submissions?.some((entry) => entry.alliance_id === allianceId);
+              })
+            : [];
 
     const isLoaded = selected !== null && display?.match_id === selected.id && display.mode === 'preview';
     const busy = loadMatch.isPending || startMatch.isPending || endMatch.isPending || cancelMatch.isPending;
@@ -392,8 +443,8 @@ export default function MatchControlConsole() {
                                         </CardHeader>
                                         <CardContent className="space-y-4">
                                             <div className="flex gap-3">
-                                                <AllianceSummary match={selected} color="red" />
-                                                <AllianceSummary match={selected} color="blue" />
+                                                <AllianceSummary match={selected} color="red" tablets={tabletsFor('red')} />
+                                                <AllianceSummary match={selected} color="blue" tablets={tabletsFor('blue')} />
                                             </div>
 
                                             {selected.status === 'ongoing' && (
@@ -472,13 +523,40 @@ export default function MatchControlConsole() {
                                                             </Button>
                                                         )}
                                                         <Button
-                                                            variant="outline"
-                                                            disabled={busy}
+                                                            size="lg"
+                                                            disabled={busy || awaitingSubmission.length > 0}
                                                             onClick={() => endMatch.mutate(selected.id, refresh)}
                                                         >
-                                                            <Square className="mr-1 size-4" /> End match now
+                                                            <CheckCircle className="mr-1 size-5" />
+                                                            {awaitingSubmission.length > 0
+                                                                ? `Waiting for ${awaitingSubmission.join(' and ')} to submit`
+                                                                : 'Commit scores & end match'}
                                                         </Button>
+                                                        {awaitingSubmission.length > 0 &&
+                                                            (confirmingForce ? (
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        className="border-amber-500 text-amber-700 dark:text-amber-400"
+                                                                        disabled={busy}
+                                                                        onClick={() => {
+                                                                            setConfirmingForce(false);
+                                                                            endMatch.mutate({ matchId: selected.id, force: true }, refresh);
+                                                                        }}
+                                                                    >
+                                                                        Yes, commit now
+                                                                    </Button>
+                                                                    <Button variant="outline" onClick={() => setConfirmingForce(false)}>
+                                                                        Wait for referees
+                                                                    </Button>
+                                                                </div>
+                                                            ) : (
+                                                                <Button variant="outline" disabled={busy} onClick={() => setConfirmingForce(true)}>
+                                                                    <Square className="mr-1 size-4" /> Commit without waiting
+                                                                </Button>
+                                                            ))}
                                                         <p className="text-muted-foreground text-xs">
+                                                            Referees submit each alliance's scores from their tablets; the match ends once you commit.
                                                             Abort puts the match back to upcoming so it can be replayed. Scores are kept.
                                                         </p>
                                                     </>

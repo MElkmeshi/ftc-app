@@ -395,7 +395,8 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                                                     variant="outline"
                                                                     className="text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950"
                                                                     disabled={endMatch.isPending}
-                                                                    onClick={() => endMatch.mutate(match.id)}
+                                                                    title="Ends the match now, even if referees have not submitted"
+                                                                    onClick={() => endMatch.mutate({ matchId: match.id, force: true })}
                                                                 >
                                                                     <Pause className="mr-1 h-4 w-4" />
                                                                     End

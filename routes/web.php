@@ -11,6 +11,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GameController;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\Game;
@@ -19,6 +20,7 @@ use App\Models\Team;
 use App\Services\CurrentEvent;
 use App\Services\EventSetupChecklist;
 use App\Support\EventLiveProps;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -27,9 +29,13 @@ Route::get('events', [EventController::class, 'index'])->name('events.index');
 Route::redirect('/dashboard', '/');
 
 /*
- * Lets every screen line its match timer up with the server's clock.
+ * Lets every screen line its match timer up with the server's clock, and
+ * tells it the app's build version so tablets reload after an update.
  */
-Route::get('server-time', fn () => response()->json(['now' => now()->getTimestampMs()])->header('Cache-Control', 'no-store'))->name('server-time');
+Route::get('server-time', fn (Request $request) => response()->json([
+    'now' => now()->getTimestampMs(),
+    'version' => app(HandleInertiaRequests::class)->version($request),
+])->header('Cache-Control', 'no-store'))->name('server-time');
 
 Route::middleware(['auth', 'verified', 'can:manage-competition'])->group(function () {
     Route::get('events/create', [EventController::class, 'create'])->name('events.create');

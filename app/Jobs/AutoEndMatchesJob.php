@@ -18,6 +18,7 @@ class AutoEndMatchesJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /**
+     * Ends each match whose time is up and whose referees have all submitted.
      * Runs outside any request, so it sweeps ongoing matches from every event,
      * switching the current event so each one uses its own timing settings.
      */
@@ -41,7 +42,9 @@ class AutoEndMatchesJob implements ShouldQueue
 
             $endsAt = $match->started_at->copy()->addMilliseconds($match->duration_ms ?? $fallbackDurationMs);
 
-            if ($endsAt->isFuture()) {
+            // Like FTC Live, scoring stays open after the buzzer until every
+            // alliance's referee has submitted; otherwise the head referee commits.
+            if ($endsAt->isFuture() || $match->load('matchAlliances.alliance')->alliancesAwaitingSubmission()->isNotEmpty()) {
                 return null;
             }
 

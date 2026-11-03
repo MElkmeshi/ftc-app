@@ -1,3 +1,4 @@
+import { SeatWarning, SubmitScoresPanel } from '@/components/scoring/submit-scores-panel';
 import { GroupScoreControls } from '@/components/scoring/score-controls';
 import { ScoreTypeIcon } from '@/components/game-look';
 import { resolveEventHref } from '@/lib/event';
@@ -9,7 +10,7 @@ import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type ScoreType } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { CheckCircle, Trophy, Users } from 'lucide-react';
+import { Trophy, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Scoring — Stadium', href: '/referee/scoring4' }];
 
@@ -85,7 +86,7 @@ export default function RefereeScoring4() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, handleEndMatch, isPending, isEndMatchPending,
+        handleAddScore, handleRemoveScore, isPending, allianceName, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
     } = useScoringPage();
 
     const allianceColorName = alliances.find((a) => a?.id === selectedAllianceId)?.color ?? 'gray';
@@ -245,20 +246,18 @@ export default function RefereeScoring4() {
                 )}
 
                 {/* Submit */}
-                {match && match.status === 'ongoing' && (
-                    <button
-                        onClick={() => handleEndMatch(() => { setSelectedMatchId(null); setSelectedAllianceId(null); })}
-                        disabled={isEndMatchPending}
-                        className={cn(
-                            'flex w-full items-center justify-center gap-3 rounded-2xl py-5 text-xl font-black uppercase tracking-widest transition-all',
-                            isEndMatchPending
-                                ? 'bg-amber-900/50 text-amber-300/50 cursor-not-allowed'
-                                : 'bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white shadow-lg shadow-amber-900/50',
-                        )}
-                    >
-                        <CheckCircle className="h-6 w-6" />
-                        {isEndMatchPending ? 'Submitting…' : `Submit Match #${match.number}`}
-                    </button>
+                {match && match.status === 'ongoing' && selectedAllianceId && (
+                    <>
+                        <SeatWarning names={sharingSeatWith} allianceName={allianceName} />
+                        <SubmitScoresPanel
+                            matchNumber={match.number}
+                            allianceName={allianceName}
+                            submission={submission}
+                            pending={isSubmitPending}
+                            error={submitError}
+                            onChange={setSubmitted}
+                        />
+                    </>
                 )}
             </div>
         </AppLayout>

@@ -27,6 +27,7 @@ it('lists games with the events that play them', function () {
     ScoreType::factory()->create();
     Game::factory()->create(['name' => 'Unused game']);
     $this->game->update(['name' => 'Workshop game']);
+    $this->event->update(['name' => 'Workshop']);
 
     $this->actingAs($this->admin)->get('/games')->assertInertia(fn (Assert $page) => $page
         ->component('games/index')
@@ -35,7 +36,7 @@ it('lists games with the events that play them', function () {
         ->where('games.1.score_types_count', 1)
         ->where('games.1.events', [
             ['code' => $league->code, 'name' => 'Meet 2', 'has_played_matches' => false],
-            ['code' => 'testevent', 'name' => $this->event->name, 'has_played_matches' => true],
+            ['code' => 'testevent', 'name' => 'Workshop', 'has_played_matches' => true],
         ])
         ->where('games.0.events', []));
 });

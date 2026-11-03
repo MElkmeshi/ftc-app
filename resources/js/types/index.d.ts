@@ -187,6 +187,21 @@ export interface CompetitionMatch {
     status: string;
     match_alliances: MatchAlliance[];
     scores?: Score[];
+    /** Alliances whose referees submitted their scores (cleared when the match starts). */
+    submissions?: ScoreSubmission[] | null;
+}
+
+export interface ScoreSubmission {
+    alliance_id: number;
+    /** Name of the referee who submitted. */
+    by: string;
+    at: string;
+}
+
+/** One robot (team_id) or a whole alliance (alliance_id) being scored. */
+export interface ScoreTarget {
+    teamId?: number;
+    allianceId?: number;
 }
 
 export type MatchPhase = 'pre-match' | 'autonomous' | 'transition' | 'teleop' | 'endgame' | 'post-match';

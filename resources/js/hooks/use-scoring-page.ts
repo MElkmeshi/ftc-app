@@ -1,9 +1,11 @@
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
-import { useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
+import { useMatch, useMatches, useScoreTypes, useSetAllianceSubmitted, useSetScoreCount } from '@/hooks/use-match';
 import { useRefereeField } from '@/hooks/use-referee-field';
+import { useRefereeSeat } from '@/hooks/use-referee-seat';
 import { getAllianceColorClasses } from '@/lib/match-utils';
 import { type ScoreControl, splitScoreTypes } from '@/lib/score-controls';
-import { type ScoreType } from '@/types';
+import { countScores } from '@/lib/score-count';
+import { type ScoreTarget, type ScoreType } from '@/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export interface ScoringGroup {
@@ -19,9 +21,8 @@ export function useScoringPage() {
     const [selectedAllianceId, setSelectedAllianceId] = useState<number | null>(null);
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
-    const addScore = useAddScore();
-    const deleteScore = useDeleteScore();
-    const endMatch = useEndMatch();
+    const setScoreCount = useSetScoreCount();
+    const setAllianceSubmitted = useSetAllianceSubmitted();
 
     const [refereeField] = useRefereeField();
     const { data: matches = [] } = useMatches();
@@ -114,23 +115,6 @@ export function useScoringPage() {
         [groupedScoreTypes, scoreTypes],
     );
 
-    // Build an index Map for O(1) score lookups keyed by `a_{scoreTypeId}_{allianceId}` or `t_{scoreTypeId}_{teamId}`
-    const scoresIndex = useMemo(() => {
-        const matchScores = match?.scores ?? [];
-        const index = new Map<string, (typeof matchScores)[number][]>();
-        matchScores.forEach((score) => {
-            const key = score.team_id ? `t_${score.score_type_id}_${score.team_id}` : `a_${score.score_type_id}_${score.alliance_id}`;
-            const arr = index.get(key);
-            if (arr) {
-                arr.push(score);
-            } else {
-                index.set(key, [score]);
-            }
-        });
-        index.forEach((arr) => arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-        return index;
-    }, [match]);
-
     const getTotalAllianceScore = useCallback(() => {
         const teamTotal = teamsInAlliance.reduce((sum, ma) => sum + ma.score, 0);
         const allianceTotal = (match?.scores ?? [])
@@ -140,64 +124,46 @@ export function useScoringPage() {
     }, [teamsInAlliance, match, selectedAllianceId]);
 
     const getAllianceScoreTypeCount = useCallback(
-        (scoreTypeId: number) => {
-            if (!match || !selectedAllianceId) return 0;
-            return scoresIndex.get(`a_${scoreTypeId}_${selectedAllianceId}`)?.length ?? 0;
-        },
-        [match, selectedAllianceId, scoresIndex],
+        (scoreTypeId: number) => (selectedAllianceId ? countScores(match, scoreTypeId, { allianceId: selectedAllianceId }) : 0),
+        [match, selectedAllianceId],
     );
 
-    const getTeamScoreTypeCount = useCallback(
-        (scoreTypeId: number, teamId: number) => {
-            if (!match) return 0;
-            return scoresIndex.get(`t_${scoreTypeId}_${teamId}`)?.length ?? 0;
-        },
-        [match, scoresIndex],
-    );
+    const getTeamScoreTypeCount = useCallback((scoreTypeId: number, teamId: number) => countScores(match, scoreTypeId, { teamId }), [match]);
 
-    const getLatestScoreId = useCallback(
-        (scoreTypeId: number, options: { allianceId?: number; teamId?: number }) => {
-            if (!match) return null;
-            const key = options.teamId ? `t_${scoreTypeId}_${options.teamId}` : `a_${scoreTypeId}_${options.allianceId}`;
-            return scoresIndex.get(key)?.[0]?.id ?? null;
-        },
-        [match, scoresIndex],
-    );
-
-    const handleAddScore = useCallback(
-        (scoreTypeId: number, options: { teamId?: number; allianceId?: number }) => {
-            if (!match) return;
-            if (options.allianceId) {
-                addScore.mutate({ match_id: match.id, alliance_id: options.allianceId, score_type_id: scoreTypeId });
-            } else if (options.teamId) {
-                addScore.mutate({ match_id: match.id, team_id: options.teamId, score_type_id: scoreTypeId });
-            }
-        },
-        [match, addScore],
-    );
-
-    const handleRemoveScore = useCallback(
-        (scoreTypeId: number, options: { teamId?: number; allianceId?: number }) => {
-            if (!match) return;
+    /** Sends the new absolute count, one more or one less than shown. */
+    const changeCount = useCallback(
+        (scoreTypeId: number, target: ScoreTarget, delta: 1 | -1) => {
             const scoreType = scoreTypes.find((st) => st.id === scoreTypeId);
-            if (!scoreType) return;
-            const scoreId = getLatestScoreId(scoreTypeId, options);
-            if (scoreId) {
-                deleteScore.mutate({ scoreId, matchId: match.id, teamId: options.teamId, points: scoreType.points });
-            }
+            if (!match || !scoreType || (!target.teamId && !target.allianceId)) return;
+            const current = countScores(match, scoreTypeId, target);
+            if (current + delta < 0) return;
+            setScoreCount.mutate({
+                match,
+                scoreType,
+                target: target.teamId ? { teamId: target.teamId } : { allianceId: target.allianceId },
+                count: current + delta,
+            });
         },
-        [match, scoreTypes, getLatestScoreId, deleteScore],
+        [match, scoreTypes, setScoreCount],
     );
 
-    const handleEndMatch = useCallback(
-        (onSuccess: () => void) => {
-            if (!match) return;
-            endMatch.mutate(match.id, { onSuccess });
+    const handleAddScore = useCallback((scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, 1), [changeCount]);
+    const handleRemoveScore = useCallback((scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, -1), [changeCount]);
+
+    const submission = match?.submissions?.find((entry) => entry.alliance_id === selectedAllianceId) ?? null;
+
+    const setSubmitted = useCallback(
+        (submitted: boolean) => {
+            if (!match || !selectedAllianceId) return;
+            setAllianceSubmitted.mutate({ matchId: match.id, allianceId: selectedAllianceId, submitted });
         },
-        [match, endMatch],
+        [match, selectedAllianceId, setAllianceSubmitted],
     );
 
-    const isPending = addScore.isPending || deleteScore.isPending;
+    const sharingSeatWith = useRefereeSeat(match?.status === 'ongoing' ? match.id : null, selectedAllianceId);
+
+    /** A submitted alliance is locked on the tablet until its referee reopens it. */
+    const isPending = match?.status === 'ongoing' && submission !== null;
 
     return {
         selectedAllianceId,
@@ -218,8 +184,12 @@ export function useScoringPage() {
         getTeamScoreTypeCount,
         handleAddScore,
         handleRemoveScore,
-        handleEndMatch,
+        allianceName: `${allianceColor.charAt(0).toUpperCase()}${allianceColor.slice(1)} alliance`,
+        submission,
+        setSubmitted,
+        isSubmitPending: setAllianceSubmitted.isPending,
+        submitError: setAllianceSubmitted.error,
+        sharingSeatWith,
         isPending,
-        isEndMatchPending: endMatch.isPending,
     };
 }

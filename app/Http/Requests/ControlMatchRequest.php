@@ -19,6 +19,7 @@ class ControlMatchRequest extends FormRequest
     {
         return [
             'match_id' => ['required', 'integer', $this->existsInEvent('matches')->whereNull('deleted_at')],
+            'force' => ['sometimes', 'boolean'],
         ];
     }
 

@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\DisplayController;
 use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\Api\MatchController;
+use App\Http\Controllers\Api\MatchSubmissionController;
+use App\Http\Controllers\Api\RefereeSeatController;
 use App\Http\Controllers\Api\ScoreController;
 use App\Http\Controllers\Api\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +39,10 @@ Route::prefix('alliance-selection')->group(function () {
 
 Route::middleware(['auth', 'can:score-matches'])->group(function () {
     Route::post('/scores', [ScoreController::class, 'store']);
+    Route::put('/scores/count', [ScoreController::class, 'setCount']);
+    Route::post('/matches/{id}/submissions', [MatchSubmissionController::class, 'store'])->whereNumber('id');
+    Route::delete('/matches/{id}/submissions', [MatchSubmissionController::class, 'destroy'])->whereNumber('id');
+    Route::post('/referee-seats', [RefereeSeatController::class, 'heartbeat'])->middleware('throttle:120,1');
     Route::delete('/scores/{score}', [ScoreController::class, 'destroy']);
 });
 
@@ -45,6 +51,7 @@ Route::middleware(['auth', 'can:control-matches'])->group(function () {
     Route::post('/matches/load', [MatchController::class, 'loadMatch']);
     Route::post('/matches/start', [MatchController::class, 'startMatch']);
     Route::post('/matches/end', [MatchController::class, 'endMatch']);
+    Route::get('/matches/{id}/referee-seats', [RefereeSeatController::class, 'index'])->whereNumber('id');
     Route::post('/matches/cancel', [MatchController::class, 'cancelMatch']);
     Route::put('/display', [DisplayController::class, 'update']);
     Route::get('/display/connected', [ConnectedDisplayController::class, 'index']);

@@ -36,6 +36,15 @@ async function request<T>(method: Method, url: string, data?: unknown): Promise<
     return JSON.parse(response.data);
 }
 
+/** The absolute number of times a score type is scored for one robot or alliance. */
+export interface ScoreCountRequest {
+    match_id: number;
+    score_type_id: number;
+    team_id?: number;
+    alliance_id?: number;
+    count: number;
+}
+
 const RETRY_DELAYS_MS = [300, 1000, 2500];
 
 /** True when the request never got an HTTP response (Wi-Fi drop, server restart), so it is safe to resend. */
@@ -49,8 +58,11 @@ function isNetworkFailure(error: unknown): boolean {
  * reach the server before the connection dropped is never counted twice.
  */
 async function sendIdempotent<T>(method: Method, url: string, data: Record<string, unknown>): Promise<T> {
-    const payload = { ...data, client_request_id: crypto.randomUUID() };
+    return sendWithRetry<T>(method, url, { ...data, client_request_id: crypto.randomUUID() });
+}
 
+/** Sends a write that is safe to repeat as it is (it sets a value instead of adding to it), retrying on network failures. */
+async function sendWithRetry<T>(method: Method, url: string, payload: Record<string, unknown>): Promise<T> {
     for (let attempt = 0; ; attempt++) {
         try {
             return await request<T>(method, url, payload);
@@ -126,8 +138,26 @@ export const useApi = () => {
         return post('/api/matches/start', { match_id: matchId });
     }, []);
 
-    const endMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
-        return post('/api/matches/end', { match_id: matchId });
+    const endMatch = useCallback(async (matchId: number, force = false): Promise<CompetitionMatch> => {
+        return post('/api/matches/end', { match_id: matchId, force });
+    }, []);
+
+    const setScoreCount = useCallback(async (data: ScoreCountRequest) => {
+        return sendWithRetry<{ match: CompetitionMatch }>('put', '/api/scores/count', { ...data });
+    }, []);
+
+    const setAllianceSubmitted = useCallback(async (matchId: number, allianceId: number, submitted: boolean) => {
+        return request<{ match: CompetitionMatch }>(submitted ? 'post' : 'delete', `/api/matches/${matchId}/submissions`, {
+            alliance_id: allianceId,
+        });
+    }, []);
+
+    const reportRefereeSeat = useCallback(async (data: { tablet_id: string; match_id: number; alliance_id: number | null }) => {
+        return post<{ sharing_with: string[] }>('/api/referee-seats', data);
+    }, []);
+
+    const getRefereeSeats = useCallback(async (matchId: number) => {
+        return get<{ seats: Record<string, string[]> }>(`/api/matches/${matchId}/referee-seats`);
     }, []);
 
     const cancelMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
@@ -315,6 +345,10 @@ export const useApi = () => {
         getLoadedMatch,
         startMatch,
         endMatch,
+        setScoreCount,
+        setAllianceSubmitted,
+        reportRefereeSeat,
+        getRefereeSeats,
         cancelMatch,
         setAudienceDisplay,
         reportDisplay,

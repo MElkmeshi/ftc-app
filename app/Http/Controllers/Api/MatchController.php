@@ -104,6 +104,7 @@ class MatchController extends Controller
         $match->update([
             'status' => MatchStatus::ONGOING,
             'started_at' => now(),
+            'submissions' => null,
             'duration_ms' => $matchTiming->currentDurationMs(),
         ]);
 
@@ -126,6 +127,15 @@ class MatchController extends Controller
             return response()->json([
                 'message' => 'Match must be in ongoing status to end.',
             ], 422);
+        }
+
+        $waiting = $match->load('matchAlliances.alliance')->alliancesAwaitingSubmission();
+
+        if ($waiting->isNotEmpty() && ! $request->boolean('force')) {
+            return response()->json([
+                'message' => 'Waiting for '.$waiting->map(fn ($alliance): string => ucfirst($alliance->color).' alliance')->join(', ', ' and ').' to submit scores.',
+                'waiting_for' => $waiting->pluck('id'),
+            ], 409);
         }
 
         $match->update([
@@ -154,6 +164,7 @@ class MatchController extends Controller
             'status' => MatchStatus::UPCOMING,
             'started_at' => null,
             'cancelled_at' => now(),
+            'submissions' => null,
         ]);
 
         $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');

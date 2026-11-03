@@ -6,6 +6,7 @@ import { configureEcho, echo as echoInstance } from '@laravel/echo-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
+import { createVersionWatch } from './lib/app-version';
 import { watchReconnects } from './lib/realtime-recovery';
 import { startServerClockSync, syncServerClock } from './lib/server-clock';
 
@@ -28,10 +29,12 @@ configureEcho({
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const queryClient = new QueryClient();
+let versionWatch: ReturnType<typeof createVersionWatch> | null = null;
 
 // Anything broadcast while this screen was offline is gone, so re-read the
 // page's live props and every cached query as soon as the socket is back.
 watchReconnects(echoInstance().connector, () => {
+    void versionWatch?.check();
     void queryClient.invalidateQueries();
     void syncServerClock();
     router.reload();
@@ -47,6 +50,10 @@ createInertiaApp({
         if (!el) {
             throw new Error('Target element for Inertia app not found');
         }
+
+        // After a server update the page reloads itself, once no scoring tap is still being sent.
+        versionWatch = createVersionWatch({ loadedVersion: props.initialPage.version, isBusy: () => queryClient.isMutating() > 0 });
+        versionWatch.start();
 
         const root = createRoot(el);
 
