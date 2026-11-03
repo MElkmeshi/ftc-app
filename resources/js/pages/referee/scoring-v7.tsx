@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
+import { useRefereeField } from '@/hooks/use-referee-field';
 import { useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
@@ -210,12 +211,20 @@ export default function RefereeFoulsBoth() {
     const deleteScore = useDeleteScore();
     const endMatch = useEndMatch();
 
+    const [refereeField] = useRefereeField();
     const { data: matches = [] } = useMatches();
-    const { activeMatch } = useActiveMatchTimer();
+    const { activeMatch } = useActiveMatchTimer({ field: refereeField });
     const { data: match, isLoading } = useMatch(selectedMatchId, 15000);
     const { data: scoreTypes = [] } = useScoreTypes();
 
-    const ongoingMatches = matches.filter((m) => m.status === 'ongoing');
+    const ongoingMatches = matches.filter((m) => m.status === 'ongoing' && (!refereeField || m.field === refereeField));
+
+    // Moving the tablet to another field drops the match it was scoring.
+    const [scoringField, setScoringField] = useState(refereeField);
+    if (scoringField !== refereeField) {
+        setScoringField(refereeField);
+        setSelectedMatchId(null);
+    }
 
     useEffect(() => {
         if (activeMatch && !selectedMatchId) {

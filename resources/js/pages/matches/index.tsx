@@ -304,7 +304,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                 </CardHeader>
                 <CardContent>
                     <div className="mb-4">
-                        <MatchTimerBanner />
+                        <MatchTimerBanner forRefereeTablet={false} />
                     </div>
                     {isLoading ? (
                         <div className="flex items-center justify-center py-12">

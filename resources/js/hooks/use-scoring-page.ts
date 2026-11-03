@@ -1,5 +1,6 @@
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
+import { useRefereeField } from '@/hooks/use-referee-field';
 import { getAllianceColorClasses } from '@/lib/match-utils';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -11,12 +12,24 @@ export function useScoringPage() {
     const deleteScore = useDeleteScore();
     const endMatch = useEndMatch();
 
+    const [refereeField] = useRefereeField();
     const { data: matches = [] } = useMatches();
-    const { activeMatch } = useActiveMatchTimer();
+    const { activeMatch } = useActiveMatchTimer({ field: refereeField });
     const { data: match, isLoading } = useMatch(selectedMatchId, 15000);
     const { data: scoreTypes = [] } = useScoreTypes();
 
-    const ongoingMatches = useMemo(() => matches.filter((m) => m.status === 'ongoing'), [matches]);
+    const ongoingMatches = useMemo(
+        () => matches.filter((m) => m.status === 'ongoing' && (!refereeField || m.field === refereeField)),
+        [matches, refereeField],
+    );
+
+    // Moving the tablet to another field drops the match it was scoring.
+    const [scoringField, setScoringField] = useState(refereeField);
+    if (scoringField !== refereeField) {
+        setScoringField(refereeField);
+        setSelectedMatchId(null);
+        setSelectedAllianceId(null);
+    }
 
     useEffect(() => {
         if (activeMatch && !selectedMatchId) {
