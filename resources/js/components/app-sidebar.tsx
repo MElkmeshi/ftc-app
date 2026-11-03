@@ -15,6 +15,7 @@ import {
     Settings,
     Swords,
     Trophy,
+    Tv,
     UserCheck,
     Users,
 } from 'lucide-react';
@@ -22,13 +23,14 @@ import AppLogo from './app-logo';
 
 const runEventNavItems: NavItem[] = [
     { title: 'Event Dashboard', href: '/dashboard', icon: ClipboardCheck },
-    { title: 'Match Control', href: '/referee/match-control', icon: MonitorPlay },
+    { title: 'Match Control', href: '/match-control', icon: MonitorPlay },
     { title: 'Referee Scoring', href: '/referee/scoring', icon: UserCheck },
     { title: 'Schedule & Results', href: '/competition-matches', icon: Trophy },
     { title: 'Event Home', href: '/', icon: Home },
 ];
 
 const displayNavItems: NavItem[] = [
+    { title: 'Audience Display', href: '/display', icon: Tv },
     { title: 'Match Overlay', href: '/display/match-overlay', icon: Monitor },
     { title: 'Rankings', href: '/referee/display', icon: BarChart3 },
     { title: 'Alliance Selection', href: '/alliance-selection/display', icon: Users },
@@ -42,9 +44,7 @@ const setupNavItems: NavItem[] = [
     { title: 'Match Timing', href: '/admin/competition-settings', icon: Settings },
 ];
 
-const serverNavItems: NavItem[] = [
-    { title: 'All Events', href: '/events', icon: CalendarRange },
-];
+const serverNavItems: NavItem[] = [{ title: 'All Events', href: '/events', icon: CalendarRange }];
 
 const adminServerNavItems: NavItem[] = [{ title: 'Accounts', href: '/accounts', icon: KeyRound }];
 

@@ -41,6 +41,15 @@ export interface EventTypeOption {
 }
 
 /** A competition hosted on this server (named to avoid clashing with the DOM `Event`). */
+export type DisplayModeValue = 'blank' | 'preview' | 'match' | 'results' | 'rankings' | 'bracket' | 'alliance_selection';
+
+/** What every audience display is showing, as chosen in match control. */
+export interface AudienceDisplayState {
+    mode: DisplayModeValue;
+    match_id: number | null;
+    changed_at: string | null;
+}
+
 export interface CompetitionEvent {
     id: number;
     code: string;

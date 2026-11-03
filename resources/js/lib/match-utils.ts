@@ -1,4 +1,4 @@
-import { type CompetitionMatch, type MatchAlliance, type MatchPhase } from '@/types';
+import { type CompetitionMatch, type Group, type MatchAlliance, type MatchPhase } from '@/types';
 
 /**
  * Formats seconds as "M:SS"
@@ -114,4 +114,54 @@ export function determineWinner(match: CompetitionMatch): 'red' | 'blue' | 'tie'
 
 export function getAllianceMembers(match: CompetitionMatch, color: string): MatchAlliance[] {
     return match.match_alliances?.filter((ma) => ma.alliance.color === color) ?? [];
+}
+
+export interface ScoreBreakdownLine {
+    label: string;
+    points: number;
+}
+
+/**
+ * Splits an alliance's total into its score groups (e.g. "Autonomous",
+ * "Teleop"), in the groups' display order, for the results screen. Any
+ * difference left by a manual score correction is shown as "Adjustment" so the
+ * lines always add up to the total.
+ */
+export function getAllianceBreakdown(match: CompetitionMatch, color: string, groups: Group[]): ScoreBreakdownLine[] {
+    const allianceIds = new Set(getAllianceMembers(match, color).map((ma) => ma.alliance.id));
+    const groupNames = new Map(groups.map((group) => [group.id, group.name]));
+    const groupOrder = new Map(groups.map((group) => [group.id, group.display_order]));
+    const totals = new Map<number | null, number>();
+
+    for (const score of match.scores ?? []) {
+        if (!allianceIds.has(score.alliance_id ?? -1)) {
+            continue;
+        }
+
+        const groupId = score.score_type?.group_id ?? null;
+        totals.set(groupId, (totals.get(groupId) ?? 0) + (score.points ?? score.score_type?.points ?? 0));
+    }
+
+    const lines = [...totals.entries()]
+        .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : (groupOrder.get(a) ?? 0) - (groupOrder.get(b) ?? 0)))
+        .map(([groupId, points]) => ({ label: groupId === null ? 'Other' : (groupNames.get(groupId) ?? 'Other'), points }));
+
+    const adjustment = getAllianceScore(match, color) - lines.reduce((sum, line) => sum + line.points, 0);
+
+    return adjustment === 0 ? lines : [...lines, { label: 'Adjustment', points: adjustment }];
+}
+
+/** "Qualification 12", "Semifinal 1 · Match 2", ... */
+export function getMatchTitle(match: Pick<CompetitionMatch, 'number' | 'type' | 'round'>): string {
+    if (match.type !== 'elimination') {
+        return `Qualification ${match.number}`;
+    }
+
+    const round = (match.round ?? 'Playoff')
+        .replace(/^tiebreaker_/, 'Tiebreaker ')
+        .replace(/_(\d)$/, ' $1')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    return `${round} · Match ${match.number}`;
 }

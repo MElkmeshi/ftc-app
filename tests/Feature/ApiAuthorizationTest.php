@@ -62,7 +62,7 @@ it('prevents referees from controlling matches or administering the competition'
     $this->deleteJson('/api/elimination/reset')->assertForbidden();
     $this->putJson('/api/settings/competition')->assertForbidden();
     $this->get('/admin/teams')->assertForbidden();
-    $this->get('/referee/match-control')->assertForbidden();
+    $this->get('/match-control')->assertForbidden();
     $this->postJson('/api/scores')->assertUnprocessable();
 });
 

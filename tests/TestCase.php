@@ -23,7 +23,7 @@ abstract class TestCase extends BaseTestCase
      * @var list<string>
      */
     private const EVENT_PAGE_PREFIXES = [
-        '/referee/', '/admin/', '/elimination/', '/alliance-selection/', '/display/', '/competition-matches', '/dashboard',
+        '/referee/', '/admin/', '/elimination/', '/alliance-selection/', '/display', '/match-control', '/competition-matches', '/dashboard',
     ];
 
     protected function setUp(): void

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\DisplayMode;
 use App\Enums\MatchStatus;
 use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
@@ -17,6 +18,7 @@ use App\Models\EliminationSeries;
 use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Services\AllianceSelectionService;
+use App\Services\AudienceDisplay;
 use App\Services\CurrentEvent;
 use App\Services\MatchScheduler;
 use App\Services\MatchTimingService;
@@ -79,7 +81,7 @@ class MatchController extends Controller
         return response()->json($match);
     }
 
-    public function startMatch(ControlMatchRequest $request, MatchTimingService $matchTiming): JsonResponse
+    public function startMatch(ControlMatchRequest $request, MatchTimingService $matchTiming, AudienceDisplay $display): JsonResponse
     {
         $ongoingMatch = CompetitionMatch::where('status', MatchStatus::ONGOING)->first();
         if ($ongoingMatch) {
@@ -109,6 +111,8 @@ class MatchController extends Controller
 
         broadcast(new MatchStatusChanged($match, 'started'));
 
+        $display->show(DisplayMode::Match, $match->id);
+
         return response()->json($match);
     }
 
@@ -134,7 +138,7 @@ class MatchController extends Controller
         return response()->json($match);
     }
 
-    public function cancelMatch(ControlMatchRequest $request): JsonResponse
+    public function cancelMatch(ControlMatchRequest $request, AudienceDisplay $display): JsonResponse
     {
         $match = CompetitionMatch::findOrFail($request->input('match_id'));
 
@@ -154,10 +158,12 @@ class MatchController extends Controller
 
         broadcast(new MatchStatusChanged($match, 'cancelled'));
 
+        $display->show(DisplayMode::Preview, $match->id);
+
         return response()->json($match);
     }
 
-    public function loadMatch(ControlMatchRequest $request): JsonResponse
+    public function loadMatch(ControlMatchRequest $request, AudienceDisplay $display): JsonResponse
     {
         $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType'])
             ->findOrFail($request->input('match_id'));
@@ -165,6 +171,8 @@ class MatchController extends Controller
         cache()->put($this->loadedMatchCacheKey(), $match->id, now()->addHours(12));
 
         broadcast(new MatchStatusChanged($match, 'loaded'));
+
+        $display->show(DisplayMode::Preview, $match->id);
 
         return response()->json($match);
     }

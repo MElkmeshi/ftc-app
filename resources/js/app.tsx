@@ -39,7 +39,10 @@ watchReconnects(echoInstance().connector, () => {
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
-    live: echo(),
+    // Displays often sit in a background tab or behind another window, and a
+    // projector must never miss a screen change, so keep live props updating
+    // while hidden.
+    live: echo({ pauseWhenHidden: false }),
     setup({ el, App, props }) {
         if (!el) {
             throw new Error('Target element for Inertia app not found');

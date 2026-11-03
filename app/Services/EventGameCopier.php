@@ -21,7 +21,7 @@ class EventGameCopier
         [$groups, $scoreTypes, $settings] = $this->currentEvent->using($from, fn (): array => [
             Group::query()->orderBy('id')->get(),
             ScoreType::query()->orderBy('id')->get(),
-            Setting::query()->get(),
+            Setting::query()->where('group', '!=', 'display')->get(),
         ]);
 
         $this->currentEvent->using($to, function () use ($groups, $scoreTypes, $settings): void {

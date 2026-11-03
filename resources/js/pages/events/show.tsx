@@ -17,9 +17,9 @@ interface LinkEntry {
 
 function LinkSection({ title, icon: Icon, children }: { title: string; icon: ComponentType<{ className?: string }>; children: ReactNode }) {
     return (
-        <section className="rounded-xl border bg-card p-5 shadow-sm">
+        <section className="bg-card rounded-xl border p-5 shadow-sm">
             <h2 className="mb-3 inline-flex items-center gap-2 font-semibold">
-                <Icon className="size-5 text-primary" /> {title}
+                <Icon className="text-primary size-5" /> {title}
             </h2>
             {children}
         </section>
@@ -31,10 +31,10 @@ function LinkList({ links }: { links: LinkEntry[] }) {
         <ul className="space-y-1.5">
             {links.map((link) => (
                 <li key={link.href}>
-                    <Link href={link.href} className="font-medium text-primary hover:underline">
+                    <Link href={link.href} className="text-primary font-medium hover:underline">
                         {link.label}
                     </Link>
-                    {link.description && <span className="text-sm text-muted-foreground"> — {link.description}</span>}
+                    {link.description && <span className="text-muted-foreground text-sm"> — {link.description}</span>}
                 </li>
             ))}
         </ul>
@@ -60,7 +60,7 @@ export default function EventShow() {
             <Head title={event.name} />
 
             <div className="mb-6">
-                <div className="font-mono text-sm text-muted-foreground">{event.code}</div>
+                <div className="text-muted-foreground font-mono text-sm">{event.code}</div>
                 <h1 className="text-3xl font-bold">{event.name}</h1>
                 <p className="text-muted-foreground">
                     {typeLabel}
@@ -69,11 +69,11 @@ export default function EventShow() {
                     {event.end_date && event.end_date !== event.start_date && ` → ${event.end_date}`}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                    <span className="rounded-full bg-muted px-3 py-1">{summary.teams} teams</span>
-                    <span className="rounded-full bg-muted px-3 py-1">
+                    <span className="bg-muted rounded-full px-3 py-1">{summary.teams} teams</span>
+                    <span className="bg-muted rounded-full px-3 py-1">
                         {summary.completed_matches} / {summary.matches} matches played
                     </span>
-                    <span className="rounded-full bg-muted px-3 py-1">
+                    <span className="bg-muted rounded-full px-3 py-1">
                         {event.field_count} field{event.field_count === 1 ? '' : 's'}
                     </span>
                 </div>
@@ -93,6 +93,11 @@ export default function EventShow() {
                 <LinkSection title="Displays" icon={Monitor}>
                     <LinkList
                         links={[
+                            {
+                                label: 'Audience display',
+                                href: `${base}/display`,
+                                description: 'follows match control: preview, timer, results, rankings',
+                            },
                             { label: 'Match overlay', href: `${base}/display/match-overlay`, description: 'timer and live score for streams' },
                             { label: 'Rankings display', href: `${base}/referee/display` },
                             { label: 'Alliance selection display', href: `${base}/alliance-selection/display` },
@@ -102,18 +107,14 @@ export default function EventShow() {
                 </LinkSection>
 
                 <LinkSection title="Referees" icon={UserCheck}>
-                    <LinkList
-                        links={[
-                            { label: 'Referee scoring', href: `${base}/referee/scoring`, description: 'sign-in required' },
-                        ]}
-                    />
+                    <LinkList links={[{ label: 'Referee scoring', href: `${base}/referee/scoring`, description: 'sign-in required' }]} />
                 </LinkSection>
 
                 <LinkSection title="Event Admin" icon={ClipboardCheck}>
                     <LinkList
                         links={[
                             { label: 'Event dashboard', href: `${base}/dashboard`, description: 'setup checklist' },
-                            { label: 'Match control', href: `${base}/referee/match-control` },
+                            { label: 'Match control', href: `${base}/match-control`, description: 'load, start, post results' },
                             { label: 'Teams', href: `${base}/admin/teams` },
                         ]}
                     />
@@ -138,7 +139,7 @@ export default function EventShow() {
                 </LinkSection>
             </div>
 
-            <p className="mt-8 flex items-center gap-2 text-sm text-muted-foreground">
+            <p className="text-muted-foreground mt-8 flex items-center gap-2 text-sm">
                 <Trophy className="size-4" /> <BarChart3 className="size-4" /> <MonitorPlay className="size-4" />
                 Open any display on a screen at the venue and it updates live — no refreshing needed.
             </p>

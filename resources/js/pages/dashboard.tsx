@@ -291,7 +291,7 @@ export default function Dashboard() {
                             </Link>
                         </Button>
                         <Button asChild>
-                            <Link href={`/event/${event.code}/referee/match-control`}>
+                            <Link href={`/event/${event.code}/match-control`}>
                                 <MonitorPlay className="mr-1 size-4" /> Match control
                             </Link>
                         </Button>

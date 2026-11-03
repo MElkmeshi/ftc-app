@@ -97,7 +97,7 @@ class EventSetupChecklist
                     default => self::TODO,
                 },
                 "{$completedQualifications} / {$qualificationMatches} played",
-                '/referee/match-control',
+                '/match-control',
             ),
             $this->step(
                 'alliance-selection',

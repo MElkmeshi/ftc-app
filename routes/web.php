@@ -1,11 +1,11 @@
 <?php
 
+use App\Enums\DisplayMode;
 use App\Enums\EventType;
 use App\Enums\MatchStatus;
 use App\Events\AllianceSelectionUpdated;
 use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
-use App\Events\ScoreUpdated;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\Api\SettingsController;
@@ -14,10 +14,9 @@ use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\MatchAlliance;
 use App\Models\Team;
-use App\Services\AllianceSelectionService;
 use App\Services\CurrentEvent;
-use App\Services\EliminationScheduler;
 use App\Services\EventSetupChecklist;
+use App\Support\EventLiveProps;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -53,31 +52,34 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::post('archive', [EventController::class, 'archive'])->name('events.archive');
     });
 
-    Route::get('referee/match-control', function () {
-        return Inertia::render('referee/match-control');
-    })->middleware(['auth', 'can:control-matches'])->name('referee.match-control');
+    Route::get('display', function (EventLiveProps $live) {
+        return Inertia::render('display/audience', [
+            'display' => $live->audienceDisplay(),
+            'rankings' => $live->rankings(),
+            'bracket' => $live->bracket(),
+        ]);
+    })->name('display.audience');
+
+    Route::get('referee/match-control', fn () => to_route('display.audience'))->name('referee.match-control');
+
+    Route::get('match-control', function (EventLiveProps $live) {
+        return Inertia::render('match-control/index', [
+            'matches' => $live->matches(),
+            'display' => $live->audienceDisplay(),
+            'displayModes' => array_map(fn (DisplayMode $mode): array => ['value' => $mode->value, 'label' => $mode->label()], DisplayMode::cases()),
+        ]);
+    })->middleware(['auth', 'can:control-matches'])->name('match-control');
 
     Route::get('alliance-selection/display', function () {
         return Inertia::render('alliance-selection/display');
     })->name('alliance-selection.display');
 
-    Route::get('elimination/bracket', function (EliminationScheduler $scheduler, CurrentEvent $currentEvent) {
-        return Inertia::render('elimination/bracket', [
-            'bracket' => Inertia::live(fn () => $scheduler->getBracket(), on: EliminationBracketUpdated::class, channel: $currentEvent->channel('elimination'))
-                ->live(on: [MatchStatusChanged::class, ScoreUpdated::class], channel: $currentEvent->channel('match-control'))
-                ->live(on: AllianceSelectionUpdated::class, channel: $currentEvent->channel('alliance-selection')),
-        ]);
+    Route::get('elimination/bracket', function (EventLiveProps $live) {
+        return Inertia::render('elimination/bracket', ['bracket' => $live->bracket()]);
     })->name('elimination.bracket');
 
-    Route::get('referee/display', function (AllianceSelectionService $selection, CurrentEvent $currentEvent) {
-        return Inertia::render('referee/display', [
-            'rankings' => Inertia::live(
-                fn () => $selection->getRankings(),
-                on: [MatchStatusChanged::class, ScoreUpdated::class],
-                channel: $currentEvent->channel('match-control'),
-                throttle: 3000,
-            ),
-        ]);
+    Route::get('referee/display', function (EventLiveProps $live) {
+        return Inertia::render('referee/display', ['rankings' => $live->rankings()]);
     })->name('referee.display');
 
     Route::get('display/match-overlay', function () {

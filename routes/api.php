@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AllianceSelectionController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DisplayController;
 use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\Api\GroupController;
@@ -25,6 +26,7 @@ Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
 Route::get('/dashboard/config', [DashboardController::class, 'config']);
 Route::get('/settings/competition', [SettingsController::class, 'getCompetitionSettings']);
 Route::get('/elimination/bracket', [EliminationController::class, 'bracket']);
+Route::get('/display', [DisplayController::class, 'show']);
 
 Route::prefix('alliance-selection')->group(function () {
     Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
@@ -45,6 +47,7 @@ Route::middleware(['auth', 'can:control-matches'])->group(function () {
     Route::post('/matches/start', [MatchController::class, 'startMatch']);
     Route::post('/matches/end', [MatchController::class, 'endMatch']);
     Route::post('/matches/cancel', [MatchController::class, 'cancelMatch']);
+    Route::put('/display', [DisplayController::class, 'update']);
 });
 
 Route::middleware(['auth', 'can:manage-competition'])->group(function () {

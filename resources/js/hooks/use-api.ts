@@ -2,8 +2,10 @@ import { eventApiUrl } from '@/lib/event';
 import {
     AllianceGroup,
     AllianceSelectionStatus,
+    AudienceDisplayState,
     CompetitionMatch,
     DashboardStats,
+    DisplayModeValue,
     EliminationBracket,
     Group,
     ScoreType,
@@ -121,6 +123,10 @@ export const useApi = () => {
 
     const cancelMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
         return post('/api/matches/cancel', { match_id: matchId });
+    }, []);
+
+    const setAudienceDisplay = useCallback(async (mode: DisplayModeValue, matchId?: number | null): Promise<AudienceDisplayState> => {
+        return put('/api/display', { mode, match_id: matchId ?? null });
     }, []);
 
     // Teams
@@ -265,6 +271,7 @@ export const useApi = () => {
         startMatch,
         endMatch,
         cancelMatch,
+        setAudienceDisplay,
         getTeams,
         createTeam,
         updateTeam,
