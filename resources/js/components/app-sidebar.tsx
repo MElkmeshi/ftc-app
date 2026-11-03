@@ -7,6 +7,7 @@ import {
     BarChart3,
     CalendarRange,
     ClipboardCheck,
+    Gamepad2,
     Home,
     KeyRound,
     ListChecks,
@@ -44,7 +45,10 @@ const setupNavItems: NavItem[] = [
 
 const serverNavItems: NavItem[] = [{ title: 'All Events', href: '/events', icon: CalendarRange }];
 
-const adminServerNavItems: NavItem[] = [{ title: 'Accounts', href: '/accounts', icon: KeyRound }];
+const adminServerNavItems: NavItem[] = [
+    { title: 'Games', href: '/games', icon: Gamepad2 },
+    { title: 'Accounts', href: '/accounts', icon: KeyRound },
+];
 
 export function AppSidebar() {
     const { event, auth } = usePage<SharedData>().props;

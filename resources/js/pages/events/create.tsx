@@ -3,14 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem, type EventTypeOption, type EventTypeValue } from '@/types';
+import { type BreadcrumbItem, type EventTypeOption, type EventTypeValue, type GameOption } from '@/types';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { Info, Upload } from 'lucide-react';
 import { type FormEventHandler } from 'react';
 
 interface CreateEventProps {
     eventTypes: EventTypeOption[];
-    existingEvents: { code: string; name: string }[];
+    games: GameOption[];
     defaultTimezone: string;
     [key: string]: unknown;
 }
@@ -24,7 +24,8 @@ interface EventForm {
     start_date: string;
     end_date: string;
     field_count: number;
-    copy_game_from: string;
+    /** Empty for a new blank game named after the event. */
+    game_id: string;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -45,7 +46,7 @@ function suggestCode(name: string): string {
 }
 
 export default function CreateEvent() {
-    const { eventTypes, existingEvents, defaultTimezone } = usePage<CreateEventProps>().props;
+    const { eventTypes, games, defaultTimezone } = usePage<CreateEventProps>().props;
     const today = new Date().toISOString().slice(0, 10);
     const timezones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [defaultTimezone];
 
@@ -58,7 +59,7 @@ export default function CreateEvent() {
         start_date: today,
         end_date: today,
         field_count: 1,
-        copy_game_from: existingEvents[0]?.code ?? '',
+        game_id: games[0] ? String(games[0].id) : '',
     });
     const codeWasEdited = data.code !== '' && data.code !== suggestCode(data.name);
 
@@ -177,25 +178,21 @@ export default function CreateEvent() {
                     </div>
 
                     <div className="bg-muted/40 grid gap-2 rounded-lg border p-4">
-                        <Label htmlFor="copy_game_from">Game setup</Label>
-                        <select
-                            id="copy_game_from"
-                            className={selectClassName}
-                            value={data.copy_game_from}
-                            onChange={(e) => setData('copy_game_from', e.target.value)}
-                        >
-                            <option value="">Start empty (define score types later)</option>
-                            {existingEvents.map((event) => (
-                                <option key={event.code} value={event.code}>
-                                    Copy score types &amp; timing from {event.name} ({event.code})
+                        <Label htmlFor="game_id">Game</Label>
+                        <select id="game_id" className={selectClassName} value={data.game_id} onChange={(e) => setData('game_id', e.target.value)}>
+                            {games.map((game) => (
+                                <option key={game.id} value={game.id}>
+                                    {game.name}
                                 </option>
                             ))}
+                            <option value="">New blank game (define score types later)</option>
                         </select>
                         <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
                             <Info className="mt-0.5 size-3.5 shrink-0" />
-                            Reuse another event's game so a league can run every meet with the same rules. Teams and matches are never copied.
+                            The game holds the score types, match timing and ranking. Events on the same game share it, so a league can run every meet
+                            with the same rules. You can change the game later in Event details.
                         </p>
-                        <InputError message={errors.copy_game_from} />
+                        <InputError message={errors.game_id} />
                     </div>
 
                     <div className="flex justify-end">

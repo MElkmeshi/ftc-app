@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\EventType;
 use App\Models\Event;
+use App\Models\Game;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,6 +18,7 @@ class EventFactory extends Factory
     public function definition(): array
     {
         return [
+            'game_id' => Game::factory(),
             'code' => fake()->unique()->regexify('[a-z]{4}[0-9]{2}'),
             'name' => fake()->city().' Scrimmage',
             'type' => EventType::Scrimmage,

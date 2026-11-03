@@ -41,6 +41,26 @@ export interface EventTypeOption {
     label: string;
 }
 
+/** A game an event can play, as offered in pickers. */
+export interface GameOption {
+    id: number;
+    name: string;
+}
+
+/** An event playing a game, flagged when editing the game would change matches it already played. */
+export interface GameEventSummary {
+    code: string;
+    name: string;
+    has_played_matches: boolean;
+}
+
+/** The game a scoring or timing page is editing. */
+export interface GameSummary {
+    id: number;
+    name: string;
+    events: GameEventSummary[];
+}
+
 /** A competition hosted on this server (named to avoid clashing with the DOM `Event`). */
 export type DisplayModeValue = 'blank' | 'preview' | 'match' | 'results' | 'rankings' | 'bracket' | 'alliance_selection' | 'message';
 
@@ -63,6 +83,7 @@ export interface ConnectedDisplay {
 
 export interface CompetitionEvent {
     id: number;
+    game_id: number | null;
     code: string;
     name: string;
     type: EventTypeValue;

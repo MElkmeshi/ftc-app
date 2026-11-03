@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Enums\EventType;
+use App\Enums\RankingMethod;
 use App\Models\Event;
+use App\Models\Game;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -15,6 +17,8 @@ use Throwable;
  * Exports an event as one self-contained file and imports it again, on this
  * server or another one. This is our version of FTC Live's event archive:
  * the file carries the event's game, teams, schedule, scores and playoffs.
+ * Importing always creates a new game holding the archived one, so editing
+ * it can never change another event.
  *
  * Row ids are internal, so on import every foreign key is remapped onto the
  * newly inserted rows. Red/blue alliances are global and matched by colour,
@@ -24,7 +28,8 @@ class EventArchive
 {
     public const FORMAT = 'ftc-app.event';
 
-    public const VERSION = 1;
+    /** Version 2 moved the game (score types, timing, ranking) out of the event's settings into its own block. */
+    public const VERSION = 2;
 
     /**
      * Event-owned tables in insertion order, with the event-owned table each
@@ -45,6 +50,12 @@ class EventArchive
         'settings' => [],
     ];
 
+    /** Tables owned by the event's game rather than by the event. */
+    private const GAME_TABLES = ['groups', 'score_types'];
+
+    /** Version 1 kept the game's timing and ranking method in these setting groups. */
+    private const LEGACY_GAME_SETTING_GROUPS = ['competition', 'ranking'];
+
     private const AUTHOR_COLUMNS = ['created_by', 'updated_by'];
 
     /**
@@ -61,19 +72,24 @@ class EventArchive
     private const EVENT_COLUMNS = ['name', 'type', 'venue', 'timezone', 'start_date', 'end_date', 'field_count'];
 
     /**
-     * @return array{format: string, version: int, exported_at: string, event: array<string, mixed>, alliances: array<int, string>, tables: array<string, list<array<string, mixed>>>}
+     * @return array{format: string, version: int, exported_at: string, event: array<string, mixed>, game: array<string, mixed>, alliances: array<int, string>, tables: array<string, list<array<string, mixed>>>}
      */
     public function export(Event $event): array
     {
         $tables = [];
+        $game = $event->game;
 
         foreach (array_keys(self::TABLES) as $table) {
             $tables[$table] = DB::table($table)
-                ->where('event_id', $event->id)
+                ->when(
+                    in_array($table, self::GAME_TABLES, true),
+                    fn ($query) => $query->where('game_id', $event->game_id),
+                    fn ($query) => $query->where('event_id', $event->id),
+                )
                 ->when($table === 'settings', fn ($query) => $query->whereNotIn('group', self::SERVER_SETTING_GROUPS))
                 ->orderBy('id')
                 ->get()
-                ->map(fn (object $row): array => collect((array) $row)->except(['event_id', ...self::AUTHOR_COLUMNS, ...self::DROPPED_COLUMNS])->all())
+                ->map(fn (object $row): array => collect((array) $row)->except(['event_id', 'game_id', ...self::AUTHOR_COLUMNS, ...self::DROPPED_COLUMNS])->all())
                 ->all();
         }
 
@@ -82,6 +98,12 @@ class EventArchive
             'version' => self::VERSION,
             'exported_at' => now()->toIso8601String(),
             'event' => ['code' => $event->code, ...$event->only(self::EVENT_COLUMNS), 'type' => $event->type->value, 'start_date' => $event->start_date?->toDateString(), 'end_date' => $event->end_date?->toDateString()],
+            'game' => [
+                'name' => $game?->name,
+                'description' => $game?->description,
+                'timing' => $game?->timing,
+                'ranking_method' => $game?->ranking_method->value,
+            ],
             'alliances' => DB::table('alliances')->pluck('color', 'id')->all(),
             'tables' => $tables,
         ];
@@ -103,8 +125,14 @@ class EventArchive
         $eventAttributes = $this->eventAttributes($archive['event']);
 
         return DB::transaction(function () use ($archive, $code, $importedBy, $eventAttributes): Event {
+            $game = Game::query()->create([
+                ...$this->gameAttributes($archive, $eventAttributes['name']),
+                'created_by' => $importedBy,
+            ]);
+
             $event = Event::query()->create([
                 ...$eventAttributes,
+                'game_id' => $game->id,
                 'code' => $code,
                 'created_by' => $importedBy,
             ]);
@@ -121,7 +149,7 @@ class EventArchive
                         throw new InvalidArgumentException("The event file is inconsistent: {$table} has a malformed row.");
                     }
 
-                    if ($table === 'settings' && in_array($row['group'] ?? null, self::SERVER_SETTING_GROUPS, true)) {
+                    if ($table === 'settings' && in_array($row['group'] ?? null, [...self::SERVER_SETTING_GROUPS, ...self::LEGACY_GAME_SETTING_GROUPS], true)) {
                         continue;
                     }
 
@@ -150,7 +178,8 @@ class EventArchive
                         $row['payload'] = json_encode($row['payload']);
                     }
 
-                    $newId = DB::table($table)->insertGetId([...$row, 'event_id' => $event->id]);
+                    $owner = in_array($table, self::GAME_TABLES, true) ? ['game_id' => $game->id] : ['event_id' => $event->id];
+                    $newId = DB::table($table)->insertGetId([...$row, ...$owner]);
 
                     if ($oldId !== null) {
                         $idMaps[$table][$oldId] = $newId;
@@ -160,6 +189,41 @@ class EventArchive
 
             return $event;
         });
+    }
+
+    /**
+     * The archived game, checked like the Games page checks it. Version 1
+     * files kept timing and ranking in the event's settings instead.
+     *
+     * @param  array<string, mixed>  $archive
+     * @return array{name: string, description: ?string, timing: ?array<string, int>, ranking_method: string}
+     */
+    private function gameAttributes(array $archive, string $eventName): array
+    {
+        $archived = is_array($archive['game'] ?? null) ? $archive['game'] : [];
+        $timing = $archived['timing'] ?? null;
+        $rankingMethod = $archived['ranking_method'] ?? null;
+
+        if (($archive['version'] ?? 1) < 2) {
+            $settings = collect($archive['tables']['settings'] ?? [])
+                ->filter(fn (mixed $row): bool => is_array($row))
+                ->map(fn (array $row): array => [...$row, 'payload' => is_string($row['payload'] ?? null) ? json_decode($row['payload'], true) : ($row['payload'] ?? null)]);
+            $timing = $settings->where('group', 'competition')->pluck('payload', 'name')->all();
+            $rankingMethod = $settings->where('group', 'ranking')->firstWhere('name', 'method')['payload'] ?? null;
+        }
+
+        $timing = collect(is_array($timing) ? $timing : [])
+            ->only(Game::TIMING_KEYS)
+            ->filter(fn (mixed $seconds): bool => is_numeric($seconds))
+            ->map(fn (mixed $seconds): int => max(0, min(600, (int) $seconds)))
+            ->all();
+
+        return [
+            'name' => Str::limit(is_string($archived['name'] ?? null) && $archived['name'] !== '' ? $archived['name'] : $eventName.' game', 255, ''),
+            'description' => is_string($archived['description'] ?? null) ? Str::limit($archived['description'], 2000, '') : null,
+            'timing' => $timing === [] ? null : $timing,
+            'ranking_method' => RankingMethod::tryFrom((string) $rankingMethod)?->value ?? RankingMethod::TotalScore->value,
+        ];
     }
 
     /**

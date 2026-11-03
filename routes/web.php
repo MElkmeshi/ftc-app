@@ -9,19 +9,17 @@ use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Api\EventArchiveController;
-use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\GameController;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
+use App\Models\Game;
 use App\Models\MatchAlliance;
-use App\Models\Setting;
 use App\Models\Team;
 use App\Services\CurrentEvent;
 use App\Services\EventSetupChecklist;
 use App\Support\EventLiveProps;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 Route::get('/', [EventController::class, 'index'])->name('home');
@@ -44,9 +42,20 @@ Route::middleware(['auth', 'verified', 'can:manage-competition'])->group(functio
     Route::put('accounts/{account}', [AccountController::class, 'update'])->name('accounts.update');
     Route::post('accounts/{account}/reset-password', [AccountController::class, 'resetPassword'])->name('accounts.reset-password');
     Route::delete('accounts/{account}', [AccountController::class, 'destroy'])->name('accounts.destroy');
+
+    Route::get('games', [GameController::class, 'index'])->name('games.index');
+    Route::post('games', [GameController::class, 'store'])->name('games.store');
+
+    Route::prefix('games/{game}')->whereNumber('game')->middleware('game')->group(function () {
+        Route::put('/', [GameController::class, 'update'])->name('games.update');
+        Route::delete('/', [GameController::class, 'destroy'])->name('games.destroy');
+        Route::get('scoring', [GameController::class, 'scoring'])->name('games.scoring');
+        Route::get('settings', [GameController::class, 'settings'])->name('games.settings');
+    });
 });
 
 Route::prefix('api/event/{event}')->middleware('event')->group(__DIR__.'/api.php');
+Route::prefix('api/games/{game}')->whereNumber('game')->middleware(['auth', 'verified', 'can:manage-competition', 'game'])->group(__DIR__.'/game-api.php');
 
 Route::prefix('event/{event}')->middleware('event')->group(function () {
     Route::get('/', [EventController::class, 'show'])->name('events.show');
@@ -98,6 +107,8 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
                     ->live(on: AllianceSelectionUpdated::class, channel: $currentEvent->channel('alliance-selection'))
                     ->live(on: EliminationBracketUpdated::class, channel: $currentEvent->channel('elimination')),
                 'eventTypes' => array_map(fn (EventType $type): array => ['value' => $type->value, 'label' => $type->label()], EventType::cases()),
+                'games' => Game::query()->orderBy('name')->get(['id', 'name']),
+                'gameLocked' => $currentEvent->require()->hasScores(),
                 'stats' => Inertia::defer(fn () => [
                     'total_teams' => Team::count(),
                     'total_matches' => CompetitionMatch::count(),
@@ -162,28 +173,13 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
             return Inertia::render('admin/teams');
         })->middleware('can:manage-competition')->name('admin.teams');
 
-        Route::get('admin/score-types', function () {
-            return Inertia::render('admin/score-types');
-        })->middleware('can:manage-competition')->name('admin.score-types');
+        Route::get('admin/score-types', [GameController::class, 'scoring'])->middleware('can:manage-competition')->name('admin.score-types');
 
         Route::get('admin/alliance-selection', function () {
             return Inertia::render('admin/alliance-selection');
         })->middleware('can:manage-competition')->name('admin.alliance-selection');
 
-        Route::get('admin/competition-settings', function () {
-            return Inertia::render('admin/competition-settings', [
-                'settings' => Inertia::defer(fn () => app(SettingsController::class)->getCompetitionSettings()->getData(true)),
-                'rankingMethod' => RankingMethod::current()->value,
-                'rankingMethods' => array_map(fn (RankingMethod $method): array => ['value' => $method->value, 'label' => $method->label(), 'description' => $method->description()], RankingMethod::cases()),
-            ]);
-        })->middleware('can:manage-competition')->name('admin.competition-settings');
-
-        Route::put('admin/ranking-method', function (Request $request) {
-            $validated = $request->validate(['method' => ['required', Rule::enum(RankingMethod::class)]]);
-            Setting::set('ranking', 'method', $validated['method']);
-
-            return back();
-        })->middleware('can:manage-competition')->name('admin.ranking-method');
+        Route::get('admin/competition-settings', [GameController::class, 'settings'])->middleware('can:manage-competition')->name('admin.competition-settings');
 
     });
 });

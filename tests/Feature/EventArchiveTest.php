@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\RankingMethod;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
@@ -28,7 +29,7 @@ beforeEach(function () {
     MatchAlliance::query()->create(['match_id' => $match->id, 'team_id' => $team->id, 'alliance_id' => $red->id, 'alliance_pos' => 1, 'score' => 5, 'created_by' => 1]);
     Score::factory()->create(['match_id' => $match->id, 'team_id' => $team->id, 'score_type_id' => $scoreType->id, 'points' => 5]);
     EliminationSeries::factory()->create();
-    Setting::set('competition', 'teleop', 100);
+    $this->event->game->update(['name' => 'Into the Deep', 'timing' => ['teleop' => 100], 'ranking_method' => RankingMethod::Record]);
 });
 
 /**
@@ -49,7 +50,9 @@ it('exports the whole event as one file', function () {
         ->and($archive['event']['code'])->toBe('testevent')
         ->and($archive['tables']['teams'])->toHaveCount(Team::query()->count())
         ->and($archive['tables']['scores'][0]['points'])->toBe(5)
-        ->and($archive['tables']['teams'][0])->not->toHaveKey('event_id');
+        ->and($archive['tables']['teams'][0])->not->toHaveKey('event_id')
+        ->and($archive['game'])->toMatchArray(['name' => 'Into the Deep', 'timing' => ['teleop' => 100], 'ranking_method' => 'record'])
+        ->and($archive['tables']['score_types'][0])->not->toHaveKey('game_id');
 });
 
 it('imports an exported event as a new event with every reference remapped', function () {
@@ -71,11 +74,40 @@ it('imports an exported event as a new event with every reference remapped', fun
             ->and($score->match->number)->toBe(1)
             ->and($score->scoreType->group->name)->toBe('Teleop')
             ->and(MatchAlliance::query()->sole()->alliance->color)->toBe('red')
-            ->and(EliminationSeries::query()->with('allianceGroup1.captainTeam')->sole()->allianceGroup1->captainTeam)->not->toBeNull()
-            ->and(Setting::get('competition', 'teleop'))->toBe(100);
+            ->and(EliminationSeries::query()->with('allianceGroup1.captainTeam')->sole()->allianceGroup1->captainTeam)->not->toBeNull();
     });
 
     expect(Team::query()->count())->toBe($originalTeamCount, 'the original event is untouched');
+    expect($copy->game)
+        ->id->not->toBe($this->event->game_id, 'the import gets its own game, so editing it never changes the original event')
+        ->name->toBe('Into the Deep')
+        ->timing->toBe(['teleop' => 100])
+        ->ranking_method->toBe(RankingMethod::Record);
+});
+
+it('imports version 1 files, which kept the game timing and ranking in settings', function () {
+    $archive = exportTestEvent();
+    unset($archive['game']);
+    $archive['version'] = 1;
+    $archive['tables']['settings'] = [
+        ['id' => 1, 'group' => 'competition', 'name' => 'teleop', 'locked' => 0, 'payload' => '90'],
+        ['id' => 2, 'group' => 'ranking', 'name' => 'method', 'locked' => 0, 'payload' => '"record"'],
+        ['id' => 3, 'group' => 'schedule', 'name' => 'timing', 'locked' => 0, 'payload' => '{"cycle_minutes":7}'],
+    ];
+    $file = UploadedFile::fake()->createWithContent('event.json', json_encode($archive));
+
+    $this->actingAs($this->admin)->post('/events/import', ['file' => $file, 'code' => 'copy'])->assertRedirect('/event/copy/dashboard');
+
+    $copy = Event::query()->where('code', 'copy')->sole();
+
+    expect($copy->game)
+        ->timing->toBe(['teleop' => 90])
+        ->ranking_method->toBe(RankingMethod::Record);
+
+    app(CurrentEvent::class)->using($copy, function (): void {
+        expect(Setting::query()->pluck('group')->all())->toBe(['schedule'])
+            ->and(ScoreType::query()->sole()->name)->toBe('High goal');
+    });
 });
 
 it('rejects files that are not event archives', function () {

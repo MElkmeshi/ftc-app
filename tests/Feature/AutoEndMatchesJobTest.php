@@ -4,7 +4,6 @@ use App\Enums\MatchStatus;
 use App\Events\MatchStatusChanged;
 use App\Jobs\AutoEndMatchesJob;
 use App\Models\CompetitionMatch;
-use App\Models\Setting;
 use App\Models\User;
 use App\Services\MatchTimingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,14 +34,14 @@ it('does not end long matches early even after settings change', function () {
     $match = CompetitionMatch::factory()->create([
         'status' => MatchStatus::ONGOING, 'started_at' => now()->subSeconds(200), 'duration_ms' => 300000,
     ]);
-    Setting::set('competition', 'teleop', 10);
+    $this->event->game->update(['timing' => ['teleop' => 10]]);
     app()->call([new AutoEndMatchesJob, 'handle']);
     expect($match->fresh()->status)->toBe(MatchStatus::ONGOING);
     Event::assertNothingDispatched();
 });
 
 it('uses configured timing for legacy matches without a duration snapshot', function () {
-    Setting::set('competition', 'teleop', 200);
+    $this->event->game->update(['timing' => ['teleop' => 200]]);
     $duration = app(MatchTimingService::class)->currentDurationMs();
     $match = CompetitionMatch::factory()->create([
         'status' => MatchStatus::ONGOING, 'started_at' => now()->subMilliseconds($duration), 'duration_ms' => null,

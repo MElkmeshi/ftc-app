@@ -1,4 +1,4 @@
-import { eventChannel } from '@/lib/event';
+import { apiScope, eventChannel } from '@/lib/event';
 import { CompetitionMatch, MatchStatusChangedEvent, ScoreType, ScoreUpdatedEvent } from '@/types';
 import { useEchoPublic } from '@laravel/echo-react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -80,7 +80,7 @@ export function useUpdateScore() {
 export function useScoreTypes() {
     const api = useApi();
     return useQuery<ScoreType[]>({
-        queryKey: ['score-types'],
+        queryKey: ['score-types', apiScope()],
         queryFn: api.getScoreTypes,
         staleTime: Infinity,
     });
@@ -104,7 +104,7 @@ export function useAddScore() {
                     if (!old) return old;
 
                     // Get the score type to know the points value
-                    const scoreTypes = queryClient.getQueryData<ScoreType[]>(['score-types']) || [];
+                    const scoreTypes = queryClient.getQueryData<ScoreType[]>(['score-types', apiScope()]) || [];
                     const scoreType = scoreTypes.find((st) => st.id === params.score_type_id);
 
                     if (!scoreType) return old;

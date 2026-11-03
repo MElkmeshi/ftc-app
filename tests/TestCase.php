@@ -68,7 +68,7 @@ abstract class TestCase extends BaseTestCase
 
     private function prefixWithEvent(string $uri, string $code): string
     {
-        if (str_starts_with($uri, '/api/') && ! str_starts_with($uri, '/api/event/')) {
+        if (str_starts_with($uri, '/api/') && ! str_starts_with($uri, '/api/event/') && ! str_starts_with($uri, '/api/games/')) {
             return '/api/event/'.$code.substr($uri, 4);
         }
 

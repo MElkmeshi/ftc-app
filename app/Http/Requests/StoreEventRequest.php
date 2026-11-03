@@ -30,7 +30,7 @@ class StoreEventRequest extends FormRequest
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'field_count' => ['required', 'integer', 'min:1', 'max:8'],
-            'copy_game_from' => ['nullable', 'string', Rule::exists('events', 'code')],
+            'game_id' => ['nullable', 'integer', Rule::exists('games', 'id')],
         ];
     }
 

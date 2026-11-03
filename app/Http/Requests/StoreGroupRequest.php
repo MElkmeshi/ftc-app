@@ -15,7 +15,7 @@ class StoreGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255', $this->uniqueInEvent('groups', 'name')],
+            'name' => ['required', 'string', 'max:255', $this->uniqueInGame('groups', 'name')],
             'description' => ['nullable', 'string'],
             'display_order' => ['required', 'integer'],
         ];

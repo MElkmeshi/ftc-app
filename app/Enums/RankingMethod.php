@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-use App\Models\Setting;
+use App\Services\CurrentGame;
 
 /**
  * How qualification rankings are ordered.
@@ -31,8 +31,11 @@ enum RankingMethod: string
         };
     }
 
+    /**
+     * The ranking method of the game the current event plays.
+     */
     public static function current(): self
     {
-        return self::tryFrom((string) Setting::get('ranking', 'method', self::TotalScore->value)) ?? self::TotalScore;
+        return app(CurrentGame::class)->get()?->ranking_method ?? self::TotalScore;
     }
 }

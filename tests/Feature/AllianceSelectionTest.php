@@ -2,13 +2,13 @@
 
 use App\Enums\MatchStatus;
 use App\Enums\MatchType;
+use App\Enums\RankingMethod;
 use App\Models\Alliance;
 use App\Models\AllianceGroup;
 use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
 use App\Models\MatchAlliance;
-use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\AllianceSelectionService;
@@ -81,7 +81,7 @@ it('ranks teams correctly from qualification matches', function () {
 });
 
 it('ranks by win/loss record when the event uses FTC-style rankings', function () {
-    Setting::set('ranking', 'method', 'record');
+    $this->event->game->update(['ranking_method' => RankingMethod::Record]);
     $teams = Team::factory()->count(3)->create();
 
     // Team 0 wins twice by small margins; team 1 scores big but loses once.

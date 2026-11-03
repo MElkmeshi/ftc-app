@@ -1,18 +1,14 @@
+import { GameBanner, gameBreadcrumbs } from '@/components/game-banner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { MatchTimingConfig } from '@/hooks/use-match-timer';
 import AppLayout from '@/layouts/app-layout';
-import { eventApiUrl, eventUrl } from '@/lib/event';
-import { type BreadcrumbItem } from '@/types';
+import { eventApiUrl } from '@/lib/event';
+import { type GameSummary } from '@/types';
 import { Deferred, Head, useForm, useHttp, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Admin', href: '/admin/teams' },
-    { title: 'Competition Settings', href: '/admin/competition-settings' },
-];
 
 interface CompetitionSettings {
     timing: MatchTimingConfig;
@@ -250,7 +246,7 @@ function RankingMethodCard() {
     const choose = (method: string) => {
         form.setData('method', method);
         form.transform(() => ({ method }));
-        form.put(eventUrl('/admin/ranking-method'), { preserveScroll: true });
+        form.put(eventApiUrl('/api/ranking-method'), { preserveScroll: true });
     };
 
     return (
@@ -278,9 +274,13 @@ function RankingMethodCard() {
 }
 
 export default function CompetitionSettingsPage() {
+    const { game } = usePage<{ game: GameSummary }>().props;
+
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Competition Settings" />
+        <AppLayout breadcrumbs={gameBreadcrumbs(game, 'settings')}>
+            <Head title={`${game.name} · Match Timing`} />
+
+            <GameBanner game={game} page="settings" />
 
             <RankingMethodCard />
 

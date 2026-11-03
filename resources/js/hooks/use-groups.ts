@@ -1,3 +1,4 @@
+import { apiScope } from '@/lib/event';
 import { Group } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
@@ -5,7 +6,7 @@ import { useApi } from './use-api';
 export function useGroups() {
     const api = useApi();
     return useQuery<Group[]>({
-        queryKey: ['groups'],
+        queryKey: ['groups', apiScope()],
         queryFn: api.getGroups,
     });
 }

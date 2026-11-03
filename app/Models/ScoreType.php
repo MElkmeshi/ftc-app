@@ -3,16 +3,16 @@
 namespace App\Models;
 
 use App\Enums\ScoreTarget;
-use App\Models\Concerns\BelongsToEvent;
+use App\Models\Concerns\BelongsToGame;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ScoreType extends Model
 {
-    use BelongsToEvent, HasFactory;
+    use BelongsToGame, HasFactory;
 
     protected $fillable = [
-        'event_id', 'name', 'points', 'target', 'group_id', 'created_by',
+        'game_id', 'name', 'points', 'target', 'group_id', 'created_by',
     ];
 
     protected $hidden = [

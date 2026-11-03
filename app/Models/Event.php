@@ -11,9 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * A competition run on this server. Every team, match, score type and
- * setting belongs to one event, so a single install can host many events
- * (and keep past ones around for reference).
+ * A competition run on this server. Every team, match, score and setting
+ * belongs to one event, so a single install can host many events (and keep
+ * past ones around for reference). Each event plays one game.
  */
 class Event extends Model
 {
@@ -24,7 +24,7 @@ class Event extends Model
     public const CODE_PATTERN = '/^[a-z0-9_]{2,32}$/';
 
     protected $fillable = [
-        'code', 'name', 'type', 'venue', 'timezone', 'start_date', 'end_date', 'field_count', 'archived_at', 'created_by',
+        'game_id', 'code', 'name', 'type', 'venue', 'timezone', 'start_date', 'end_date', 'field_count', 'archived_at', 'created_by',
     ];
 
     protected $hidden = [
@@ -89,11 +89,21 @@ class Event extends Model
     }
 
     /**
-     * @return HasMany<ScoreType, $this>
+     * The game this event plays: its score types, timing and ranking method.
+     *
+     * @return BelongsTo<Game, $this>
      */
-    public function scoreTypes(): HasMany
+    public function game(): BelongsTo
     {
-        return $this->hasMany(ScoreType::class);
+        return $this->belongsTo(Game::class);
+    }
+
+    /**
+     * Whether any score has been recorded, after which the event's game can no longer be swapped.
+     */
+    public function hasScores(): bool
+    {
+        return Score::query()->withoutGlobalScope('event')->where('event_id', $this->id)->exists();
     }
 
     /**

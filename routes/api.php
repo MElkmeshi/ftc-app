@@ -6,26 +6,22 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DisplayController;
 use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\EventArchiveController;
-use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\ScoreController;
-use App\Http\Controllers\Api\ScoreTypeController;
-use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\TeamController;
 use Illuminate\Support\Facades\Route;
 
 /** These session-authenticated endpoints inherit web middleware and CSRF protection from web.php. */
+Route::group([], __DIR__.'/game-api.php');
+
 Route::get('/matches', [MatchController::class, 'index']);
 Route::get('/matches/active', [MatchController::class, 'active']);
 Route::get('/matches/loaded', [MatchController::class, 'loadedMatch']);
 Route::get('/matches/teams-display', [MatchController::class, 'teamsDisplay']);
 Route::get('/matches/{id}', [MatchController::class, 'show'])->whereNumber('id');
-Route::get('/score-types', [ScoreTypeController::class, 'index']);
 Route::get('/teams', [TeamController::class, 'index']);
-Route::get('/groups', [GroupController::class, 'index']);
 Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
 Route::get('/dashboard/config', [DashboardController::class, 'config']);
-Route::get('/settings/competition', [SettingsController::class, 'getCompetitionSettings']);
 Route::get('/elimination/bracket', [EliminationController::class, 'bracket']);
 Route::get('/display', [DisplayController::class, 'show']);
 /** Display screens are public pages; they only report that they are open, which changes no competition data. */
@@ -60,18 +56,10 @@ Route::middleware(['auth', 'can:manage-competition'])->group(function () {
     Route::get('/matches/schedule-timing', [MatchController::class, 'scheduleTiming']);
     Route::put('/matches/schedule-timing', [MatchController::class, 'updateScheduleTiming']);
     Route::delete('/matches/delete-all', [MatchController::class, 'deleteAll']);
-    Route::post('/score-types', [ScoreTypeController::class, 'store']);
-    Route::put('/score-types/{scoreType}', [ScoreTypeController::class, 'update']);
-    Route::delete('/score-types/{scoreType}', [ScoreTypeController::class, 'destroy']);
     Route::post('/teams', [TeamController::class, 'store']);
     Route::put('/teams/{team}', [TeamController::class, 'update']);
     Route::delete('/teams/{team}', [TeamController::class, 'destroy']);
-    Route::post('/groups', [GroupController::class, 'store']);
-    Route::put('/groups/{group}', [GroupController::class, 'update']);
-    Route::delete('/groups/{group}', [GroupController::class, 'destroy']);
-    Route::put('/settings/competition', [SettingsController::class, 'updateCompetitionSettings']);
     Route::get('/export', [EventArchiveController::class, 'export']);
-    Route::delete('/settings/competition/reset', [SettingsController::class, 'resetCompetitionSettings']);
 
     Route::prefix('alliance-selection')->group(function () {
         Route::post('/start', [AllianceSelectionController::class, 'start']);

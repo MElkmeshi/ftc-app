@@ -8,11 +8,12 @@ use App\Http\Requests\StoreEventRequest;
 use App\Http\Requests\UpdateEventRequest;
 use App\Models\CompetitionMatch;
 use App\Models\Event;
+use App\Models\Game;
 use App\Models\Team;
 use App\Services\CurrentEvent;
-use App\Services\EventGameCopier;
 use App\Services\FieldAssignment;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,21 +40,28 @@ class EventController extends Controller
     {
         return Inertia::render('events/create', [
             'eventTypes' => $this->eventTypeOptions(),
-            'existingEvents' => Event::query()->orderByDesc('start_date')->get(['code', 'name']),
+            'games' => Game::query()->orderBy('name')->get(['id', 'name']),
             'defaultTimezone' => config('app.timezone'),
         ]);
     }
 
-    public function store(StoreEventRequest $request, EventGameCopier $copier): RedirectResponse
+    /**
+     * Without a game picked, the event gets a new blank game of its own.
+     */
+    public function store(StoreEventRequest $request): RedirectResponse
     {
-        $event = Event::query()->create([
-            ...$request->safe()->except('copy_game_from'),
-            'created_by' => $request->user()->id,
-        ]);
+        $event = DB::transaction(function () use ($request): Event {
+            $gameId = $request->validated('game_id') ?? Game::query()->create([
+                'name' => $request->validated('name').' game',
+                'created_by' => $request->user()->id,
+            ])->id;
 
-        if ($request->filled('copy_game_from')) {
-            $copier->copy(Event::query()->where('code', $request->validated('copy_game_from'))->firstOrFail(), $event);
-        }
+            return Event::query()->create([
+                ...$request->validated(),
+                'game_id' => $gameId,
+                'created_by' => $request->user()->id,
+            ]);
+        });
 
         return to_route('dashboard', ['event' => $event->code]);
     }

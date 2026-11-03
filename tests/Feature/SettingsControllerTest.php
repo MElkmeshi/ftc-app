@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\RankingMethod;
-use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -51,20 +50,20 @@ it('rejects invalid competition settings', function () {
 });
 
 it('resets competition settings back to config defaults', function () {
-    Setting::set('competition', 'autonomous', 45);
+    $this->event->game->update(['timing' => ['autonomous' => 45]]);
 
     $response = $this->deleteJson('/api/settings/competition/reset');
 
     $response->assertSuccessful();
-    expect(Setting::where('group', 'competition')->count())->toBe(0);
+    expect($this->event->game->fresh()->timing)->toBeNull();
 });
 
 it('lets admins choose how rankings are ordered', function () {
     $admin = User::factory()->admin()->create();
 
-    $this->actingAs($admin)->put('/admin/ranking-method', ['method' => 'record'])->assertRedirect();
-    expect(RankingMethod::current())->toBe(RankingMethod::Record);
+    $this->actingAs($admin)->put('/api/ranking-method', ['method' => 'record'])->assertRedirect();
+    expect($this->event->game->fresh()->ranking_method)->toBe(RankingMethod::Record);
 
-    $this->actingAs($admin)->put('/admin/ranking-method', ['method' => 'coin_flip'])->assertSessionHasErrors('method');
-    $this->actingAs(User::factory()->create())->put('/admin/ranking-method', ['method' => 'total_score'])->assertForbidden();
+    $this->actingAs($admin)->put('/api/ranking-method', ['method' => 'coin_flip'])->assertSessionHasErrors('method');
+    $this->actingAs(User::factory()->create())->put('/api/ranking-method', ['method' => 'total_score'])->assertForbidden();
 });

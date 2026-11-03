@@ -7,7 +7,15 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { resolveEventHref } from '@/lib/event';
 import { cn } from '@/lib/utils';
-import { type BreadcrumbItem, type CompetitionEvent, type DashboardStats, type EventTypeOption, type EventTypeValue, type SharedData } from '@/types';
+import {
+    type BreadcrumbItem,
+    type CompetitionEvent,
+    type DashboardStats,
+    type EventTypeOption,
+    type EventTypeValue,
+    type GameOption,
+    type SharedData,
+} from '@/types';
 import { Deferred, Head, Link, router, useForm, usePage, useProp } from '@inertiajs/react';
 import {
     Activity,
@@ -38,6 +46,8 @@ interface SetupStep {
 
 interface DashboardProps extends SharedData {
     eventTypes: EventTypeOption[];
+    games: GameOption[];
+    gameLocked: boolean;
     stats?: DashboardStats;
 }
 
@@ -148,7 +158,17 @@ function SetupChecklist({ eventCode }: { eventCode: string }) {
 const selectClassName =
     'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm';
 
-function EventDetailsForm({ event, eventTypes }: { event: CompetitionEvent; eventTypes: EventTypeOption[] }) {
+function EventDetailsForm({
+    event,
+    eventTypes,
+    games,
+    gameLocked,
+}: {
+    event: CompetitionEvent;
+    eventTypes: EventTypeOption[];
+    games: GameOption[];
+    gameLocked: boolean;
+}) {
     const { data, setData, put, errors, processing, recentlySuccessful } = useForm({
         name: event.name,
         type: event.type,
@@ -157,6 +177,7 @@ function EventDetailsForm({ event, eventTypes }: { event: CompetitionEvent; even
         start_date: event.start_date ?? '',
         end_date: event.end_date ?? '',
         field_count: event.field_count,
+        game_id: event.game_id ?? games[0]?.id ?? 0,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -205,6 +226,33 @@ function EventDetailsForm({ event, eventTypes }: { event: CompetitionEvent; even
                             onChange={(e) => setData('field_count', Number(e.target.value))}
                         />
                         <InputError message={errors.field_count} />
+                    </div>
+                    <div className="grid gap-2 sm:col-span-2">
+                        <Label htmlFor="game_id">Game</Label>
+                        <div className="flex gap-2">
+                            <select
+                                id="game_id"
+                                className={selectClassName}
+                                value={data.game_id}
+                                disabled={gameLocked}
+                                onChange={(e) => setData('game_id', Number(e.target.value))}
+                            >
+                                {games.map((game) => (
+                                    <option key={game.id} value={game.id}>
+                                        {game.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <Button asChild variant="outline" type="button">
+                                <Link href="/games">Games</Link>
+                            </Button>
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                            {gameLocked
+                                ? 'This event already has scores, so it stays on this game. You can still edit the game itself.'
+                                : 'Score types, match timing and ranking come from the game.'}
+                        </p>
+                        <InputError message={errors.game_id} />
                     </div>
                     <div className="grid gap-2 sm:col-span-2">
                         <Label htmlFor="venue">Venue</Label>
@@ -268,7 +316,7 @@ function ExportCard({ event }: { event: CompetitionEvent }) {
 }
 
 export default function Dashboard() {
-    const { event, eventTypes } = usePage<DashboardProps>().props;
+    const { event, eventTypes, games, gameLocked } = usePage<DashboardProps>().props;
 
     if (!event) {
         return null;
@@ -305,7 +353,7 @@ export default function Dashboard() {
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
                     <SetupChecklist eventCode={event.code} />
                     <div className="space-y-6">
-                        <EventDetailsForm key={event.code} event={event} eventTypes={eventTypes} />
+                        <EventDetailsForm key={event.code} event={event} eventTypes={eventTypes} games={games} gameLocked={gameLocked} />
                         <ExportCard event={event} />
                     </div>
                 </div>

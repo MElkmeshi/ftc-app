@@ -2,11 +2,17 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\RankingMethod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateCompetitionSettingsRequest;
-use App\Models\Setting;
+use App\Models\Game;
+use App\Services\CurrentGame;
 use App\Services\MatchTimingService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
@@ -20,17 +26,10 @@ class SettingsController extends Controller
         ]);
     }
 
-    public function updateCompetitionSettings(UpdateCompetitionSettingsRequest $request): JsonResponse
+    public function updateCompetitionSettings(UpdateCompetitionSettingsRequest $request, CurrentGame $currentGame): JsonResponse
     {
         $validated = $request->validated();
-
-        // Save each setting to database
-        Setting::set('competition', 'pre_match_countdown', $validated['pre_match_countdown']);
-        Setting::set('competition', 'autonomous', $validated['autonomous']);
-        Setting::set('competition', 'transition', $validated['transition']);
-        Setting::set('competition', 'teleop', $validated['teleop']);
-        Setting::set('competition', 'endgame_warning', $validated['endgame_warning']);
-        Setting::set('competition', 'controllers_warning_offset', $validated['controllers_warning_offset']);
+        $currentGame->require()->update(['timing' => Arr::only($validated, Game::TIMING_KEYS)]);
 
         return response()->json([
             'message' => 'Competition settings updated successfully',
@@ -38,13 +37,23 @@ class SettingsController extends Controller
         ]);
     }
 
-    public function resetCompetitionSettings(): JsonResponse
+    public function resetCompetitionSettings(CurrentGame $currentGame): JsonResponse
     {
-        // Delete all competition settings to fall back to config defaults
-        Setting::where('group', 'competition')->delete();
+        $currentGame->require()->update(['timing' => null]);
 
         return response()->json([
             'message' => 'Competition settings reset to defaults',
         ]);
+    }
+
+    /**
+     * Inertia form endpoint: changes how the current game ranks teams.
+     */
+    public function updateRankingMethod(Request $request, CurrentGame $currentGame): RedirectResponse
+    {
+        $validated = $request->validate(['method' => ['required', Rule::enum(RankingMethod::class)]]);
+        $currentGame->require()->update(['ranking_method' => $validated['method']]);
+
+        return back();
     }
 }

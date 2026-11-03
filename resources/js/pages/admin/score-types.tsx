@@ -1,15 +1,8 @@
+import { GameBanner, gameBreadcrumbs } from '@/components/game-banner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,25 +10,12 @@ import { useCreateGroup, useDeleteGroup, useGroups, useUpdateGroup } from '@/hoo
 import { useScoreTypes } from '@/hooks/use-match';
 import { useCreateScoreType, useDeleteScoreType, useUpdateScoreType } from '@/hooks/use-score-types-crud';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem, type Group, type ScoreType } from '@/types';
-import { Head } from '@inertiajs/react';
+import { type GameSummary, type Group, type ScoreType } from '@/types';
+import { Head, usePage } from '@inertiajs/react';
 import { Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Admin', href: '/admin/score-types' },
-    { title: 'Score Types', href: '/admin/score-types' },
-];
-
-function ScoreTypeFormDialog({
-    scoreType,
-    groups,
-    trigger,
-}: {
-    scoreType?: ScoreType;
-    groups: Group[];
-    trigger: React.ReactNode;
-}) {
+function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: ScoreType; groups: Group[]; trigger: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState(scoreType?.name ?? '');
     const [points, setPoints] = useState(String(scoreType?.points ?? ''));
@@ -159,9 +139,7 @@ function DeleteScoreTypeDialog({ scoreType }: { scoreType: ScoreType }) {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Delete Score Type</DialogTitle>
-                    <DialogDescription>
-                        Are you sure you want to delete "{scoreType.name}"? This action cannot be undone.
-                    </DialogDescription>
+                    <DialogDescription>Are you sure you want to delete "{scoreType.name}"? This action cannot be undone.</DialogDescription>
                 </DialogHeader>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>
@@ -184,13 +162,7 @@ function DeleteScoreTypeDialog({ scoreType }: { scoreType: ScoreType }) {
     );
 }
 
-function GroupFormDialog({
-    group,
-    trigger,
-}: {
-    group?: Group;
-    trigger: React.ReactNode;
-}) {
+function GroupFormDialog({ group, trigger }: { group?: Group; trigger: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState(group?.name ?? '');
     const [description, setDescription] = useState(group?.description ?? '');
@@ -257,13 +229,7 @@ function GroupFormDialog({
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="g-order">Display Order</Label>
-                            <Input
-                                id="g-order"
-                                type="number"
-                                value={displayOrder}
-                                onChange={(e) => setDisplayOrder(e.target.value)}
-                                required
-                            />
+                            <Input id="g-order" type="number" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} required />
                             {errors.display_order && <p className="text-sm text-red-500">{errors.display_order[0]}</p>}
                         </div>
                     </div>
@@ -377,10 +343,13 @@ function ManageGroupsDialog() {
 export default function ScoreTypesPage() {
     const { data: scoreTypes = [], isLoading } = useScoreTypes();
     const { data: groups = [] } = useGroups();
+    const { game } = usePage<{ game: GameSummary }>().props;
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Score Types" />
+        <AppLayout breadcrumbs={gameBreadcrumbs(game, 'scoring')}>
+            <Head title={`${game.name} · Score Types`} />
+
+            <GameBanner game={game} page="scoring" />
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">

@@ -13,14 +13,15 @@
 
 use App\Enums\EventType;
 use App\Enums\MatchStatus;
-use App\Enums\UserRole;
 use App\Enums\MatchType;
+use App\Enums\UserRole;
 use App\Models\Alliance;
 use App\Models\AllianceGroup;
 use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
 use App\Models\Event;
+use App\Models\Game;
 use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Models\Team;
@@ -50,6 +51,7 @@ function cleanup(): void
 
     app(CurrentEvent::class)->using($event, 'cleanupEventRows');
     $event->delete();
+    Game::query()->whereKey($event->game_id)->whereDoesntHave('events')->delete();
 }
 
 /**
@@ -98,7 +100,10 @@ function seed(): void
     /** `email_verified_at` and `role` aren't mass-assignable, so they have to be forced on. */
     $operator->forceFill(['email_verified_at' => now(), 'role' => UserRole::Admin])->save();
 
+    $game = Game::query()->create(['name' => 'Playwright E2E game', 'created_by' => $operator->id]);
+
     $event = Event::query()->create([
+        'game_id' => $game->id,
         'code' => E2E_EVENT_CODE,
         'name' => 'Playwright E2E',
         'type' => EventType::Scrimmage,

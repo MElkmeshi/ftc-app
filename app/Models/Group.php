@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\BelongsToEvent;
+use App\Models\Concerns\BelongsToGame;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Group extends Model
 {
-    use BelongsToEvent, HasFactory;
+    use BelongsToGame, HasFactory;
 
     protected $fillable = [
-        'event_id', 'name',
+        'game_id', 'name',
         'description',
         'display_order',
     ];

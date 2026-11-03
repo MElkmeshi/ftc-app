@@ -9,7 +9,6 @@ use App\Models\AllianceGroup;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
 use App\Models\ScoreType;
-use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
 
@@ -28,7 +27,7 @@ class EventSetupChecklist
 
     public const OPTIONAL = 'optional';
 
-    public function __construct(private AllianceSelectionService $allianceSelection) {}
+    public function __construct(private AllianceSelectionService $allianceSelection, private CurrentGame $currentGame) {}
 
     /**
      * @return list<array{key: string, title: string, description: string, status: string, detail: string, href: string}>
@@ -42,7 +41,7 @@ class EventSetupChecklist
         $allianceCount = AllianceGroup::query()->count();
         $finalWinner = EliminationSeries::query()->where('round', EliminationRound::FINAL->value)->whereNotNull('winner_alliance_group_id')->exists();
         $playoffSeries = EliminationSeries::query()->count();
-        $timingCustomised = Setting::query()->where('group', 'competition')->exists();
+        $timingCustomised = ($this->currentGame->get()?->timing ?? []) !== [];
         $officials = User::query()->whereIn('role', [UserRole::Admin, UserRole::HeadReferee, UserRole::Referee])->count();
 
         return [

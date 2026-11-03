@@ -3,6 +3,7 @@
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveEvent;
+use App\Http\Middleware\ResolveGame;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,8 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(HandleCors::class);
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
-        $middleware->alias(['event' => ResolveEvent::class]);
+        $middleware->alias(['event' => ResolveEvent::class, 'game' => ResolveGame::class]);
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: ResolveEvent::class);
+        $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: ResolveGame::class);
 
         $middleware->web(append: [
             HandleAppearance::class,

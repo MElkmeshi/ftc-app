@@ -15,7 +15,7 @@ class UpdateGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255', $this->uniqueInEvent('groups', 'name')->ignore($this->route('group'))],
+            'name' => ['required', 'string', 'max:255', $this->uniqueInGame('groups', 'name')->ignore($this->route('group'))],
             'description' => ['nullable', 'string'],
             'display_order' => ['required', 'integer'],
         ];

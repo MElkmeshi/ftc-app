@@ -6,10 +6,10 @@ use App\Models\Event;
 use App\Models\Group;
 use App\Models\Score;
 use App\Models\ScoreType;
-use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\CurrentEvent;
+use App\Services\MatchTimingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -64,13 +64,13 @@ it('rejects score types from another event', function () {
         ->assertJsonValidationErrors('group_id');
 });
 
-it('creates an event and copies the game from another event', function () {
+it('creates an event that plays another event\'s game', function () {
     inOtherEvent(function (): void {
         $group = Group::factory()->create(['name' => 'Autonomous']);
         ScoreType::factory()->create(['name' => 'Park', 'points' => 3, 'group_id' => $group->id]);
-        Setting::set('competition', 'teleop', 90);
         Team::factory()->create();
     });
+    $this->otherEvent->game->update(['timing' => ['teleop' => 90]]);
 
     $this->actingAs($this->admin)->post('/events', [
         'code' => 'Spring_Meet',
@@ -80,18 +80,37 @@ it('creates an event and copies the game from another event', function () {
         'start_date' => '2026-12-01',
         'end_date' => '2026-12-01',
         'field_count' => 2,
-        'copy_game_from' => 'otherevent',
+        'game_id' => $this->otherEvent->game_id,
     ])->assertRedirect('/event/spring_meet/dashboard');
 
     $created = Event::query()->where('code', 'spring_meet')->firstOrFail();
+
+    expect($created->game_id)->toBe($this->otherEvent->game_id);
 
     app(CurrentEvent::class)->using($created, function (): void {
         expect(ScoreType::query()->with('group')->sole())
             ->name->toBe('Park')
             ->group->name->toBe('Autonomous');
-        expect(Setting::get('competition', 'teleop'))->toBe(90);
+        expect(app(MatchTimingService::class)->current()['teleop'])->toBe(90);
         expect(Team::query()->count())->toBe(0);
     });
+});
+
+it('gives a new event a blank game of its own when no game is picked', function () {
+    $this->actingAs($this->admin)->post('/events', [
+        'code' => 'fresh',
+        'name' => 'Fresh Meet',
+        'type' => 'scrimmage',
+        'timezone' => 'UTC',
+        'start_date' => '2026-12-01',
+        'end_date' => '2026-12-01',
+        'field_count' => 1,
+        'game_id' => '',
+    ])->assertRedirect('/event/fresh/dashboard');
+
+    expect(Event::query()->where('code', 'fresh')->sole()->game)
+        ->name->toBe('Fresh Meet game')
+        ->scoreTypes->toBeEmpty();
 });
 
 it('rejects event codes that would break URLs', function (string $code) {

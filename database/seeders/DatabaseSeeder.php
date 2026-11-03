@@ -3,28 +3,39 @@
 namespace Database\Seeders;
 
 use App\Models\Alliance;
+use App\Models\Event;
+use App\Models\Game;
 use App\Models\Group;
 use App\Models\ScoreType;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\CurrentEvent;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    public function run()
+    public function run(): void
     {
         $admin = User::factory()->admin()->create(['email' => 'elkmeshi2002@gmail.com']);
 
-        $red = Alliance::create(['color' => 'red']);
-        $blue = Alliance::create(['color' => 'blue']);
+        Alliance::create(['color' => 'red']);
+        Alliance::create(['color' => 'blue']);
 
-        $autonomous = Group::create([
+        $game = Game::query()->create(['name' => 'Sample game', 'created_by' => $admin->id]);
+        $event = Event::factory()->create(['game_id' => $game->id, 'code' => 'main', 'name' => 'Main event', 'created_by' => $admin->id]);
+
+        app(CurrentEvent::class)->using($event, fn () => $this->seedEventRows($admin));
+    }
+
+    private function seedEventRows(User $admin): void
+    {
+        Group::create([
             'name' => 'autonomous',
             'description' => 'Autonomous period scoring',
             'display_order' => 1,
         ]);
 
-        $teleop = Group::create([
+        Group::create([
             'name' => 'teleop',
             'description' => 'Teleoperated period scoring',
             'display_order' => 2,
@@ -41,6 +52,5 @@ class DatabaseSeeder extends Seeder
         }
 
         Team::factory(8)->create(['created_by' => $admin->id]);
-
     }
 }

@@ -18,7 +18,7 @@ class UpdateScoreTypeRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'points' => ['required', 'integer'],
             'target' => ['required', 'in:team,alliance'],
-            'group_id' => ['nullable', $this->existsInEvent('groups')],
+            'group_id' => ['nullable', $this->existsInGame('groups')],
         ];
     }
 }
