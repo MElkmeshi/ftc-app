@@ -6,12 +6,22 @@ import { useApi } from '@/hooks/use-api';
 import { useCancelMatch, useEndMatch, useLoadMatch, useStartMatch } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
 import { eventUrl } from '@/lib/event';
-import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, getPhaseColors, getPhaseLabel } from '@/lib/match-utils';
+import {
+    formatMatchTime,
+    formatTime,
+    getAllianceMembers,
+    getAllianceScore,
+    getMatchTitle,
+    getPhaseColors,
+    getPhaseLabel,
+    scheduleDriftMinutes,
+} from '@/lib/match-utils';
+import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
-import { type AudienceDisplayState, type BreadcrumbItem, type CompetitionMatch, type DisplayModeValue } from '@/types';
-import { Head, router, useProp } from '@inertiajs/react';
-import { ChevronRight, ExternalLink, Flag, Megaphone, Octagon, Play, Square, Upload } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type AudienceDisplayState, type BreadcrumbItem, type CompetitionMatch, type DisplayModeValue, type SharedData } from '@/types';
+import { Head, router, usePage, useProp } from '@inertiajs/react';
+import { ChevronRight, Clock, ExternalLink, Flag, Megaphone, Octagon, Play, Square, Upload } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface DisplayModeOption {
     value: DisplayModeValue;
@@ -67,6 +77,7 @@ function MatchList({
     selectedId: number | null;
     onSelect: (match: CompetitionMatch) => void;
 }) {
+    const eventTimezone = usePage<SharedData>().props.event?.timezone;
     const hasPlayoffs = matches.some((match) => match.type === 'elimination');
     const [filter, setFilter] = useState<MatchFilter>(() =>
         matches.some((m) => m.type === 'elimination' && m.status !== 'completed') ? 'elimination' : 'qualification',
@@ -76,7 +87,10 @@ function MatchList({
     return (
         <Card className="min-w-0">
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-                <CardTitle>Matches</CardTitle>
+                <div className="flex items-center gap-3">
+                    <CardTitle>Matches</CardTitle>
+                    <ScheduleDrift matches={matches} />
+                </div>
                 {hasPlayoffs && (
                     <div className="flex rounded-md border p-0.5 text-sm">
                         {(['qualification', 'elimination'] as const).map((option) => (
@@ -103,6 +117,7 @@ function MatchList({
                         <thead className="bg-card text-muted-foreground sticky top-0 text-left text-xs uppercase">
                             <tr>
                                 <th className="px-4 py-2 font-medium">Match</th>
+                                <th className="px-2 py-2 font-medium">Time</th>
                                 <th className="px-2 py-2 font-medium">Red</th>
                                 <th className="px-2 py-2 font-medium">Blue</th>
                                 <th className="px-2 py-2 text-center font-medium">Score</th>
@@ -124,6 +139,9 @@ function MatchList({
                                         )}
                                     >
                                         <td className="px-4 py-2 whitespace-nowrap">{getMatchTitle(match)}</td>
+                                        <td className="text-muted-foreground px-2 py-2 whitespace-nowrap tabular-nums">
+                                            {formatMatchTime(match.start_time, eventTimezone)}
+                                        </td>
                                         <td className="px-2 py-2">
                                             <TeamNumbers match={match} color="red" />
                                         </td>
@@ -146,6 +164,44 @@ function MatchList({
                 )}
             </CardContent>
         </Card>
+    );
+}
+
+/** Updates every 15 seconds on the server's clock, for the ahead/behind badge. */
+function useServerNow(): number {
+    const [now, setNow] = useState(() => serverNow());
+
+    useEffect(() => {
+        const id = setInterval(() => setNow(serverNow()), 15000);
+
+        return () => clearInterval(id);
+    }, []);
+
+    return now;
+}
+
+/** FTC Live's "x minutes behind" indicator. */
+function ScheduleDrift({ matches }: { matches: CompetitionMatch[] }) {
+    const drift = scheduleDriftMinutes(matches, useServerNow());
+
+    if (drift === null) {
+        return null;
+    }
+
+    const [label, className] =
+        Math.abs(drift) <= 1
+            ? ['On schedule', 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300']
+            : drift > 0
+              ? [
+                    `${drift} min behind`,
+                    drift > 10 ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+                ]
+              : [`${-drift} min ahead`, 'bg-sky-500/15 text-sky-700 dark:text-sky-300'];
+
+    return (
+        <span className={cn('inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium', className)}>
+            <Clock className="size-3.5" /> {label}
+        </span>
     );
 }
 

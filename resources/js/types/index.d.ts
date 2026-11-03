@@ -143,7 +143,7 @@ export type MatchPhase = 'pre-match' | 'autonomous' | 'transition' | 'teleop' | 
 
 export interface MatchStatusChangedEvent {
     match: CompetitionMatch;
-    action: 'started' | 'ended' | 'cancelled' | 'loaded';
+    action: 'started' | 'ended' | 'cancelled' | 'loaded' | 'scheduled';
 }
 
 export interface ScoreUpdatedEvent {

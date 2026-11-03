@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ControlMatchRequest;
 use App\Http\Requests\GenerateScheduleRequest;
 use App\Http\Requests\UpdateMatchScoreRequest;
+use App\Http\Requests\UpdateScheduleTimingRequest;
 use App\Models\AllianceGroup;
 use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
@@ -22,6 +23,7 @@ use App\Services\AudienceDisplay;
 use App\Services\CurrentEvent;
 use App\Services\MatchScheduler;
 use App\Services\MatchTimingService;
+use App\Services\ScheduleTiming;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -191,7 +193,7 @@ class MatchController extends Controller
         return response()->json($match);
     }
 
-    public function generateSchedule(GenerateScheduleRequest $request): JsonResponse
+    public function generateSchedule(GenerateScheduleRequest $request, ScheduleTiming $timing): JsonResponse
     {
         $scheduler = new MatchScheduler;
 
@@ -206,7 +208,32 @@ class MatchController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        $current = $timing->current();
+        $timing->apply(
+            $request->validated('first_match_at') ?? $current['first_match_at'],
+            $request->validated('cycle_minutes') ?? $current['cycle_minutes'],
+            $request->validated('breaks') ?? $current['breaks'],
+        );
+
+        broadcast(new MatchStatusChanged(CompetitionMatch::query()->orderBy('number')->firstOrFail(), 'scheduled'));
+
         return response()->json(['message' => 'Schedule generated successfully.']);
+    }
+
+    public function scheduleTiming(ScheduleTiming $timing): JsonResponse
+    {
+        return response()->json($timing->current());
+    }
+
+    /**
+     * Re-plans start times for the existing qualification schedule, e.g. after
+     * a delay or to add a lunch break, without regenerating matches.
+     */
+    public function updateScheduleTiming(UpdateScheduleTimingRequest $request, ScheduleTiming $timing): JsonResponse
+    {
+        $timing->apply($request->validated('first_match_at'), $request->validated('cycle_minutes'), $request->validated('breaks') ?? []);
+
+        return response()->json($timing->current());
     }
 
     public function deleteAll(): JsonResponse

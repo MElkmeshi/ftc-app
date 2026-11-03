@@ -1,18 +1,20 @@
+import { MatchTimerBanner } from '@/components/match-timer-banner';
+import { ScheduleTimingFields, type ScheduleTimingValue } from '@/components/schedule-timing-fields';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useApi } from '@/hooks/use-api';
 import { useCancelMatch, useEndMatch, useLoadMatch, useMatches, useStartMatch } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
+import { formatMatchTime } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
-import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Eye, Pause, Play, Printer, Trash2, XCircle } from 'lucide-react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, usePage } from '@inertiajs/react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Calendar, Clock, Eye, Pause, Play, Printer, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 
 interface Position {
@@ -45,25 +47,48 @@ function statusColor(status: string): string {
     }
 }
 
+/** Reads the server's message out of a failed API call. */
+function apiErrorMessage(error: unknown, fallback: string): string {
+    const data = (error as { response?: { data?: unknown } }).response?.data;
+
+    if (typeof data === 'string') {
+        try {
+            return (JSON.parse(data) as { message?: string }).message ?? fallback;
+        } catch {
+            return fallback;
+        }
+    }
+
+    return fallback;
+}
+
+function useScheduleTiming(enabled: boolean) {
+    const api = useApi();
+
+    return useQuery({ queryKey: ['schedule-timing'], queryFn: api.getScheduleTiming, enabled });
+}
+
 function GenerateScheduleDialog() {
     const [open, setOpen] = useState(false);
     const [matchesPerTeam, setMatchesPerTeam] = useState('4');
     const [teamsPerAlliance, setTeamsPerAlliance] = useState('2');
+    const [timing, setTiming] = useState<ScheduleTimingValue | null>(null);
     const [error, setError] = useState('');
     const api = useApi();
     const queryClient = useQueryClient();
+    const { data: savedTiming } = useScheduleTiming(open);
+    const timingValue = timing ?? savedTiming ?? null;
 
     const mutation = useMutation({
-        mutationFn: (data: { matches_per_team: number; teams_per_alliance: number }) => api.generateSchedule(data),
+        mutationFn: (data: { matches_per_team: number; teams_per_alliance: number } & Partial<ScheduleTimingValue>) => api.generateSchedule(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['matches'] });
             setOpen(false);
             // Reload the page to get fresh positions/alliance labels from the server
             window.location.reload();
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        onError: (err: any) => {
-            setError(err.response?.data?.message ?? 'Failed to generate schedule.');
+        onError: (err: unknown) => {
+            setError(apiErrorMessage(err, 'Failed to generate schedule.'));
         },
     });
 
@@ -73,6 +98,7 @@ function GenerateScheduleDialog() {
         mutation.mutate({
             matches_per_team: parseInt(matchesPerTeam, 10),
             teams_per_alliance: parseInt(teamsPerAlliance, 10),
+            ...(timingValue ?? {}),
         });
     };
 
@@ -82,6 +108,7 @@ function GenerateScheduleDialog() {
             onOpenChange={(v) => {
                 setOpen(v);
                 setError('');
+                setTiming(null);
             }}
         >
             <DialogTrigger asChild>
@@ -90,40 +117,106 @@ function GenerateScheduleDialog() {
                     Generate Schedule
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>Generate Match Schedule</DialogTitle>
                         <DialogDescription>This will delete all existing matches and generate a new schedule.</DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="mpt">Matches Per Team</Label>
-                            <Input
-                                id="mpt"
-                                type="number"
-                                min="1"
-                                value={matchesPerTeam}
-                                onChange={(e) => setMatchesPerTeam(e.target.value)}
-                                required
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="mpt">Matches Per Team</Label>
+                                <Input
+                                    id="mpt"
+                                    type="number"
+                                    min="1"
+                                    value={matchesPerTeam}
+                                    onChange={(e) => setMatchesPerTeam(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="tpa">Teams Per Alliance</Label>
+                                <Input
+                                    id="tpa"
+                                    type="number"
+                                    min="1"
+                                    value={teamsPerAlliance}
+                                    onChange={(e) => setTeamsPerAlliance(e.target.value)}
+                                    required
+                                />
+                            </div>
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="tpa">Teams Per Alliance</Label>
-                            <Input
-                                id="tpa"
-                                type="number"
-                                min="1"
-                                value={teamsPerAlliance}
-                                onChange={(e) => setTeamsPerAlliance(e.target.value)}
-                                required
-                            />
-                        </div>
+                        {timingValue && <ScheduleTimingFields value={timingValue} onChange={setTiming} />}
                         {error && <p className="text-sm text-red-500">{error}</p>}
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={mutation.isPending}>
                             {mutation.isPending ? 'Generating...' : 'Generate'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+/** Re-plans start times (after a delay, or to add lunch) without touching the matches themselves. */
+function RetimeScheduleDialog() {
+    const [open, setOpen] = useState(false);
+    const [timing, setTiming] = useState<ScheduleTimingValue | null>(null);
+    const [error, setError] = useState('');
+    const api = useApi();
+    const queryClient = useQueryClient();
+    const { data: savedTiming } = useScheduleTiming(open);
+    const timingValue = timing ?? savedTiming ?? null;
+
+    const mutation = useMutation({
+        mutationFn: (data: ScheduleTimingValue) => api.updateScheduleTiming(data),
+        onSuccess: (saved) => {
+            queryClient.setQueryData(['schedule-timing'], saved);
+            queryClient.invalidateQueries({ queryKey: ['matches'] });
+            setOpen(false);
+        },
+        onError: (err: unknown) => setError(apiErrorMessage(err, 'Could not update match times.')),
+    });
+
+    return (
+        <Dialog
+            open={open}
+            onOpenChange={(v) => {
+                setOpen(v);
+                setError('');
+                setTiming(null);
+            }}
+        >
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <Clock className="mr-1 h-4 w-4" />
+                    Match Times
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (timingValue) {
+                            mutation.mutate(timingValue);
+                        }
+                    }}
+                >
+                    <DialogHeader>
+                        <DialogTitle>Qualification match times</DialogTitle>
+                        <DialogDescription>
+                            Recalculates every qualification match's start time. Matches and scores are not changed.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">{timingValue && <ScheduleTimingFields value={timingValue} onChange={setTiming} />}</div>
+                    {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
+                    <DialogFooter>
+                        <Button type="submit" disabled={mutation.isPending || !timingValue}>
+                            {mutation.isPending ? 'Saving...' : 'Update times'}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -175,6 +268,7 @@ function DeleteAllMatchesDialog() {
 
 export default function MatchesIndex({ positions, allianceLabels }: MatchesPageProps) {
     const { data: matches = [], isLoading } = useMatches();
+    const eventTimezone = usePage<SharedData>().props.event?.timezone;
     const loadMatch = useLoadMatch();
     const startMatch = useStartMatch();
     const endMatch = useEndMatch();
@@ -202,6 +296,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                             Print Schedule
                         </Button>
                         <GenerateScheduleDialog />
+                        <RetimeScheduleDialog />
                         <DeleteAllMatchesDialog />
                     </div>
                 </CardHeader>
@@ -219,6 +314,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                 <thead>
                                     <tr className="border-b">
                                         <th className="px-4 py-2 text-left font-medium">Match #</th>
+                                        <th className="px-4 py-2 text-left font-medium">Time</th>
                                         <th className="px-4 py-2 text-left font-medium">Status</th>
                                         {positions.map((pos) => {
                                             const allianceColor = allianceLabels[pos.alliance_id] ?? 'Alliance';
@@ -235,7 +331,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                 <tbody>
                                     {matches.length === 0 ? (
                                         <tr>
-                                            <td colSpan={positions.length + 3} className="text-muted-foreground px-4 py-8 text-center">
+                                            <td colSpan={positions.length + 4} className="text-muted-foreground px-4 py-8 text-center">
                                                 No matches found
                                             </td>
                                         </tr>
@@ -243,6 +339,9 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                         matches.map((match) => (
                                             <tr key={match.id} className="hover:bg-muted/50 border-b">
                                                 <td className="px-4 py-2 font-medium">{match.number}</td>
+                                                <td className="px-4 py-2 whitespace-nowrap tabular-nums">
+                                                    {formatMatchTime(match.start_time, eventTimezone)}
+                                                </td>
                                                 <td className="px-4 py-2">
                                                     <Badge className={cn('capitalize', statusColor(match.status))}>{match.status}</Badge>
                                                 </td>

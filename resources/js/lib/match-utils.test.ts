@@ -1,6 +1,6 @@
 import type { CompetitionMatch } from '@/types';
 import { describe, expect, it } from 'vitest';
-import { getAllianceBreakdown, getAllianceScore, getMatchTitle } from './match-utils';
+import { getAllianceBreakdown, getAllianceScore, getMatchTitle, scheduleDriftMinutes } from './match-utils';
 
 function makeMatch(points: number | undefined): CompetitionMatch {
     return {
@@ -92,5 +92,32 @@ describe('match titles', () => {
         expect(getMatchTitle({ number: 12, type: 'qualification', round: null })).toBe('Qualification 12');
         expect(getMatchTitle({ number: 2, type: 'elimination', round: 'semifinal_1' })).toBe('Semifinal 1 · Match 2');
         expect(getMatchTitle({ number: 7, type: 'elimination', round: 'tiebreaker_final' })).toBe('Tiebreaker Final · Match 7');
+    });
+});
+
+describe('schedule drift', () => {
+    const at = (iso: string) => new Date(iso).getTime();
+    const match = (id: number, status: string, start: string, startedAt: string | null = null): CompetitionMatch => ({
+        ...makeMatch(0),
+        id,
+        status,
+        start_time: start,
+        started_at: startedAt,
+    });
+
+    it('measures the running match against its planned time', () => {
+        const matches = [match(1, 'completed', '2026-12-01T09:00:00Z'), match(2, 'ongoing', '2026-12-01T09:07:00Z', '2026-12-01T09:12:00Z')];
+
+        expect(scheduleDriftMinutes(matches, at('2026-12-01T09:13:00Z'))).toBe(5);
+    });
+
+    it('shows being ahead when the next match could start early', () => {
+        const matches = [match(1, 'completed', '2026-12-01T09:00:00Z'), match(2, 'upcoming', '2026-12-01T09:07:00Z')];
+
+        expect(scheduleDriftMinutes(matches, at('2026-12-01T09:04:00Z'))).toBe(-3);
+    });
+
+    it('says nothing before the first match is played', () => {
+        expect(scheduleDriftMinutes([match(1, 'upcoming', '2026-12-01T09:00:00Z')], at('2026-11-30T20:00:00Z'))).toBeNull();
     });
 });

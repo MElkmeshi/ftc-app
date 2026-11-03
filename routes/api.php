@@ -52,6 +52,8 @@ Route::middleware(['auth', 'can:control-matches'])->group(function () {
 
 Route::middleware(['auth', 'can:manage-competition'])->group(function () {
     Route::post('/matches/generate-schedule', [MatchController::class, 'generateSchedule']);
+    Route::get('/matches/schedule-timing', [MatchController::class, 'scheduleTiming']);
+    Route::put('/matches/schedule-timing', [MatchController::class, 'updateScheduleTiming']);
     Route::delete('/matches/delete-all', [MatchController::class, 'deleteAll']);
     Route::post('/score-types', [ScoreTypeController::class, 'store']);
     Route::put('/score-types/{scoreType}', [ScoreTypeController::class, 'update']);

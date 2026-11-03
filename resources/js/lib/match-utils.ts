@@ -165,3 +165,46 @@ export function getMatchTitle(match: Pick<CompetitionMatch, 'number' | 'type' | 
 
     return `${round} · Match ${match.number}`;
 }
+
+/**
+ * "9:42 AM" at the venue (the event's timezone, so every screen agrees with
+ * the schedule form), or "" when the match has no planned time.
+ */
+export function formatMatchTime(startTime: string | null | undefined, timeZone?: string): string {
+    if (!startTime) {
+        return '';
+    }
+
+    const date = new Date(startTime);
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    try {
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone });
+    } catch {
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+}
+
+/**
+ * How far the event is from its plan, in whole minutes: positive when running
+ * behind, negative when ahead. Measured on the match that is running now, or
+ * on the next match to play against the current time.
+ */
+export function scheduleDriftMinutes(matches: CompetitionMatch[], now: number): number | null {
+    const running = matches.find((match) => match.status === 'ongoing');
+    const reference = running ?? matches.find((match) => match.status === 'upcoming');
+    const underway = running !== undefined || matches.some((match) => match.status === 'completed');
+
+    // Before the first match nothing is late or early yet.
+    if (!reference?.start_time || !underway) {
+        return null;
+    }
+
+    const planned = new Date(reference.start_time).getTime();
+    const actual = running?.started_at ? new Date(running.started_at).getTime() : now;
+
+    return Math.round((actual - planned) / 60000);
+}

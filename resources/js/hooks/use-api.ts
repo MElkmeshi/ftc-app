@@ -1,3 +1,4 @@
+import { type ScheduleTimingValue } from '@/components/schedule-timing-fields';
 import { eventApiUrl } from '@/lib/event';
 import {
     AllianceGroup,
@@ -250,9 +251,20 @@ export const useApi = () => {
     }, []);
 
     // Match Schedule
-    const generateSchedule = useCallback(async (data: { matches_per_team: number; teams_per_alliance: number }): Promise<void> => {
-        await post('/api/matches/generate-schedule', data);
+    const getScheduleTiming = useCallback(async (): Promise<ScheduleTimingValue> => {
+        return get('/api/matches/schedule-timing');
     }, []);
+
+    const updateScheduleTiming = useCallback(async (data: ScheduleTimingValue): Promise<ScheduleTimingValue> => {
+        return put('/api/matches/schedule-timing', data);
+    }, []);
+
+    const generateSchedule = useCallback(
+        async (data: { matches_per_team: number; teams_per_alliance: number } & Partial<ScheduleTimingValue>): Promise<void> => {
+            await post('/api/matches/generate-schedule', data);
+        },
+        [],
+    );
 
     const deleteAllMatches = useCallback(async (): Promise<void> => {
         await del('/api/matches/delete-all');
@@ -272,6 +284,8 @@ export const useApi = () => {
         endMatch,
         cancelMatch,
         setAudienceDisplay,
+        getScheduleTiming,
+        updateScheduleTiming,
         getTeams,
         createTeam,
         updateTeam,

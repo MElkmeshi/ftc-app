@@ -37,6 +37,7 @@ class CompetitionMatch extends Model
         return [
             'status' => MatchStatus::class,
             'type' => MatchType::class,
+            'start_time' => 'datetime',
             'started_at' => 'datetime',
             'duration_ms' => 'integer',
             'ended_at' => 'datetime',
