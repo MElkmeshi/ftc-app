@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { type DisplayConfig, displayConfigQuery, displayPlaysSound, isDisplayConfigured, parseDisplayConfig } from './display-config';
 
-const config = (overrides: Partial<DisplayConfig>): DisplayConfig => ({ type: 'audience', mute: false, flipped: false, field: null, ...overrides });
+const config = (overrides: Partial<DisplayConfig>): DisplayConfig => ({
+    type: 'audience',
+    mute: false,
+    flipped: false,
+    field: null,
+    name: null,
+    ...overrides,
+});
 
 describe('display config', () => {
     it('reads the type and options from the address', () => {
-        expect(parseDisplayConfig('?type=field&mute=1&flipped=1&field=2')).toEqual({ type: 'field', mute: true, flipped: true, field: 2 });
+        expect(parseDisplayConfig('?type=field&mute=1&flipped=1&field=2')).toEqual({
+            type: 'field',
+            mute: true,
+            flipped: true,
+            field: 2,
+            name: null,
+        });
     });
 
     it('falls back to the audience display for a missing or unknown type, and to every field for a bad field', () => {
@@ -24,6 +37,12 @@ describe('display config', () => {
         expect(displayConfigQuery(config({ type: 'pit', mute: true, flipped: true, field: 2 }))).toBe('?type=pit');
         expect(displayConfigQuery(config({ type: 'field', mute: true, flipped: true, field: 2 }))).toBe('?type=field&mute=1&flipped=1&field=2');
         expect(displayConfigQuery(config({ type: 'audience', flipped: true, field: 2 }))).toBe('?type=audience');
+    });
+
+    it('keeps a short name for the screen', () => {
+        expect(parseDisplayConfig('?type=pit&name=Pit%20TV%202').name).toBe('Pit TV 2');
+        expect(parseDisplayConfig('?type=pit&name=%20%20').name).toBeNull();
+        expect(displayConfigQuery(config({ type: 'pit', name: 'Pit TV' }))).toBe('?type=pit&name=Pit+TV');
     });
 
     it('only plays sound on unmuted screens that have sounds', () => {

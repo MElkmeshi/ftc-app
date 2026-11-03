@@ -35,7 +35,7 @@ class DisplayController extends Controller
             }
         }
 
-        $display->show($mode, $matchId);
+        $display->show($mode, $matchId, $request->validated('message'));
 
         return response()->json($display->state());
     }

@@ -1,3 +1,4 @@
+import { DisplaySwitch } from '@/components/match-control/display-switch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -240,8 +241,28 @@ function AllianceSummary({ match, color }: { match: CompetitionMatch; color: 're
     );
 }
 
+type ConsoleTab = 'matches' | 'displays';
+
+const CONSOLE_TABS: { value: ConsoleTab; label: string }[] = [
+    { value: 'matches', label: 'Matches' },
+    { value: 'displays', label: 'Displays' },
+];
+
+/** The open tab is kept in the address (#displays), like FTC Live's match control tabs. */
+function useConsoleTab(): [ConsoleTab, (tab: ConsoleTab) => void] {
+    const [tab, setTab] = useState<ConsoleTab>(() => (window.location.hash === '#displays' ? 'displays' : 'matches'));
+
+    const changeTab = (next: ConsoleTab) => {
+        setTab(next);
+        window.history.replaceState(window.history.state, '', next === 'matches' ? window.location.pathname : '#displays');
+    };
+
+    return [tab, changeTab];
+}
+
 export default function MatchControlConsole() {
     const fieldCount = useFieldCount();
+    const [tab, changeTab] = useConsoleTab();
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
     const { value: display } = useProp<AudienceDisplayState>('display');
     const { value: displayModes = [] } = useProp<DisplayModeOption[]>('displayModes');
@@ -280,9 +301,9 @@ export default function MatchControlConsole() {
     const error = errorMessage(loadMatch.error ?? startMatch.error ?? endMatch.error ?? cancelMatch.error) ?? displayError;
     const phaseColors = getPhaseColors(timer.phase);
 
-    const show = (mode: DisplayModeValue, matchId?: number | null) => {
+    const show = (mode: DisplayModeValue, matchId?: number | null, message?: string) => {
         setDisplayError(null);
-        api.setAudienceDisplay(mode, matchId)
+        api.setAudienceDisplay(mode, matchId, message)
             .then(() => router.reload({ only: ['display'] }))
             .catch((e) => setDisplayError(errorMessage(e)));
     };
@@ -298,156 +319,206 @@ export default function MatchControlConsole() {
             <Head title="Match Control" />
 
             <div className="space-y-4 p-4">
-                <Card>
-                    <CardContent className="flex flex-wrap items-center gap-2 py-3">
-                        <span className="text-muted-foreground mr-2 text-sm font-medium">Audience display:</span>
-                        {displayModes.map((mode) => (
-                            <Button
-                                key={mode.value}
-                                size="sm"
-                                variant={display?.mode === mode.value ? 'default' : 'outline'}
-                                onClick={() => show(mode.value, ['preview', 'match', 'results'].includes(mode.value) ? selected?.id : null)}
-                            >
-                                {mode.label}
-                            </Button>
-                        ))}
-                        <Button asChild size="sm" variant="ghost" className="ml-auto">
-                            <a href={eventUrl('/display?type=audience')} target="_blank" rel="noreferrer">
-                                <ExternalLink className="mr-1 size-4" /> Open display
-                            </a>
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)]">
-                    <MatchList matches={matches} selectedId={selected?.id ?? null} onSelect={(match) => setChosenId(match.id)} />
-
-                    <Card className="h-fit xl:sticky xl:top-4">
-                        {selected ? (
-                            <>
-                                <CardHeader className="space-y-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <CardTitle className="text-2xl">{getMatchTitle(selected)}</CardTitle>
-                                        <Badge className={(STATUS_BADGES[selected.status] ?? STATUS_BADGES.upcoming).className}>
-                                            {(STATUS_BADGES[selected.status] ?? STATUS_BADGES.upcoming).label}
-                                        </Badge>
-                                    </div>
-                                    {getFieldLabel(selected, fieldCount) && (
-                                        <p className="text-muted-foreground text-sm font-medium">{getFieldLabel(selected, fieldCount)}</p>
-                                    )}
-                                    {isLoaded && <p className="text-sm text-emerald-600">Loaded — the audience display is showing the preview.</p>}
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="flex gap-3">
-                                        <AllianceSummary match={selected} color="red" />
-                                        <AllianceSummary match={selected} color="blue" />
-                                    </div>
-
-                                    {selected.status === 'ongoing' && (
-                                        <div className="bg-muted rounded-lg p-4 text-center">
-                                            <div className={cn('text-sm font-bold tracking-widest', phaseColors.text)}>
-                                                {getPhaseLabel(timer.phase)}
-                                            </div>
-                                            <div className="text-5xl font-black tabular-nums">
-                                                {timer.phase === 'autonomous'
-                                                    ? formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))
-                                                    : formatTime(timer.phase === 'pre-match' ? 0 : timer.phaseRemainingSeconds)}
-                                            </div>
-                                            <div className="bg-background mt-2 h-2 overflow-hidden rounded-full">
-                                                <div className={cn('h-full', phaseColors.bg)} style={{ width: `${timer.progressPercent}%` }} />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {error && <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>}
-
-                                    <div className="grid gap-2">
-                                        {selected.status === 'upcoming' && (
-                                            <>
-                                                <Button
-                                                    variant="outline"
-                                                    disabled={busy || isLoaded}
-                                                    onClick={() => loadMatch.mutate(selected.id, refresh)}
-                                                >
-                                                    <Upload className="mr-1 size-4" /> {isLoaded ? 'Loaded' : 'Load match & show preview'}
-                                                </Button>
-                                                <Button
-                                                    size="lg"
-                                                    className="bg-emerald-600 text-white hover:bg-emerald-700"
-                                                    disabled={busy || ongoing !== null}
-                                                    onClick={() => startMatch.mutate(selected.id, refresh)}
-                                                >
-                                                    <Play className="mr-1 size-5" /> Start match
-                                                </Button>
-                                                {ongoing && (
-                                                    <p className="text-muted-foreground text-xs">{getMatchTitle(ongoing)} is still running.</p>
-                                                )}
-                                            </>
-                                        )}
-
-                                        {selected.status === 'ongoing' && (
-                                            <>
-                                                {confirmingAbort ? (
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        <Button
-                                                            variant="destructive"
-                                                            disabled={busy}
-                                                            onClick={() => {
-                                                                setConfirmingAbort(false);
-                                                                cancelMatch.mutate(selected.id, refresh);
-                                                            }}
-                                                        >
-                                                            Yes, abort
-                                                        </Button>
-                                                        <Button variant="outline" onClick={() => setConfirmingAbort(false)}>
-                                                            Keep running
-                                                        </Button>
-                                                    </div>
-                                                ) : (
-                                                    <Button size="lg" variant="destructive" disabled={busy} onClick={() => setConfirmingAbort(true)}>
-                                                        <Octagon className="mr-1 size-5" /> Abort match
-                                                    </Button>
-                                                )}
-                                                <Button variant="outline" disabled={busy} onClick={() => endMatch.mutate(selected.id, refresh)}>
-                                                    <Square className="mr-1 size-4" /> End match now
-                                                </Button>
-                                                <p className="text-muted-foreground text-xs">
-                                                    Abort puts the match back to upcoming so it can be replayed. Scores are kept.
-                                                </p>
-                                            </>
-                                        )}
-
-                                        {selected.status === 'completed' && (
-                                            <>
-                                                <Button
-                                                    size="lg"
-                                                    disabled={display?.mode === 'results' && display.match_id === selected.id}
-                                                    onClick={() => show('results', selected.id)}
-                                                >
-                                                    <Megaphone className="mr-1 size-5" />
-                                                    {display?.mode === 'results' && display.match_id === selected.id
-                                                        ? 'Results posted'
-                                                        : 'Post results to display'}
-                                                </Button>
-                                                <Button asChild variant="outline">
-                                                    <a href={eventUrl('/referee/scoring')}>
-                                                        <Flag className="mr-1 size-4" /> Review scores
-                                                    </a>
-                                                </Button>
-                                            </>
-                                        )}
-
-                                        <Button variant="ghost" onClick={selectNext} disabled={!nextUpcoming}>
-                                            Next match <ChevronRight className="ml-1 size-4" />
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </>
-                        ) : (
-                            <CardContent className="text-muted-foreground py-10 text-center text-sm">Select a match to control it.</CardContent>
-                        )}
-                    </Card>
+                <div className="flex gap-1 border-b" role="tablist">
+                    {CONSOLE_TABS.map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === option.value}
+                            onClick={() => changeTab(option.value)}
+                            className={cn(
+                                '-mb-px border-b-2 px-4 py-2 text-sm font-medium transition',
+                                tab === option.value
+                                    ? 'border-primary text-foreground'
+                                    : 'text-muted-foreground hover:text-foreground border-transparent',
+                            )}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
                 </div>
+
+                {displayError && tab === 'displays' && <p className="text-destructive text-sm">{displayError}</p>}
+
+                {tab === 'displays' ? (
+                    <DisplaySwitch display={display} onShow={(mode, message) => show(mode, null, message)} />
+                ) : (
+                    <>
+                        <Card>
+                            <CardContent className="flex flex-wrap items-center gap-2 py-3">
+                                <span className="text-muted-foreground mr-2 text-sm font-medium">Audience display:</span>
+                                {displayModes
+                                    .filter((mode) => mode.value !== 'message')
+                                    .map((mode) => (
+                                        <Button
+                                            key={mode.value}
+                                            size="sm"
+                                            variant={display?.mode === mode.value ? 'default' : 'outline'}
+                                            onClick={() =>
+                                                show(mode.value, ['preview', 'match', 'results'].includes(mode.value) ? selected?.id : null)
+                                            }
+                                        >
+                                            {mode.label}
+                                        </Button>
+                                    ))}
+                                <Button asChild size="sm" variant="ghost" className="ml-auto">
+                                    <a href={eventUrl('/display?type=audience')} target="_blank" rel="noreferrer">
+                                        <ExternalLink className="mr-1 size-4" /> Open display
+                                    </a>
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)]">
+                            <MatchList matches={matches} selectedId={selected?.id ?? null} onSelect={(match) => setChosenId(match.id)} />
+
+                            <Card className="h-fit xl:sticky xl:top-4">
+                                {selected ? (
+                                    <>
+                                        <CardHeader className="space-y-1">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <CardTitle className="text-2xl">{getMatchTitle(selected)}</CardTitle>
+                                                <Badge className={(STATUS_BADGES[selected.status] ?? STATUS_BADGES.upcoming).className}>
+                                                    {(STATUS_BADGES[selected.status] ?? STATUS_BADGES.upcoming).label}
+                                                </Badge>
+                                            </div>
+                                            {getFieldLabel(selected, fieldCount) && (
+                                                <p className="text-muted-foreground text-sm font-medium">{getFieldLabel(selected, fieldCount)}</p>
+                                            )}
+                                            {isLoaded && (
+                                                <p className="text-sm text-emerald-600">Loaded — the audience display is showing the preview.</p>
+                                            )}
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="flex gap-3">
+                                                <AllianceSummary match={selected} color="red" />
+                                                <AllianceSummary match={selected} color="blue" />
+                                            </div>
+
+                                            {selected.status === 'ongoing' && (
+                                                <div className="bg-muted rounded-lg p-4 text-center">
+                                                    <div className={cn('text-sm font-bold tracking-widest', phaseColors.text)}>
+                                                        {getPhaseLabel(timer.phase)}
+                                                    </div>
+                                                    <div className="text-5xl font-black tabular-nums">
+                                                        {timer.phase === 'autonomous'
+                                                            ? formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))
+                                                            : formatTime(timer.phase === 'pre-match' ? 0 : timer.phaseRemainingSeconds)}
+                                                    </div>
+                                                    <div className="bg-background mt-2 h-2 overflow-hidden rounded-full">
+                                                        <div
+                                                            className={cn('h-full', phaseColors.bg)}
+                                                            style={{ width: `${timer.progressPercent}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {error && <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>}
+
+                                            <div className="grid gap-2">
+                                                {selected.status === 'upcoming' && (
+                                                    <>
+                                                        <Button
+                                                            variant="outline"
+                                                            disabled={busy || isLoaded}
+                                                            onClick={() => loadMatch.mutate(selected.id, refresh)}
+                                                        >
+                                                            <Upload className="mr-1 size-4" /> {isLoaded ? 'Loaded' : 'Load match & show preview'}
+                                                        </Button>
+                                                        <Button
+                                                            size="lg"
+                                                            className="bg-emerald-600 text-white hover:bg-emerald-700"
+                                                            disabled={busy || ongoing !== null}
+                                                            onClick={() => startMatch.mutate(selected.id, refresh)}
+                                                        >
+                                                            <Play className="mr-1 size-5" /> Start match
+                                                        </Button>
+                                                        {ongoing && (
+                                                            <p className="text-muted-foreground text-xs">
+                                                                {getMatchTitle(ongoing)} is still running.
+                                                            </p>
+                                                        )}
+                                                    </>
+                                                )}
+
+                                                {selected.status === 'ongoing' && (
+                                                    <>
+                                                        {confirmingAbort ? (
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <Button
+                                                                    variant="destructive"
+                                                                    disabled={busy}
+                                                                    onClick={() => {
+                                                                        setConfirmingAbort(false);
+                                                                        cancelMatch.mutate(selected.id, refresh);
+                                                                    }}
+                                                                >
+                                                                    Yes, abort
+                                                                </Button>
+                                                                <Button variant="outline" onClick={() => setConfirmingAbort(false)}>
+                                                                    Keep running
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <Button
+                                                                size="lg"
+                                                                variant="destructive"
+                                                                disabled={busy}
+                                                                onClick={() => setConfirmingAbort(true)}
+                                                            >
+                                                                <Octagon className="mr-1 size-5" /> Abort match
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            variant="outline"
+                                                            disabled={busy}
+                                                            onClick={() => endMatch.mutate(selected.id, refresh)}
+                                                        >
+                                                            <Square className="mr-1 size-4" /> End match now
+                                                        </Button>
+                                                        <p className="text-muted-foreground text-xs">
+                                                            Abort puts the match back to upcoming so it can be replayed. Scores are kept.
+                                                        </p>
+                                                    </>
+                                                )}
+
+                                                {selected.status === 'completed' && (
+                                                    <>
+                                                        <Button
+                                                            size="lg"
+                                                            disabled={display?.mode === 'results' && display.match_id === selected.id}
+                                                            onClick={() => show('results', selected.id)}
+                                                        >
+                                                            <Megaphone className="mr-1 size-5" />
+                                                            {display?.mode === 'results' && display.match_id === selected.id
+                                                                ? 'Results posted'
+                                                                : 'Post results to display'}
+                                                        </Button>
+                                                        <Button asChild variant="outline">
+                                                            <a href={eventUrl('/referee/scoring')}>
+                                                                <Flag className="mr-1 size-4" /> Review scores
+                                                            </a>
+                                                        </Button>
+                                                    </>
+                                                )}
+
+                                                <Button variant="ghost" onClick={selectNext} disabled={!nextUpcoming}>
+                                                    Next match <ChevronRight className="ml-1 size-4" />
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </>
+                                ) : (
+                                    <CardContent className="text-muted-foreground py-10 text-center text-sm">
+                                        Select a match to control it.
+                                    </CardContent>
+                                )}
+                            </Card>
+                        </div>
+                    </>
+                )}
             </div>
         </AppLayout>
     );

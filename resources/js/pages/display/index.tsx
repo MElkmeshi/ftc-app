@@ -5,6 +5,7 @@ import { FieldScreen } from '@/components/display/field-screen';
 import { PitScreen } from '@/components/display/pit-screen';
 import { StreamOverlayScreen } from '@/components/display/stream-overlay-screen';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
+import { useDisplayPresence } from '@/hooks/use-display-presence';
 import { type DisplayConfig, displayConfigQuery, displayPlaysSound, isDisplayConfigured, parseDisplayConfig } from '@/lib/display-config';
 import { router, usePage } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
@@ -47,6 +48,8 @@ export default function Display() {
     const changeConfig = (next: DisplayConfig) => {
         router.get(`${window.location.pathname}${displayConfigQuery(next)}`, {}, { replace: true, preserveScroll: true });
     };
+
+    useDisplayPresence(config, changeConfig);
 
     return (
         <>

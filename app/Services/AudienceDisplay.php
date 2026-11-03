@@ -20,7 +20,7 @@ class AudienceDisplay
     public function __construct(private CurrentEvent $currentEvent) {}
 
     /**
-     * @return array{mode: string, match_id: int|null, changed_at: string|null}
+     * @return array{mode: string, match_id: int|null, message: string|null, changed_at: string|null}
      */
     public function state(): array
     {
@@ -29,19 +29,25 @@ class AudienceDisplay
         return [
             'mode' => DisplayMode::tryFrom($stored['mode'] ?? '')?->value ?? DisplayMode::Blank->value,
             'match_id' => $stored['match_id'] ?? null,
+            'message' => $stored['message'] ?? null,
             'changed_at' => $stored['changed_at'] ?? null,
         ];
     }
 
-    public function show(DisplayMode $mode, ?int $matchId = null): void
+    /**
+     * @param  string|null  $message  The text for the message screen; the last one is kept so it can be shown again.
+     */
+    public function show(DisplayMode $mode, ?int $matchId = null, ?string $message = null): void
     {
-        if ($mode->needsMatch() && $matchId === null) {
-            $matchId = $this->state()['match_id'];
-        }
+        $current = $this->state();
+
+        // Remember the match across screens like rankings or a message, so results can still be posted after.
+        $matchId ??= $current['match_id'];
 
         $state = [
             'mode' => $mode->value,
             'match_id' => $matchId,
+            'message' => $message ?? $current['message'],
             'changed_at' => now()->toIso8601String(),
         ];
 

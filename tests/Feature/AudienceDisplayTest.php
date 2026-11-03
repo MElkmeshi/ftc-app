@@ -79,10 +79,26 @@ it('shows match control to head referees with every match', function () {
     $this->get('/match-control')->assertOk()->assertInertia(fn ($page) => $page
         ->component('match-control/index')
         ->has('matches', 2)
-        ->has('displayModes', 7)
+        ->has('displayModes', 8)
     );
 });
 
 it('sends the old pit address to the display with the pit type chosen', function () {
     $this->get('/display/pit')->assertRedirect('/event/testevent/display?type=pit');
+});
+
+it('shows a message on the audience displays and keeps the match for posting results later', function () {
+    $played = CompetitionMatch::factory()->create(['status' => MatchStatus::COMPLETED]);
+    $this->putJson('/api/display', ['mode' => 'preview', 'match_id' => $played->id])->assertOk();
+
+    $this->putJson('/api/display', ['mode' => 'message', 'message' => "Lunch break\nBack at 1:00"])
+        ->assertOk()
+        ->assertJsonPath('mode', 'message')
+        ->assertJsonPath('message', "Lunch break\nBack at 1:00");
+
+    $this->putJson('/api/display', ['mode' => 'results'])->assertOk()->assertJsonPath('match_id', $played->id);
+});
+
+it('needs text to show a message', function () {
+    $this->putJson('/api/display', ['mode' => 'message'])->assertUnprocessable()->assertJsonValidationErrors('message');
 });

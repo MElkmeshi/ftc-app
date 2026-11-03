@@ -33,11 +33,19 @@ it('leaves audience reads public', function (string $uri) {
 })->with(['/api/matches', '/api/matches/active', '/api/matches/loaded', '/api/matches/teams-display', '/api/score-types', '/api/teams', '/api/groups', '/api/settings/competition', '/api/elimination/bracket']);
 
 it('keeps every API route in the web middleware group and protects mutations with a gate', function () {
+    // Public on purpose: a display screen reporting that it is open (throttled, touches no competition data).
+    $publicWrites = ['api.display.report'];
+
     foreach (Route::getRoutes() as $route) {
         if (! str_starts_with($route->uri(), 'api/')) {
             continue;
         }
         expect($route->gatherMiddleware())->toContain('web')->not->toContain('api');
+        if (in_array($route->getName(), $publicWrites, true)) {
+            expect($route->gatherMiddleware())->toContain('throttle:60,1');
+
+            continue;
+        }
         if (! in_array('GET', $route->methods(), true)) {
             expect($route->gatherMiddleware())->toContain('auth');
             expect(collect($route->gatherMiddleware())->contains(fn (string $middleware): bool => str_starts_with($middleware, 'can:')))->toBeTrue();

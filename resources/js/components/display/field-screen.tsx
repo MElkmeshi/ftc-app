@@ -4,7 +4,8 @@ import { type SoundName } from '@/hooks/use-audio-engine';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { useLoadedMatch, useMatch, useMatches } from '@/hooks/use-match';
 import { getFieldLabel } from '@/lib/match-utils';
-import { type CompetitionMatch } from '@/types';
+import { type AudienceDisplayState, type CompetitionMatch } from '@/types';
+import { useProp } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 /**
@@ -22,11 +23,14 @@ export function FieldScreen({ playSound, flipped, field }: { playSound?: (name: 
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound, field: boundField });
     const { data: anyLoadedMatch } = useLoadedMatch(5000);
     const { data: matches = [] } = useMatches(15000);
+    const { value: display } = useProp<AudienceDisplayState>('display');
     const [lastPlayedMatchId, setLastPlayedMatchId] = useState<number | null>(null);
 
     const isOnThisField = (match: CompetitionMatch | null | undefined): match is CompetitionMatch =>
         !!match && (!boundField || match.field === boundField);
-    const loadedMatch = isOnThisField(anyLoadedMatch) ? anyLoadedMatch : null;
+    // The match match control has put up for preview counts as loaded too.
+    const previewMatch = display?.mode === 'preview' ? matches.find((match) => match.id === display.match_id) : undefined;
+    const loadedMatch = isOnThisField(anyLoadedMatch) ? anyLoadedMatch : isOnThisField(previewMatch) ? previewMatch : null;
     const nextOnField = boundField
         ? matches.filter((match) => match.status === 'upcoming' && match.field === boundField).sort((a, b) => a.number - b.number)[0]
         : undefined;

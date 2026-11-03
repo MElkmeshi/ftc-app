@@ -19,6 +19,7 @@ class UpdateAudienceDisplayRequest extends FormRequest
         return [
             'mode' => ['required', Rule::enum(DisplayMode::class)],
             'match_id' => ['nullable', 'integer', $this->existsInEvent('matches')->whereNull('deleted_at')],
+            'message' => ['nullable', 'string', 'max:2000', Rule::requiredIf($this->input('mode') === DisplayMode::Message->value)],
         ];
     }
 }

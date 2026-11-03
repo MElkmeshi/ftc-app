@@ -12,6 +12,8 @@ export interface DisplayConfig {
     flipped: boolean;
     /** The one field this screen follows at a multi-field event; null follows every field. */
     field: number | null;
+    /** A label so the screen can be told apart in match control, e.g. "Pit TV 2". */
+    name: string | null;
 }
 
 export interface DisplayTypeOption {
@@ -54,7 +56,7 @@ export const DISPLAY_TYPES: DisplayTypeOption[] = [
     },
 ];
 
-export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = { type: 'audience', mute: false, flipped: false, field: null };
+export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = { type: 'audience', mute: false, flipped: false, field: null, name: null };
 
 export function displayTypeOption(type: DisplayType): DisplayTypeOption {
     return DISPLAY_TYPES.find((option) => option.value === type) ?? DISPLAY_TYPES[0];
@@ -79,6 +81,7 @@ export function parseDisplayConfig(search: string): DisplayConfig {
         mute: params.get('mute') === '1',
         flipped: params.get('flipped') === '1',
         field: Number.isInteger(field) && field >= 1 ? field : null,
+        name: params.get('name')?.trim().slice(0, 40) || null,
     };
 }
 
@@ -97,6 +100,10 @@ export function displayConfigQuery(config: DisplayConfig): string {
 
     if (config.field && option.canFlip) {
         params.set('field', String(config.field));
+    }
+
+    if (config.name?.trim()) {
+        params.set('name', config.name.trim().slice(0, 40));
     }
 
     return `?${params.toString()}`;

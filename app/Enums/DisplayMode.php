@@ -15,6 +15,7 @@ enum DisplayMode: string
     case Rankings = 'rankings';
     case Bracket = 'bracket';
     case AllianceSelection = 'alliance_selection';
+    case Message = 'message';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum DisplayMode: string
             self::Rankings => 'Rankings',
             self::Bracket => 'Playoff bracket',
             self::AllianceSelection => 'Alliance selection',
+            self::Message => 'Message',
         };
     }
 

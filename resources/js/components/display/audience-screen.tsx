@@ -38,6 +38,19 @@ export function BlankScreen() {
     );
 }
 
+/** Free text from match control (a break, a schedule change, an announcement), large enough to read across a gym. */
+export function MessageScreen({ message }: { message: string }) {
+    const { event } = usePage<SharedData>().props;
+
+    return (
+        <div className={cn(SCREEN, 'items-center justify-center gap-8 px-16')}>
+            <Head title="Message" />
+            <p className="text-2xl tracking-[0.3em] text-white/50 uppercase">{event?.name}</p>
+            <p className="max-w-6xl text-center text-6xl leading-tight font-bold break-words whitespace-pre-line">{message}</p>
+        </div>
+    );
+}
+
 function AllianceColumn({ match, color, children }: { match: CompetitionMatch; color: 'red' | 'blue'; children?: React.ReactNode }) {
     return (
         <div
@@ -218,7 +231,14 @@ export function AudienceScreen({ playSound }: { playSound?: (name: SoundName) =>
         case 'preview':
             return match ? <PreviewScreen match={match} /> : <BlankScreen />;
         case 'match':
-            return <MatchScreen match={match} timer={timer} teleopSeconds={matchConfig?.timing.teleop ?? 120} />;
+            return (
+                <MatchScreen
+                    match={match}
+                    timer={timer}
+                    teleopSeconds={matchConfig?.timing.teleop ?? 120}
+                    fieldLabel={match ? getFieldLabel(match, fieldCount) : null}
+                />
+            );
         case 'results':
             return match ? <ResultsScreen match={match} /> : <BlankScreen />;
         case 'rankings':
@@ -227,6 +247,8 @@ export function AudienceScreen({ playSound }: { playSound?: (name: SoundName) =>
             return <EliminationBracketDisplay />;
         case 'alliance_selection':
             return <AllianceSelectionDisplay />;
+        case 'message':
+            return display?.message ? <MessageScreen message={display.message} /> : <BlankScreen />;
         default:
             return <BlankScreen />;
     }

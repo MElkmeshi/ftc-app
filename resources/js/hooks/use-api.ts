@@ -1,10 +1,12 @@
 import { type ScheduleTimingValue } from '@/components/schedule-timing-fields';
+import { type DisplayConfig } from '@/lib/display-config';
 import { eventApiUrl } from '@/lib/event';
 import {
     AllianceGroup,
     AllianceSelectionStatus,
     AudienceDisplayState,
     CompetitionMatch,
+    ConnectedDisplay,
     DashboardStats,
     DisplayModeValue,
     EliminationBracket,
@@ -131,8 +133,23 @@ export const useApi = () => {
         return post('/api/matches/cancel', { match_id: matchId });
     }, []);
 
-    const setAudienceDisplay = useCallback(async (mode: DisplayModeValue, matchId?: number | null): Promise<AudienceDisplayState> => {
-        return put('/api/display', { mode, match_id: matchId ?? null });
+    const setAudienceDisplay = useCallback(
+        async (mode: DisplayModeValue, matchId?: number | null, message?: string): Promise<AudienceDisplayState> => {
+            return put('/api/display', { mode, match_id: matchId ?? null, ...(message !== undefined && { message }) });
+        },
+        [],
+    );
+
+    const reportDisplay = useCallback(async (displayId: string, config: DisplayConfig): Promise<void> => {
+        await post('/api/display/connected', { display_id: displayId, ...config });
+    }, []);
+
+    const getConnectedDisplays = useCallback(async (): Promise<ConnectedDisplay[]> => {
+        return get('/api/display/connected');
+    }, []);
+
+    const configureDisplays = useCallback(async (displayIds: string[], changes: Partial<DisplayConfig>): Promise<ConnectedDisplay[]> => {
+        return put('/api/display/connected', { display_ids: displayIds, ...changes });
     }, []);
 
     // Teams
@@ -289,6 +306,9 @@ export const useApi = () => {
         endMatch,
         cancelMatch,
         setAudienceDisplay,
+        reportDisplay,
+        getConnectedDisplays,
+        configureDisplays,
         getScheduleTiming,
         updateScheduleTiming,
         getTeams,

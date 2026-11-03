@@ -1,3 +1,4 @@
+import { type DisplayConfig } from '@/lib/display-config';
 import { LucideIcon } from 'lucide-react';
 import type { Config } from 'ziggy-js';
 
@@ -41,13 +42,23 @@ export interface EventTypeOption {
 }
 
 /** A competition hosted on this server (named to avoid clashing with the DOM `Event`). */
-export type DisplayModeValue = 'blank' | 'preview' | 'match' | 'results' | 'rankings' | 'bracket' | 'alliance_selection';
+export type DisplayModeValue = 'blank' | 'preview' | 'match' | 'results' | 'rankings' | 'bracket' | 'alliance_selection' | 'message';
 
 /** What every audience display is showing, as chosen in match control. */
 export interface AudienceDisplayState {
     mode: DisplayModeValue;
     match_id: number | null;
+    /** The text for the message screen (kept after switching away, so it can be shown again). */
+    message?: string | null;
     changed_at: string | null;
+}
+
+/** A display screen that is open right now, as listed in match control. */
+export interface ConnectedDisplay {
+    id: string;
+    ip: string | null;
+    config: DisplayConfig;
+    last_seen: string;
 }
 
 export interface CompetitionEvent {

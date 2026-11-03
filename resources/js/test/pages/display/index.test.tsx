@@ -8,6 +8,14 @@ vi.mock('@inertiajs/react', () => ({
     router: { get: inertia.get },
 }));
 
+const presence = vi.hoisted(() => ({ onConfigured: null as null | ((config: unknown) => void) }));
+vi.mock('@/hooks/use-display-presence', () => ({
+    useDisplayPresence: (_config: unknown, onConfigured: (config: unknown) => void) => {
+        presence.onConfigured = onConfigured;
+        return 'screen-1';
+    },
+}));
+
 const audio = vi.hoisted(() => ({ playSound: vi.fn(), unlocked: false }));
 vi.mock('@/hooks/use-audio-engine', () => ({ useAudioEngine: () => audio }));
 
@@ -116,5 +124,14 @@ describe('Display', () => {
         fireEvent.click(screen.getByRole('radio', { name: /Field.*drive teams/ }));
 
         expect(screen.queryByRole('radiogroup', { name: 'Field' })).not.toBeInTheDocument();
+    });
+
+    it('switches when match control changes this screen remotely', () => {
+        inertia.url = '/event/main/display?type=audience';
+        render(<Display />);
+
+        presence.onConfigured?.({ type: 'pit', mute: false, flipped: false, field: null, name: 'Pit TV' });
+
+        expect(inertia.get).toHaveBeenCalledWith(expect.stringMatching(/\?type=pit&name=Pit\+TV$/), {}, expect.objectContaining({ replace: true }));
     });
 });

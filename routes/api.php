@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AllianceSelectionController;
+use App\Http\Controllers\Api\ConnectedDisplayController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DisplayController;
 use App\Http\Controllers\Api\EliminationController;
@@ -27,6 +28,8 @@ Route::get('/dashboard/config', [DashboardController::class, 'config']);
 Route::get('/settings/competition', [SettingsController::class, 'getCompetitionSettings']);
 Route::get('/elimination/bracket', [EliminationController::class, 'bracket']);
 Route::get('/display', [DisplayController::class, 'show']);
+/** Display screens are public pages; they only report that they are open, which changes no competition data. */
+Route::post('/display/connected', [ConnectedDisplayController::class, 'report'])->middleware('throttle:60,1')->name('api.display.report');
 
 Route::prefix('alliance-selection')->group(function () {
     Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
@@ -48,6 +51,8 @@ Route::middleware(['auth', 'can:control-matches'])->group(function () {
     Route::post('/matches/end', [MatchController::class, 'endMatch']);
     Route::post('/matches/cancel', [MatchController::class, 'cancelMatch']);
     Route::put('/display', [DisplayController::class, 'update']);
+    Route::get('/display/connected', [ConnectedDisplayController::class, 'index']);
+    Route::put('/display/connected', [ConnectedDisplayController::class, 'configure']);
 });
 
 Route::middleware(['auth', 'can:manage-competition'])->group(function () {
