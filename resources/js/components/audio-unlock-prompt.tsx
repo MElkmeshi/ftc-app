@@ -1,22 +1,25 @@
-import { VolumeX } from 'lucide-react';
-
 /**
  * Browsers block sound until the page gets a real click, tap or key press,
- * and a display normally has nothing to click. FTC Live shows the same
- * warning. It sits in a corner so the screen stays readable, and it goes
- * away by itself as soon as anyone clicks; muting the display hides it too.
+ * and a display normally has nothing to click. Laid out like FTC Live's
+ * warning: a box in the middle of the screen, over the display without
+ * hiding it, which goes away as soon as anyone clicks anywhere.
+ * Muting the display hides it too.
  */
 export function AudioUnlockPrompt() {
     return (
         <div
             role="alert"
-            className="fixed right-4 bottom-4 z-50 flex max-w-sm items-start gap-3 rounded-xl bg-amber-400 p-4 text-slate-950 shadow-2xl"
+            className="fixed top-1/2 left-1/2 z-50 w-[min(700px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border-[5px] border-yellow-400 bg-black p-4 text-center text-2xl text-white shadow-2xl"
         >
-            <VolumeX className="mt-0.5 size-6 shrink-0" />
-            <div>
-                <p className="font-bold">Audio warning</p>
-                <p className="text-sm">This display is set to play sounds but currently cannot. Click anywhere to unmute.</p>
-            </div>
+            <h3 className="mb-2 text-3xl font-bold text-yellow-400">Audio Warning</h3>
+            <p>
+                This display is set to play sounds but currently cannot.
+                <br />
+                Click anywhere to unmute.
+            </p>
+            <button type="button" className="mt-3 rounded-md bg-white px-4 py-1.5 text-xl font-medium text-black hover:bg-white/90">
+                Unmute
+            </button>
         </div>
     );
 }
