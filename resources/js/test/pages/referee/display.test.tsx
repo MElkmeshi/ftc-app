@@ -36,7 +36,7 @@ describe('RefereeDisplay', () => {
         expect(inertia.useProp).toHaveBeenCalledWith('rankings');
         expect(screen.getByText('Red Team')).toBeInTheDocument();
         expect(screen.getByText('Blue Team')).toBeInTheDocument();
-        expect(screen.getByText('Showing 2 teams')).toBeInTheDocument();
+        expect(screen.getByText('2 teams')).toBeInTheDocument();
     });
 
     it('shows the empty state when no matches are completed', () => {
