@@ -57,23 +57,19 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
     });
 
     Route::get('display', function (EventLiveProps $live) {
-        return Inertia::render('display/audience', [
+        return Inertia::render('display/index', [
             'display' => $live->audienceDisplay(),
             'rankings' => $live->rankings(),
             'rankingMethod' => RankingMethod::current()->value,
             'bracket' => $live->bracket(),
-        ]);
-    })->name('display.audience');
-
-    Route::get('display/pit', function (EventLiveProps $live) {
-        return Inertia::render('display/pit', [
-            'rankings' => $live->rankings(),
-            'rankingMethod' => RankingMethod::current()->value,
             'matches' => $live->matches(),
         ]);
-    })->name('display.pit');
+    })->name('display');
 
-    Route::get('referee/match-control', fn () => to_route('display.audience'))->name('referee.match-control');
+    Route::get('display/pit', fn () => to_route('display', ['type' => 'pit']))->name('display.pit');
+    Route::get('display/match-overlay', fn () => to_route('display', ['type' => 'overlay']))->name('display.match-overlay');
+
+    Route::get('referee/match-control', fn () => to_route('display'))->name('referee.match-control');
 
     Route::get('match-control', function (EventLiveProps $live) {
         return Inertia::render('match-control/index', [
@@ -94,10 +90,6 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
     Route::get('referee/display', function (EventLiveProps $live) {
         return Inertia::render('referee/display', ['rankings' => $live->rankings(), 'rankingMethod' => RankingMethod::current()->value]);
     })->name('referee.display');
-
-    Route::get('display/match-overlay', function () {
-        return Inertia::render('display/match-overlay');
-    })->name('display.match-overlay');
 
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('dashboard', function (CurrentEvent $currentEvent, EventSetupChecklist $checklist) {

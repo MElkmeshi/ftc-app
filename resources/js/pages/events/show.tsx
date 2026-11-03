@@ -94,12 +94,18 @@ export default function EventShow() {
                     <LinkList
                         links={[
                             {
-                                label: 'Audience display',
+                                label: 'Display',
                                 href: `${base}/display`,
+                                description: 'open on any screen, then pick audience, field, pit or stream overlay from the gear menu',
+                            },
+                            {
+                                label: 'Audience display',
+                                href: `${base}/display?type=audience`,
                                 description: 'follows match control: preview, timer, results, rankings',
                             },
-                            { label: 'Pit display', href: `${base}/display/pit`, description: 'scrolling rankings and upcoming matches' },
-                            { label: 'Match overlay', href: `${base}/display/match-overlay`, description: 'timer and live score for streams' },
+                            { label: 'Field display', href: `${base}/display?type=field`, description: 'timer and live score for the drive teams' },
+                            { label: 'Pit display', href: `${base}/display?type=pit`, description: 'scrolling rankings and upcoming matches' },
+                            { label: 'Stream overlay', href: `${base}/display?type=overlay`, description: 'green-screen scorebar for livestreams' },
                             { label: 'Rankings display', href: `${base}/referee/display` },
                             { label: 'Alliance selection display', href: `${base}/alliance-selection/display` },
                             { label: 'Bracket display', href: `${base}/elimination/bracket` },

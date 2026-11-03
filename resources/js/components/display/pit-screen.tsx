@@ -74,7 +74,7 @@ function MatchRow({ match, timeZone, live }: { match: CompetitionMatch; timeZone
  * match on the field plus what's coming up sit on the right, so teams know
  * when to queue.
  */
-export default function PitDisplay() {
+export function PitScreen() {
     const { event, rankingMethod } = usePage<SharedData & { rankingMethod?: string }>().props;
     const { value: teams = [] } = useProp<TeamDisplay[]>('rankings');
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');

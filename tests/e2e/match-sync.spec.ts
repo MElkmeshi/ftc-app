@@ -41,7 +41,7 @@ test.describe('match control pushes to the overlay', () => {
         overlay.on('websocket', (socket) => {
             socket.on('framereceived', (frame) => overlaySockets.push(frame.payload.toString()));
         });
-        await overlay.goto('/event/e2e/display/match-overlay');
+        await overlay.goto('/event/e2e/display?type=overlay');
     });
 
     test.afterAll(async () => {

@@ -306,7 +306,7 @@ export default function MatchControlConsole() {
                             </Button>
                         ))}
                         <Button asChild size="sm" variant="ghost" className="ml-auto">
-                            <a href={eventUrl('/display')} target="_blank" rel="noreferrer">
+                            <a href={eventUrl('/display?type=audience')} target="_blank" rel="noreferrer">
                                 <ExternalLink className="mr-1 size-4" /> Open display
                             </a>
                         </Button>

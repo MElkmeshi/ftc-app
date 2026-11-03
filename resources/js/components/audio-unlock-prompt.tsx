@@ -1,18 +1,21 @@
-import { Volume2 } from 'lucide-react';
+import { VolumeX } from 'lucide-react';
 
 /**
- * Autoplay is blocked until the page gets a real click/tap/keypress -- a
- * display page normally has nothing to click, so sound silently never plays
- * until someone does this once. Render conditionally on `useAudioEngine()`'s
- * `unlocked` flag; it dismisses itself the instant that flips true.
+ * Browsers block sound until the page gets a real click, tap or key press,
+ * and a display normally has nothing to click. FTC Live shows the same
+ * warning. It sits in a corner so the screen stays readable, and it goes
+ * away by itself as soon as anyone clicks; muting the display hides it too.
  */
 export function AudioUnlockPrompt() {
     return (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/80 text-center backdrop-blur-sm">
-            <Volume2 className="h-10 w-10 animate-pulse text-white/80" />
-            <div className="max-w-md px-6">
-                <p className="text-lg font-semibold text-white">This display is set to play sounds but currently cannot</p>
-                <p className="mt-1 text-sm text-white/60">Click anywhere to enable audio for match sound cues.</p>
+        <div
+            role="alert"
+            className="fixed right-4 bottom-4 z-50 flex max-w-sm items-start gap-3 rounded-xl bg-amber-400 p-4 text-slate-950 shadow-2xl"
+        >
+            <VolumeX className="mt-0.5 size-6 shrink-0" />
+            <div>
+                <p className="font-bold">Audio warning</p>
+                <p className="text-sm">This display is set to play sounds but currently cannot. Click anywhere to unmute.</p>
             </div>
         </div>
     );

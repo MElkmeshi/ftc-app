@@ -1,7 +1,7 @@
-import { act, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEST_TIMING, renderWithQueryClient } from '@/test/mocks';
 import type { CompetitionMatch, MatchStatusChangedEvent } from '@/types';
+import { act, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const echo = vi.hoisted(() => {
     const handlers = new Map<string, (payload: unknown) => void>();
@@ -38,7 +38,7 @@ vi.mock('@/hooks/use-api', () => ({ useApi: () => api }));
 
 vi.mock('@inertiajs/react', () => ({ Head: () => null }));
 
-const { default: MatchOverlay } = await import('@/pages/display/match-overlay');
+const { StreamOverlayScreen: MatchOverlay } = await import('@/components/display/stream-overlay-screen');
 
 function makeMatch(overrides: Partial<CompetitionMatch> = {}): CompetitionMatch {
     return {

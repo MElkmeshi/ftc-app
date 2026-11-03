@@ -57,13 +57,15 @@ it('does not let referees change the display', function () {
         ->assertForbidden();
 });
 
-it('serves the audience display publicly with its mode as a live prop', function () {
+it('serves one public display page with what every display type needs', function () {
     auth()->logout();
+    CompetitionMatch::factory()->create();
 
-    $this->get('/display')->assertOk()->assertInertia(fn ($page) => $page
-        ->component('display/audience')
+    $this->get('/display?type=pit')->assertOk()->assertInertia(fn ($page) => $page
+        ->component('display/index')
         ->where('display.mode', 'blank')
         ->has('rankings')
+        ->has('matches', 1)
     );
 });
 
@@ -81,13 +83,6 @@ it('shows match control to head referees with every match', function () {
     );
 });
 
-it('serves the pit display publicly with rankings and the schedule', function () {
-    auth()->logout();
-    CompetitionMatch::factory()->create();
-
-    $this->get('/display/pit')->assertOk()->assertInertia(fn ($page) => $page
-        ->component('display/pit')
-        ->has('rankings')
-        ->has('matches', 1)
-    );
+it('sends the old pit address to the display with the pit type chosen', function () {
+    $this->get('/display/pit')->assertRedirect('/event/testevent/display?type=pit');
 });

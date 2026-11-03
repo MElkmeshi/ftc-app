@@ -1,7 +1,6 @@
 import { TeamChip } from '@/components/audience/team-chip';
-import { AudioUnlockPrompt } from '@/components/audio-unlock-prompt';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
-import { useAudioEngine } from '@/hooks/use-audio-engine';
+import { type SoundName } from '@/hooks/use-audio-engine';
 import { useGroups } from '@/hooks/use-groups';
 import { useMatch } from '@/hooks/use-match';
 import {
@@ -24,7 +23,7 @@ import { Trophy } from 'lucide-react';
 
 const SCREEN = 'relative flex h-screen w-screen flex-col overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white';
 
-function BlankScreen() {
+export function BlankScreen() {
     const { event, name } = usePage<SharedData>().props;
 
     return (
@@ -85,14 +84,19 @@ function PreviewScreen({ match }: { match: CompetitionMatch }) {
     );
 }
 
-function MatchScreen({
+export function MatchScreen({
     match,
     timer,
     teleopSeconds,
+    flipped = false,
+    waitingLabel = 'Waiting for match',
 }: {
-    match: CompetitionMatch | undefined;
+    match: CompetitionMatch | null | undefined;
     timer: ReturnType<typeof useActiveMatchTimer>['timer'];
     teleopSeconds: number;
+    /** Put blue on the left, for a screen that faces the field from the other side. */
+    flipped?: boolean;
+    waitingLabel?: string;
 }) {
     const phaseColors = getPhaseColors(timer.phase);
     const clock =
@@ -106,10 +110,10 @@ function MatchScreen({
         <div className={SCREEN}>
             <Head title={match ? getMatchTitle(match) : 'Match'} />
             <header className="border-b border-white/10 bg-white/5 px-8 py-4 text-center text-3xl font-bold">
-                {match ? getMatchTitle(match) : 'Waiting for match'}
+                {match ? getMatchTitle(match) : waitingLabel}
             </header>
 
-            <div className="flex flex-1 items-center gap-8 px-10">
+            <div className={cn('flex flex-1 items-center justify-center gap-8 px-10', flipped && 'flex-row-reverse')}>
                 {match && (
                     <AllianceColumn match={match} color="red">
                         <span className="text-9xl font-black tabular-nums">{getAllianceScore(match, 'red')}</span>
@@ -192,38 +196,28 @@ function ResultsScreen({ match }: { match: CompetitionMatch }) {
  * shows; this page just follows, so a display that reloads or joins late
  * always lands on the right screen.
  */
-export default function AudienceDisplay() {
+export function AudienceScreen({ playSound }: { playSound?: (name: SoundName) => void }) {
     const { value: display } = useProp<AudienceDisplayState>('display');
-    const { playSound, unlocked } = useAudioEngine();
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound });
 
     const mode = display?.mode ?? 'blank';
     const matchId = mode === 'match' ? (activeMatch?.id ?? display?.match_id ?? null) : (display?.match_id ?? null);
     const { data: match } = useMatch(matchId, 10000);
 
-    const screen = (() => {
-        switch (mode) {
-            case 'preview':
-                return match ? <PreviewScreen match={match} /> : <BlankScreen />;
-            case 'match':
-                return <MatchScreen match={match} timer={timer} teleopSeconds={matchConfig?.timing.teleop ?? 120} />;
-            case 'results':
-                return match ? <ResultsScreen match={match} /> : <BlankScreen />;
-            case 'rankings':
-                return <RefereeDisplay />;
-            case 'bracket':
-                return <EliminationBracketDisplay />;
-            case 'alliance_selection':
-                return <AllianceSelectionDisplay />;
-            default:
-                return <BlankScreen />;
-        }
-    })();
-
-    return (
-        <>
-            {!unlocked && <AudioUnlockPrompt />}
-            {screen}
-        </>
-    );
+    switch (mode) {
+        case 'preview':
+            return match ? <PreviewScreen match={match} /> : <BlankScreen />;
+        case 'match':
+            return <MatchScreen match={match} timer={timer} teleopSeconds={matchConfig?.timing.teleop ?? 120} />;
+        case 'results':
+            return match ? <ResultsScreen match={match} /> : <BlankScreen />;
+        case 'rankings':
+            return <RefereeDisplay />;
+        case 'bracket':
+            return <EliminationBracketDisplay />;
+        case 'alliance_selection':
+            return <AllianceSelectionDisplay />;
+        default:
+            return <BlankScreen />;
+    }
 }
