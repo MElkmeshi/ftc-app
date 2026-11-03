@@ -10,6 +10,7 @@ const SOUND_FILES = [
     'endgame_whistle.wav', // Endgame warning
     'end_match.wav', // Match end
     'canel_match.wav', // Match cancelled/aborted
+    'unmute.wav', // Confirms a display's sound was just unlocked
 ] as const;
 
 export type SoundName = (typeof SOUND_FILES)[number];

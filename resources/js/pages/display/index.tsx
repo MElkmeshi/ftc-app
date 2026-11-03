@@ -7,6 +7,7 @@ import { StreamOverlayScreen } from '@/components/display/stream-overlay-screen'
 import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { type DisplayConfig, displayConfigQuery, displayPlaysSound, isDisplayConfigured, parseDisplayConfig } from '@/lib/display-config';
 import { router, usePage } from '@inertiajs/react';
+import { useEffect, useRef } from 'react';
 
 function DisplayScreen({ config, playSound }: { config: DisplayConfig; playSound?: ReturnType<typeof useAudioEngine>['playSound'] }) {
     switch (config.type) {
@@ -32,6 +33,16 @@ export default function Display() {
     const config = parseDisplayConfig(search);
     const { playSound, unlocked } = useAudioEngine();
     const playsSound = displayPlaysSound(config);
+    const wasLocked = useRef(!unlocked);
+
+    // Like FTC Live, chime once when someone clicks to unmute, so they hear the speakers work.
+    useEffect(() => {
+        if (unlocked && wasLocked.current && playsSound) {
+            playSound('unmute.wav');
+        }
+
+        wasLocked.current = !unlocked;
+    }, [unlocked, playsSound, playSound]);
 
     const changeConfig = (next: DisplayConfig) => {
         router.get(`${window.location.pathname}${displayConfigQuery(next)}`, {}, { replace: true, preserveScroll: true });

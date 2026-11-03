@@ -23,6 +23,8 @@ const { default: Display } = await import('@/pages/display/index');
 describe('Display', () => {
     beforeEach(() => {
         inertia.get.mockClear();
+        audio.playSound.mockClear();
+        audio.unlocked = false;
     });
 
     it('opens the settings on a screen that has not chosen a type yet, and saves the choice in the address', () => {
@@ -61,5 +63,26 @@ describe('Display', () => {
         render(<Display />);
         expect(screen.getByText('pit screen')).toBeInTheDocument();
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('chimes once when someone clicks to unmute, but not on a muted screen', () => {
+        inertia.url = '/event/main/display?type=audience';
+        const { rerender, unmount } = render(<Display />);
+        expect(audio.playSound).not.toHaveBeenCalled();
+
+        audio.unlocked = true;
+        rerender(<Display />);
+        rerender(<Display />);
+        expect(audio.playSound).toHaveBeenCalledTimes(1);
+        expect(audio.playSound).toHaveBeenCalledWith('unmute.wav');
+        unmount();
+
+        audio.playSound.mockClear();
+        audio.unlocked = false;
+        inertia.url = '/event/main/display?type=audience&mute=1';
+        const muted = render(<Display />);
+        audio.unlocked = true;
+        muted.rerender(<Display />);
+        expect(audio.playSound).not.toHaveBeenCalled();
     });
 });
