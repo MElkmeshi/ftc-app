@@ -2,7 +2,18 @@ import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useAddScore, useDeleteScore, useEndMatch, useMatch, useMatches, useScoreTypes } from '@/hooks/use-match';
 import { useRefereeField } from '@/hooks/use-referee-field';
 import { getAllianceColorClasses } from '@/lib/match-utils';
+import { type ScoreControl, splitScoreTypes } from '@/lib/score-controls';
+import { type ScoreType } from '@/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+export interface ScoringGroup {
+    /** Score types tapped with − / +. */
+    alliance: ScoreType[];
+    team: ScoreType[];
+    /** Yes/no and "one of" score types, picked with buttons. */
+    allianceControls: ScoreControl[];
+    teamControls: ScoreControl[];
+}
 
 export function useScoringPage() {
     const [selectedAllianceId, setSelectedAllianceId] = useState<number | null>(null);
@@ -65,20 +76,28 @@ export function useScoringPage() {
         [match],
     );
 
+    /**
+     * Per group: the − / + score types for the alliance and for each robot,
+     * and the yes/no and "one of" controls, which are picked with buttons.
+     */
     const groupedScoreTypes = useMemo(() => {
-        const grouped: Record<string, { alliance: typeof scoreTypes; team: typeof scoreTypes }> = {
-            ungrouped: { alliance: [], team: [] },
-        };
+        const byGroup: Record<string, { alliance: ScoreType[]; team: ScoreType[] }> = { ungrouped: { alliance: [], team: [] } };
         scoreTypes.forEach((st) => {
             const key = st.group?.name ?? 'ungrouped';
-            if (!grouped[key]) {
-                grouped[key] = { alliance: [], team: [] };
-            }
-            if (st.target === 'alliance') {
-                grouped[key].alliance.push(st);
-            } else {
-                grouped[key].team.push(st);
-            }
+            byGroup[key] ??= { alliance: [], team: [] };
+            byGroup[key][st.target === 'alliance' ? 'alliance' : 'team'].push(st);
+        });
+
+        const grouped: Record<string, ScoringGroup> = {};
+        Object.entries(byGroup).forEach(([key, { alliance, team }]) => {
+            const allianceSplit = splitScoreTypes(alliance);
+            const teamSplit = splitScoreTypes(team);
+            grouped[key] = {
+                alliance: allianceSplit.counters,
+                team: teamSplit.counters,
+                allianceControls: allianceSplit.controls,
+                teamControls: teamSplit.controls,
+            };
         });
         return grouped;
     }, [scoreTypes]);

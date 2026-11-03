@@ -135,11 +135,17 @@ export interface Group {
     display_order: number;
 }
 
+export type ScoreKind = 'count' | 'toggle' | 'choice';
+
 export interface ScoreType {
     id: number;
     name: string;
     points: number;
     target: 'team' | 'alliance';
+    /** count: tapped any number of times · toggle: yes or no · choice: one option of its choice set. */
+    kind: ScoreKind;
+    /** Name shared by the options of a "one of" choice, e.g. "Ascent". */
+    choice_set: string | null;
     group_id: number | null;
     /** A picture of the game piece or action, when the game has one. */
     icon_url?: string | null;

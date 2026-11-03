@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ScoreKind;
 use App\Enums\ScoreTarget;
 use App\Models\Concerns\BelongsToGame;
 use App\Services\GameAssets;
@@ -15,7 +16,7 @@ class ScoreType extends Model
     use BelongsToGame, HasFactory;
 
     protected $fillable = [
-        'game_id', 'name', 'points', 'target', 'group_id', 'icon_path', 'created_by',
+        'game_id', 'name', 'points', 'target', 'kind', 'choice_set', 'group_id', 'icon_path', 'created_by',
     ];
 
     protected $hidden = [
@@ -45,6 +46,14 @@ class ScoreType extends Model
 
     protected $casts = [
         'target' => ScoreTarget::class,
+        'kind' => ScoreKind::class,
+    ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'kind' => 'count',
     ];
 
     public function creator()

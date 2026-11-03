@@ -1,3 +1,4 @@
+import { GroupScoreControls } from '@/components/scoring/score-controls';
 import { ScoreTypeIcon } from '@/components/game-look';
 import { resolveEventHref } from '@/lib/event';
 import { Badge } from '@/components/ui/badge';
@@ -27,14 +28,19 @@ export default function RefereeScoringOnly() {
 
     // Only positive-point score types
     const filteredGroups = sortedGroups
-        .map(([groupName, { alliance, team }]) => [
+        .map(([groupName, { alliance, team, allianceControls, teamControls }]) => [
             groupName,
             {
                 alliance: alliance.filter((st) => st.points > 0),
                 team: team.filter((st) => st.points > 0),
+                allianceControls,
+                teamControls,
             },
         ] as const)
-        .filter(([, { alliance, team }]) => alliance.length > 0 || team.length > 0);
+        .filter(
+            ([, { alliance, team, allianceControls, teamControls }]) =>
+                alliance.length > 0 || team.length > 0 || allianceControls.length > 0 || teamControls.length > 0,
+        );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -127,12 +133,26 @@ export default function RefereeScoringOnly() {
                     </div>
                 )}
 
-                {match && selectedAllianceId && filteredGroups.map(([groupName, { alliance, team }]) => (
+                {match && selectedAllianceId && filteredGroups.map(([groupName, { alliance, team, allianceControls, teamControls }]) => (
                     <div key={groupName} className="space-y-4">
                         {groupName !== 'ungrouped' && (
                             <div className="border-l-4 border-emerald-500 pl-3">
                                 <h2 className="text-lg font-bold uppercase tracking-widest">{groupName}</h2>
                             </div>
+                        )}
+                        {selectedAllianceId && (
+                            <GroupScoreControls
+                                allianceControls={allianceControls}
+                                teamControls={teamControls}
+                                allianceId={selectedAllianceId}
+                                teams={teamsInAlliance.map((ma) => ma.team)}
+                                getAllianceCount={getAllianceScoreTypeCount}
+                                getTeamCount={getTeamScoreTypeCount}
+                                onAdd={handleAddScore}
+                                onRemove={handleRemoveScore}
+                                disabled={isPending}
+                                selectedClassName={cn(colorClasses.border, colorClasses.bg, 'text-white')}
+                            />
                         )}
 
                         {alliance.length > 0 && (

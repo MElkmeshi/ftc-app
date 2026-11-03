@@ -2,6 +2,7 @@
 
 use App\Enums\MatchStatus;
 use App\Enums\RankingMethod;
+use App\Enums\ScoreKind;
 use App\Models\CompetitionMatch;
 use App\Models\Event;
 use App\Models\Game;
@@ -147,4 +148,14 @@ it('keeps games for admins only', function () {
     $this->actingAs($referee)->get('/games')->assertForbidden();
     $this->actingAs($referee)->postJson("/api/games/{$this->game->id}/score-types", ['name' => 'Goal', 'points' => 5, 'target' => 'team'])->assertForbidden();
     $this->actingAs($referee)->getJson("/api/games/{$this->game->id}/score-types")->assertForbidden();
+});
+
+it('copies how each score type is scored when duplicating a game', function () {
+    ScoreType::factory()->create(['name' => 'Full base', 'points' => 10, 'kind' => 'choice', 'choice_set' => 'Base']);
+
+    $this->actingAs($this->admin)->post('/games', ['name' => 'Copy', 'duplicate_from' => $this->game->id])->assertRedirect();
+
+    expect(Game::query()->where('name', 'Copy')->sole()->scoreTypes()->sole())
+        ->kind->toBe(ScoreKind::CHOICE)
+        ->choice_set->toBe('Base');
 });

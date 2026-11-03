@@ -11,17 +11,38 @@ import { useCreateGroup, useDeleteGroup, useGroups, useUpdateGroup } from '@/hoo
 import { useScoreTypes } from '@/hooks/use-match';
 import { useCreateScoreType, useDeleteScoreType, useUpdateScoreType } from '@/hooks/use-score-types-crud';
 import AppLayout from '@/layouts/app-layout';
-import { type GameSummary, type Group, type ScoreType } from '@/types';
+import { type GameSummary, type Group, type ScoreKind, type ScoreType } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+
+const SCORE_KINDS: { value: ScoreKind; label: string; hint: string }[] = [
+    { value: 'count', label: 'Count (− / +)', hint: 'Tapped any number of times, like game pieces or fouls.' },
+    { value: 'toggle', label: 'Yes / No', hint: 'Scored at most once per robot or alliance, like leaving the start zone.' },
+    { value: 'choice', label: 'One of a set', hint: 'Pick one option of a set, like the parking level. Picking another option replaces it.' },
+];
+
+/** A short label for how a score type is scored, for the score types table. */
+function describeKind(scoreType: ScoreType): string {
+    if (scoreType.kind === 'toggle') {
+        return 'Yes / No';
+    }
+
+    if (scoreType.kind === 'choice') {
+        return `One of ${scoreType.choice_set}`;
+    }
+
+    return 'Count';
+}
 
 function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: ScoreType; groups: Group[]; trigger: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState(scoreType?.name ?? '');
     const [points, setPoints] = useState(String(scoreType?.points ?? ''));
     const [target, setTarget] = useState(scoreType?.target ?? 'team');
+    const [kind, setKind] = useState<ScoreKind>(scoreType?.kind ?? 'count');
+    const [choiceSet, setChoiceSet] = useState(scoreType?.choice_set ?? '');
     const [groupId, setGroupId] = useState<string>(scoreType?.group_id ? String(scoreType.group_id) : 'none');
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const createScoreType = useCreateScoreType();
@@ -34,6 +55,8 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
             setName(scoreType?.name ?? '');
             setPoints(String(scoreType?.points ?? ''));
             setTarget(scoreType?.target ?? 'team');
+            setKind(scoreType?.kind ?? 'count');
+            setChoiceSet(scoreType?.choice_set ?? '');
             setGroupId(scoreType?.group_id ? String(scoreType.group_id) : 'none');
             setErrors({});
         }
@@ -47,6 +70,8 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
             name,
             points: parseInt(points, 10),
             target,
+            kind,
+            choice_set: kind === 'choice' ? choiceSet : null,
             group_id: groupId === 'none' ? null : parseInt(groupId, 10),
         };
 
@@ -98,6 +123,39 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
                             </Select>
                             {errors.target && <p className="text-sm text-red-500">{errors.target[0]}</p>}
                         </div>
+                        <div className="grid gap-2">
+                            <Label>Scored as</Label>
+                            <Select value={kind} onValueChange={(value) => setKind(value as ScoreKind)}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {SCORE_KINDS.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-muted-foreground text-xs">{SCORE_KINDS.find((option) => option.value === kind)?.hint}</p>
+                            {errors.kind && <p className="text-sm text-red-500">{errors.kind[0]}</p>}
+                        </div>
+                        {kind === 'choice' && (
+                            <div className="grid gap-2">
+                                <Label htmlFor="st-choice-set">Set</Label>
+                                <Input
+                                    id="st-choice-set"
+                                    value={choiceSet}
+                                    onChange={(e) => setChoiceSet(e.target.value)}
+                                    placeholder="For example Base or Ascent"
+                                    required
+                                />
+                                <p className="text-muted-foreground text-xs">
+                                    Score types with the same set name are shown together; a robot gets only one of them.
+                                </p>
+                                {errors.choice_set && <p className="text-sm text-red-500">{errors.choice_set[0]}</p>}
+                            </div>
+                        )}
                         <div className="grid gap-2">
                             <Label>Group</Label>
                             <Select value={groupId} onValueChange={setGroupId}>
@@ -384,6 +442,7 @@ export default function ScoreTypesPage() {
                                         <th className="px-4 py-2 text-left font-medium">Name</th>
                                         <th className="px-4 py-2 text-left font-medium">Points</th>
                                         <th className="px-4 py-2 text-left font-medium">Target</th>
+                                        <th className="px-4 py-2 text-left font-medium">Scored as</th>
                                         <th className="px-4 py-2 text-left font-medium">Group</th>
                                         <th className="px-4 py-2 text-right font-medium">Actions</th>
                                     </tr>
@@ -391,7 +450,7 @@ export default function ScoreTypesPage() {
                                 <tbody>
                                     {scoreTypes.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="text-muted-foreground px-4 py-8 text-center">
+                                            <td colSpan={7} className="text-muted-foreground px-4 py-8 text-center">
                                                 No score types found
                                             </td>
                                         </tr>
@@ -413,6 +472,7 @@ export default function ScoreTypesPage() {
                                                         {st.target}
                                                     </Badge>
                                                 </td>
+                                                <td className="px-4 py-2 text-sm">{describeKind(st)}</td>
                                                 <td className="px-4 py-2">{st.group?.name ?? '-'}</td>
                                                 <td className="px-4 py-2">
                                                     <div className="flex justify-end gap-2">

@@ -1,3 +1,4 @@
+import { GroupScoreControls } from '@/components/scoring/score-controls';
 import { ScoreTypeIcon } from '@/components/game-look';
 import { resolveEventHref } from '@/lib/event';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -173,14 +174,28 @@ export default function RefereeScoring4() {
                 {/* Score tiles */}
                 {match && selectedAllianceId && (
                     <div className="space-y-8 rounded-2xl bg-slate-900 p-5">
-                        {sortedGroups.map(([groupName, { alliance, team }]) => {
-                            if (alliance.length === 0 && team.length === 0) return null;
+                        {sortedGroups.map(([groupName, { alliance, team, allianceControls, teamControls }]) => {
+                            if (alliance.length === 0 && team.length === 0 && allianceControls.length === 0 && teamControls.length === 0) return null;
                             return (
                                 <div key={groupName}>
                                     {groupName !== 'ungrouped' && (
                                         <p className="mb-4 text-sm font-black uppercase tracking-[0.25em]" style={{ color: accentHex }}>
                                             {groupName}
                                         </p>
+                                    )}
+                                    {selectedAllianceId && (
+                                        <GroupScoreControls
+                                            allianceControls={allianceControls}
+                                            teamControls={teamControls}
+                                            allianceId={selectedAllianceId}
+                                            teams={teamsInAlliance.map((ma) => ma.team)}
+                                            getAllianceCount={getAllianceScoreTypeCount}
+                                            getTeamCount={getTeamScoreTypeCount}
+                                            onAdd={handleAddScore}
+                                            onRemove={handleRemoveScore}
+                                            disabled={isPending}
+                                            selectedClassName={cn(colorClasses.border, colorClasses.bg, 'text-white')}
+                                        />
                                     )}
 
                                     {alliance.length > 0 && (

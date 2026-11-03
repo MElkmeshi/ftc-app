@@ -14,6 +14,7 @@ import {
     ScoreType,
     Team,
     TeamDisplay,
+    type ScoreKind,
 } from '@/types';
 import { http } from '@inertiajs/react';
 import { useCallback } from 'react';
@@ -171,14 +172,24 @@ export const useApi = () => {
 
     // Score Types CRUD
     const createScoreType = useCallback(
-        async (data: { name: string; points: number; target: string; group_id: number | null }): Promise<ScoreType> => {
+        async (data: {
+            name: string;
+            points: number;
+            target: string;
+            kind: ScoreKind;
+            choice_set: string | null;
+            group_id: number | null;
+        }): Promise<ScoreType> => {
             return post('/api/score-types', data);
         },
         [],
     );
 
     const updateScoreType = useCallback(
-        async (id: number, data: { name: string; points: number; target: string; group_id: number | null }): Promise<ScoreType> => {
+        async (
+            id: number,
+            data: { name: string; points: number; target: string; kind: ScoreKind; choice_set: string | null; group_id: number | null },
+        ): Promise<ScoreType> => {
             return put(`/api/score-types/${id}`, data);
         },
         [],

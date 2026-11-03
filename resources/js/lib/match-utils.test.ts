@@ -29,7 +29,7 @@ function makeMatch(points: number | undefined): CompetitionMatch {
                 team_id: null,
                 points,
                 score_type_id: 1,
-                score_type: { id: 1, name: 'Bonus', points: 25, target: 'alliance', group_id: null },
+                score_type: { id: 1, name: 'Bonus', points: 25, target: 'alliance', kind: 'count', choice_set: null, group_id: null },
                 created_at: '',
             },
             { id: 2, match_id: 1, team_id: 1, alliance_id: 1, points: 50, score_type_id: null, created_at: '' },
@@ -62,7 +62,7 @@ describe('score breakdown', () => {
             team_id: teamId,
             points,
             score_type_id: id,
-            score_type: { id, name: `Type ${id}`, points, target: (teamId ? 'team' : 'alliance') as 'team' | 'alliance', group_id: groupId },
+            score_type: { id, name: `Type ${id}`, points, target: (teamId ? 'team' : 'alliance') as 'team' | 'alliance', kind: 'count' as const, choice_set: null, group_id: groupId },
             created_at: '',
         });
 

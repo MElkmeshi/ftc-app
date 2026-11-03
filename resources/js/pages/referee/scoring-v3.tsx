@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScoreControlList } from '@/components/scoring/score-controls';
 import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useScoringPage } from '@/hooks/use-scoring-page';
 import { getAllianceColorClasses } from '@/lib/match-utils';
@@ -36,6 +37,9 @@ export default function RefereeScoring3() {
 
     const allianceScoreTypes = sortedGroups.flatMap(([, { alliance }]) => alliance);
     const teamScoreTypes = sortedGroups.flatMap(([, { team }]) => team);
+    const allianceControls = sortedGroups.flatMap(([, group]) => group.allianceControls);
+    const teamControls = sortedGroups.flatMap(([, group]) => group.teamControls);
+    const selectedClassName = cn(colorClasses.border, colorClasses.bg, 'text-white');
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -160,7 +164,17 @@ export default function RefereeScoring3() {
                         <div className="flex-1 space-y-4">
                             {activeTab === 'alliance' && (
                                 <>
-                                    {allianceScoreTypes.length === 0 ? (
+                                    {selectedAllianceId && (
+                                        <ScoreControlList
+                                            controls={allianceControls}
+                                            countFor={getAllianceScoreTypeCount}
+                                            onAdd={(id) => handleAddScore(id, { allianceId: selectedAllianceId })}
+                                            onRemove={(id) => handleRemoveScore(id, { allianceId: selectedAllianceId })}
+                                            disabled={isPending}
+                                            selectedClassName={selectedClassName}
+                                        />
+                                    )}
+                                    {allianceScoreTypes.length === 0 && allianceControls.length === 0 ? (
                                         <div className="flex h-40 items-center justify-center text-muted-foreground">
                                             No alliance-wide score types
                                         </div>
@@ -206,12 +220,21 @@ export default function RefereeScoring3() {
                             {activeTab !== 'alliance' && (() => {
                                 const ma = teamsInAlliance.find((m) => m.team.id === activeTab);
                                 if (!ma) return null;
-                                return teamScoreTypes.length === 0 ? (
+                                return teamScoreTypes.length === 0 && teamControls.length === 0 ? (
                                     <div className="flex h-40 items-center justify-center text-muted-foreground">
                                         No team score types
                                     </div>
                                 ) : (
-                                    teamScoreTypes.map((scoreType) => {
+                                    <>
+                                    <ScoreControlList
+                                        controls={teamControls}
+                                        countFor={(id) => getTeamScoreTypeCount(id, ma.team.id)}
+                                        onAdd={(id) => handleAddScore(id, { teamId: ma.team.id })}
+                                        onRemove={(id) => handleRemoveScore(id, { teamId: ma.team.id })}
+                                        disabled={isPending}
+                                        selectedClassName={selectedClassName}
+                                    />
+                                    {teamScoreTypes.map((scoreType) => {
                                         const count = getTeamScoreTypeCount(scoreType.id, ma.team.id);
                                         return (
                                             <Card key={scoreType.id}>
@@ -244,7 +267,8 @@ export default function RefereeScoring3() {
                                                 </CardContent>
                                             </Card>
                                         );
-                                    })
+                                    })}
+                                    </>
                                 );
                             })()}
                         </div>

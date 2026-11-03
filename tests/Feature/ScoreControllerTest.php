@@ -292,3 +292,54 @@ it('broadcasts score updates on the match channel and the match-control channel'
 
     expect($channels)->toBe(['event.testevent.matches.'.$this->match->id, 'event.testevent.match-control']);
 });
+
+it('scores a yes/no score type at most once per robot', function () {
+    $leave = ScoreType::factory()->create(['name' => 'leave', 'points' => 3, 'target' => 'team', 'kind' => 'toggle']);
+    $tap = ['match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $leave->id];
+
+    $this->postJson('/api/scores', $tap)->assertCreated();
+    $this->postJson('/api/scores', $tap)->assertOk();
+
+    expect(Score::query()->where('score_type_id', $leave->id)->count())->toBe(1)
+        ->and($this->matchAlliance->fresh()->score)->toBe(3);
+});
+
+it('replaces the option chosen before when another option of the same set is picked', function () {
+    $partial = ScoreType::factory()->create(['name' => 'base_partial', 'points' => 5, 'target' => 'team', 'kind' => 'choice', 'choice_set' => 'Base']);
+    $full = ScoreType::factory()->create(['name' => 'base_full', 'points' => 10, 'target' => 'team', 'kind' => 'choice', 'choice_set' => 'Base']);
+    $tap = fn (ScoreType $type) => ['match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $type->id];
+
+    $this->postJson('/api/scores', $tap($partial))->assertCreated();
+    $this->postJson('/api/scores', $tap($this->scoreType))->assertCreated();
+    $this->postJson('/api/scores', $tap($full))->assertCreated();
+    $this->postJson('/api/scores', $tap($full))->assertOk();
+
+    expect(Score::query()->pluck('score_type_id')->sort()->values()->all())->toBe([$this->scoreType->id, $full->id])
+        ->and($this->matchAlliance->fresh()->score)->toBe(20, 'the counted score stays, partial is swapped for full');
+});
+
+it('keeps each robot and the alliance-wide set to their own choice', function () {
+    $otherTeam = Team::factory()->create();
+    MatchAlliance::create(['match_id' => $this->match->id, 'team_id' => $otherTeam->id, 'alliance_id' => $this->red->id, 'alliance_pos' => 2, 'score' => 0, 'created_by' => 1, 'updated_by' => 1]);
+    $park = ScoreType::factory()->create(['name' => 'park', 'points' => 3, 'target' => 'team', 'kind' => 'choice', 'choice_set' => 'Ascent']);
+    $high = ScoreType::factory()->create(['name' => 'level_3', 'points' => 30, 'target' => 'team', 'kind' => 'choice', 'choice_set' => 'Ascent']);
+
+    $this->postJson('/api/scores', ['match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $park->id])->assertCreated();
+    $this->postJson('/api/scores', ['match_id' => $this->match->id, 'team_id' => $otherTeam->id, 'score_type_id' => $high->id])->assertCreated();
+
+    expect(Score::query()->count())->toBe(2);
+});
+
+it('requires a set name for a "one of" score type and drops it for other kinds', function () {
+    $this->postJson('/api/score-types', ['name' => 'Full', 'points' => 10, 'target' => 'team', 'kind' => 'choice'])
+        ->assertJsonValidationErrors('choice_set');
+
+    $this->postJson('/api/score-types', ['name' => 'Leave', 'points' => 3, 'target' => 'team', 'kind' => 'toggle', 'choice_set' => 'Base'])
+        ->assertCreated()
+        ->assertJsonPath('kind', 'toggle')
+        ->assertJsonPath('choice_set', null);
+
+    $this->postJson('/api/score-types', ['name' => 'Goal', 'points' => 1, 'target' => 'team'])
+        ->assertCreated()
+        ->assertJsonPath('kind', 'count');
+});
