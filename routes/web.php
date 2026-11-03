@@ -6,6 +6,7 @@ use App\Events\AllianceSelectionUpdated;
 use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
 use App\Events\ScoreUpdated;
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\EventController;
@@ -28,6 +29,13 @@ Route::middleware(['auth', 'verified', 'can:manage-competition'])->group(functio
     Route::get('events/create', [EventController::class, 'create'])->name('events.create');
     Route::post('events', [EventController::class, 'store'])->name('events.store');
     Route::post('events/import', [EventArchiveController::class, 'import'])->name('events.import');
+
+    Route::get('accounts', [AccountController::class, 'index'])->name('accounts.index');
+    Route::post('accounts', [AccountController::class, 'store'])->name('accounts.store');
+    Route::post('accounts/generate', [AccountController::class, 'generate'])->name('accounts.generate');
+    Route::put('accounts/{account}', [AccountController::class, 'update'])->name('accounts.update');
+    Route::post('accounts/{account}/reset-password', [AccountController::class, 'resetPassword'])->name('accounts.reset-password');
+    Route::delete('accounts/{account}', [AccountController::class, 'destroy'])->name('accounts.destroy');
 });
 
 Route::prefix('api/event/{event}')->middleware('event')->group(__DIR__.'/api.php');

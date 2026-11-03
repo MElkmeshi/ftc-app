@@ -43,7 +43,7 @@ export function eventChannel(suffix: string): string {
     return `event.${requireEventCode()}.${suffix}`;
 }
 
-const GLOBAL_PATHS = ['/settings', '/event/', '/events', '/login', '/register', '/logout'];
+const GLOBAL_PATHS = ['/settings', '/event/', '/events', '/accounts', '/login', '/register', '/logout'];
 
 /**
  * Turns an app-relative link such as `/admin/teams` into the current event's

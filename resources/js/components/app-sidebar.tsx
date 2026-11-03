@@ -8,6 +8,7 @@ import {
     CalendarRange,
     ClipboardCheck,
     Home,
+    KeyRound,
     ListChecks,
     Monitor,
     MonitorPlay,
@@ -41,10 +42,15 @@ const setupNavItems: NavItem[] = [
     { title: 'Match Timing', href: '/admin/competition-settings', icon: Settings },
 ];
 
-const serverNavItems: NavItem[] = [{ title: 'All Events', href: '/events', icon: CalendarRange }];
+const serverNavItems: NavItem[] = [
+    { title: 'All Events', href: '/events', icon: CalendarRange },
+];
+
+const adminServerNavItems: NavItem[] = [{ title: 'Accounts', href: '/accounts', icon: KeyRound }];
 
 export function AppSidebar() {
-    const { event } = usePage<SharedData>().props;
+    const { event, auth } = usePage<SharedData>().props;
+    const isAdmin = auth.user?.role === 'admin';
 
     return (
         <Sidebar collapsible="icon" variant="inset">
@@ -59,8 +65,8 @@ export function AppSidebar() {
                     </SidebarMenuItem>
                 </SidebarMenu>
                 {event && (
-                    <div className="truncate px-2 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">
-                        <span className="font-mono text-sidebar-foreground/50">{event.code}</span> · {event.name}
+                    <div className="text-sidebar-foreground/70 truncate px-2 text-xs group-data-[collapsible=icon]:hidden">
+                        <span className="text-sidebar-foreground/50 font-mono">{event.code}</span> · {event.name}
                     </div>
                 )}
             </SidebarHeader>
@@ -73,7 +79,7 @@ export function AppSidebar() {
                         <NavMain items={setupNavItems} label="Setup" />
                     </>
                 ) : null}
-                <NavMain items={serverNavItems} label="Server" />
+                <NavMain items={isAdmin ? [...serverNavItems, ...adminServerNavItems] : serverNavItems} label="Server" />
             </SidebarContent>
 
             <SidebarFooter>

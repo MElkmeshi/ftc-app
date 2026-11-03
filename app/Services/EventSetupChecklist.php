@@ -69,7 +69,7 @@ class EventSetupChecklist
                 'Give every official a login with the right role.',
                 $officials > 1 ? self::DONE : self::TODO,
                 "{$officials} official account".($officials === 1 ? '' : 's'),
-                '/admin/accounts',
+                '/accounts',
             ),
             $this->step(
                 'teams',

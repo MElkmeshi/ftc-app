@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import { resolveEventHref } from '@/lib/event';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type CompetitionEvent, type DashboardStats, type EventTypeOption, type EventTypeValue, type SharedData } from '@/types';
 import { Deferred, Head, Link, router, useForm, usePage, useProp } from '@inertiajs/react';
@@ -118,7 +119,9 @@ function SetupChecklist({ eventCode }: { eventCode: string }) {
                 <ol className="divide-y">
                     {steps.map((step, index) => {
                         const style = STATUS_STYLES[step.status];
-                        const href = step.href.startsWith('/dashboard#') ? step.href.replace('/dashboard', '') : `/event/${eventCode}${step.href}`;
+                        const href = step.href.startsWith('/dashboard#')
+                            ? step.href.replace('/dashboard', '')
+                            : resolveEventHref(step.href, `/event/${eventCode}/`);
 
                         return (
                             <li key={step.key}>
