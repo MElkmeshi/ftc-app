@@ -1,9 +1,10 @@
+import { uuid } from '@/lib/uuid';
 import { type RefereeRole } from '@/types';
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from './use-api';
 
 /** Identifies this open scoring page, so two tablets signed in as the same referee still count as two. */
-const TABLET_ID = crypto.randomUUID();
+const TABLET_ID = uuid();
 
 const HEARTBEAT_MS = 5000;
 

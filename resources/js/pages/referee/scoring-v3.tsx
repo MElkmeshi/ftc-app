@@ -33,7 +33,7 @@ export default function RefereeScoring3() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
+        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith, unsyncedCount,
     } = useScoringPage();
 
     const allianceScoreTypes = sortedGroups.flatMap(([, { alliance }]) => alliance);
@@ -286,6 +286,7 @@ export default function RefereeScoring3() {
                             submission={submission}
                             pending={isSubmitPending}
                             error={submitError}
+                            unsyncedCount={unsyncedCount}
                             onChange={setSubmitted}
                         />
                     </>

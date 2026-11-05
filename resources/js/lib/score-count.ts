@@ -2,6 +2,12 @@ import { type CompetitionMatch, type Score, type ScoreTarget, type ScoreType } f
 
 let nextTemporaryId = -1;
 
+/**
+ * Score ids grow with each saved score, so a higher id is newer. Scores the
+ * tablet has shown but not saved yet have negative ids and are newest of all.
+ */
+const newestFirst = (a: number, b: number) => (a < 0 || b < 0 ? a - b : b - a);
+
 const isForTarget = (score: Score, target: ScoreTarget) =>
     target.teamId ? score.team_id === target.teamId : !score.team_id && score.alliance_id === target.allianceId;
 
@@ -27,7 +33,7 @@ export function applyScoreCount(
     const wanted = scoreType.kind === 'count' ? Math.max(0, count) : Math.min(Math.max(0, count), 1);
     const existing = scores
         .filter((score) => score.score_type_id === scoreType.id && isForTarget(score, target))
-        .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id - a.id);
+        .sort((a, b) => newestFirst(a.id, b.id));
 
     if (wanted === existing.length) {
         return match;

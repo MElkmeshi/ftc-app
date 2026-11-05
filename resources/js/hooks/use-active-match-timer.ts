@@ -35,7 +35,7 @@ export function useActiveMatchTimer(options: UseActiveMatchTimerOptions = {}) {
             const isNewStart = lastStartedMatchIdRef.current !== activeMatch.id || lastStartedAtRef.current !== activeMatch.started_at;
 
             if (!timer.isRunning && isNewStart) {
-                timer.resumeFrom(activeMatch.started_at, activeMatch.duration_ms ?? undefined);
+                timer.resumeFrom(activeMatch.started_at, activeMatch.duration_ms ?? undefined, activeMatch.timing);
                 lastStartedMatchIdRef.current = activeMatch.id;
                 lastStartedAtRef.current = activeMatch.started_at;
             }

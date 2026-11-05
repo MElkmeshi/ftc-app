@@ -8,6 +8,7 @@ use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SubmitAllianceScoresRequest;
 use App\Models\CompetitionMatch;
+use App\Support\LiveBroadcast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -58,7 +59,7 @@ class MatchSubmissionController extends Controller
             return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
         }, 3);
 
-        broadcast(new ScoreUpdated($match))->toOthers();
+        LiveBroadcast::send(new ScoreUpdated($match), toOthers: true);
 
         return response()->json(['match' => $match]);
     }

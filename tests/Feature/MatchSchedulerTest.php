@@ -6,6 +6,7 @@ use App\Models\MatchAlliance;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\MatchScheduler;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -141,13 +142,13 @@ it('sets match start times progressively', function () {
     $matches = CompetitionMatch::orderBy('number')->get();
 
     for ($i = 1; $i < $matches->count(); $i++) {
-        $currentTime = $matches[$i]->start_time instanceof \Carbon\Carbon
+        $currentTime = $matches[$i]->start_time instanceof Carbon
             ? $matches[$i]->start_time
-            : \Carbon\Carbon::parse($matches[$i]->start_time);
+            : Carbon::parse($matches[$i]->start_time);
 
-        $previousTime = $matches[$i - 1]->start_time instanceof \Carbon\Carbon
+        $previousTime = $matches[$i - 1]->start_time instanceof Carbon
             ? $matches[$i - 1]->start_time
-            : \Carbon\Carbon::parse($matches[$i - 1]->start_time);
+            : Carbon::parse($matches[$i - 1]->start_time);
 
         expect($currentTime->isAfter($previousTime))->toBeTrue();
     }
@@ -226,4 +227,28 @@ it('throws exception for invalid minimum matches', function () {
         createdBy: 1,
         teamsPerAlliance: 2
     ))->toThrow(Exception::class, 'Minimum matches per team must be a positive number');
+});
+
+it('schedules a large event that needs more than a hundred matches', function () {
+    Team::factory()->count(75)->create();
+
+    (new MatchScheduler)->generate(minMatchesPerTeam: 6, createdBy: 1, teamsPerAlliance: 2);
+
+    $fewestMatches = MatchAlliance::query()->selectRaw('team_id, count(*) as played')->groupBy('team_id')->get()->min('played');
+    expect(CompetitionMatch::count())->toBeGreaterThanOrEqual(120)
+        ->and($fewestMatches)->toBeGreaterThanOrEqual(6);
+});
+
+it('keeps the current schedule when a new one cannot be built', function () {
+    (new MatchScheduler)->generate(minMatchesPerTeam: 2, createdBy: 1, teamsPerAlliance: 2);
+    $matchIds = CompetitionMatch::query()->pluck('id')->all();
+
+    MatchAlliance::creating(function (): void {
+        throw new RuntimeException('Simulated failure while saving the new schedule');
+    });
+
+    expect(fn () => (new MatchScheduler)->generate(minMatchesPerTeam: 3, createdBy: 1, teamsPerAlliance: 2))
+        ->toThrow(RuntimeException::class);
+
+    expect(CompetitionMatch::query()->pluck('id')->all())->toBe($matchIds);
 });

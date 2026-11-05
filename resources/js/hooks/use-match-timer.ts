@@ -42,7 +42,7 @@ interface MatchTimerActions {
      * to `timing` (e.g. an admin editing competition settings) can never pull the
      * remaining-time math out from under an already-running match.
      */
-    resumeFrom: (startedAtIso: string, durationMs?: number) => void;
+    resumeFrom: (startedAtIso: string, durationMs?: number, matchTiming?: MatchTimingConfig | null) => void;
 }
 
 // Default values matching FTC standards (fallback if config not loaded)
@@ -75,6 +75,8 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     // for the duration of an active run so a mid-match config change can't
     // desync the remaining-time math.
     const durationSecondsRef = useRef<number>(timing.total_with_countdown);
+    const runTimingRef = useRef<MatchTimingConfig>(timing);
+    const runStartedAtRef = useRef<string | null>(null);
 
     onMatchEndRef.current = onMatchEnd;
     playSoundRef.current = playSound;
@@ -85,6 +87,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     // and freeze this ref once a run begins.
     if (!isRunning) {
         durationSecondsRef.current = timing.total_with_countdown;
+        runTimingRef.current = timing;
     }
 
     /**
@@ -93,6 +96,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
      */
     const getPhase = useCallback(
         (remaining: number): MatchPhase => {
+            const timing = runTimingRef.current;
             const totalMatch = timing.total_match;
             const teleopStart = timing.teleop;
             const endgameWarning = timing.endgame_warning;
@@ -115,7 +119,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             // Teleop phase
             return 'teleop';
         },
-        [timing],
+        [],
     );
 
     /**
@@ -123,6 +127,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
      */
     const getPhaseRemaining = useCallback(
         (remaining: number, currentPhase: MatchPhase): number => {
+            const timing = runTimingRef.current;
             const totalMatch = timing.total_match;
             const teleopStart = timing.teleop;
 
@@ -141,7 +146,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
                     return 0;
             }
         },
-        [timing],
+        [],
     );
 
     /**
@@ -150,6 +155,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
      */
     const checkSoundCues = useCallback(
         (remaining: number) => {
+            const timing = runTimingRef.current;
             const totalMatch = timing.total_match;
             const countdownTime = timing.total_with_countdown;
             const teleopRemaining = timing.teleop; // When teleop starts
@@ -206,7 +212,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
                 playSoundRef.current?.('end_match.wav');
             }
         },
-        [timing],
+        [],
     );
 
     const tick = useCallback(() => {
@@ -241,6 +247,8 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
 
     const start = useCallback(() => {
         soundsPlayedRef.current.clear();
+        runStartedAtRef.current = null;
+        runTimingRef.current = timingRef.current;
         durationSecondsRef.current = timingRef.current.total_with_countdown;
         startTimeRef.current = serverNow();
         setElapsedSeconds(0);
@@ -277,6 +285,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
         setElapsedSeconds(0);
         setPhase('pre-match');
         soundsPlayedRef.current.clear();
+        runStartedAtRef.current = null;
         startTimeRef.current = null;
     }, []);
 
@@ -286,7 +295,14 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
     }, [reset]);
 
     const resumeFrom = useCallback(
-        (startedAtIso: string, durationMs?: number) => {
+        (startedAtIso: string, durationMs?: number, matchTiming?: MatchTimingConfig | null) => {
+            if (runStartedAtRef.current !== startedAtIso) {
+                soundsPlayedRef.current.clear();
+                runStartedAtRef.current = startedAtIso;
+            }
+
+            const timing = matchTiming ?? timingRef.current;
+            runTimingRef.current = timing;
             const startedAt = new Date(startedAtIso).getTime();
             const now = serverNow();
             const elapsed = Math.floor((now - startedAt) / 1000);
@@ -330,7 +346,7 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             // Then start interval for subsequent updates
             intervalRef.current = setInterval(() => tickRef.current(), 50);
         },
-        [timing, getPhase],
+        [getPhase],
     );
 
     useEffect(() => {

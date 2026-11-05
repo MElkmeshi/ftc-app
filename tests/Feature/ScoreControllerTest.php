@@ -353,3 +353,62 @@ it('requires a set name for a "one of" score type and drops it for other kinds',
         ->assertCreated()
         ->assertJsonPath('kind', 'count');
 });
+
+it('lists matches with alliance-wide score rows for totals but not every robot tap', function () {
+    $bonus = ScoreType::factory()->create(['points' => 20, 'target' => 'alliance']);
+    $this->postJson('/api/scores', ['match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id])->assertCreated();
+    $this->postJson('/api/scores', ['match_id' => $this->match->id, 'alliance_id' => $this->red->id, 'score_type_id' => $bonus->id])->assertCreated();
+
+    $response = $this->getJson('/api/matches');
+
+    $response->assertOk()
+        ->assertJsonCount(1, '0.scores')
+        ->assertJsonPath('0.scores.0.points', 20)
+        ->assertJsonPath('0.scores.0.team_id', null)
+        ->assertJsonMissingPath('0.scores.0.score_type')
+        ->assertJsonPath('0.match_alliances.0.score', 10);
+});
+
+it('stops an ordinary referee from changing a match that is not running', function (MatchStatus $status) {
+    $this->match->update(['status' => $status]);
+    $this->actingAs(User::factory()->create(['role' => UserRole::Referee]));
+
+    $response = $this->putJson('/api/scores/count', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id, 'count' => 2,
+    ]);
+
+    $response->assertUnprocessable()->assertJsonValidationErrors('match_id');
+    expect($this->match->scores()->count())->toBe(0);
+})->with([MatchStatus::COMPLETED, MatchStatus::UPCOMING]);
+
+it('lets the head referee correct a completed match', function () {
+    $this->match->update(['status' => MatchStatus::COMPLETED]);
+
+    $this->putJson('/api/scores/count', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id, 'count' => 2,
+    ])->assertOk();
+
+    expect($this->match->scores()->count())->toBe(2);
+});
+
+it('raises the match revision with every score change', function () {
+    $before = $this->match->fresh()->revision;
+
+    $response = $this->putJson('/api/scores/count', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id, 'count' => 1,
+    ]);
+
+    $response->assertOk()->assertJsonPath('match.revision', $before + 1);
+    expect($this->match->fresh()->revision)->toBe($before + 1);
+});
+
+it('still saves a score when Reverb cannot be reached', function () {
+    config(['broadcasting.default' => 'reverb', 'broadcasting.connections.reverb.options.host' => '127.0.0.1', 'broadcasting.connections.reverb.options.port' => 1]);
+
+    $response = $this->putJson('/api/scores/count', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id, 'count' => 1,
+    ]);
+
+    $response->assertOk();
+    expect($this->match->scores()->count())->toBe(1);
+});

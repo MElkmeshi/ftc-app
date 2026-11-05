@@ -53,7 +53,8 @@ class EventLiveProps
     {
         return Inertia::live(
             fn () => CompetitionMatch::query()
-                ->with(['matchAlliances.team', 'matchAlliances.alliance', 'eliminationSeries:id,round'])
+                ->withScoreSummary()
+                ->with('eliminationSeries:id,round')
                 ->orderBy('number')
                 ->get(),
             on: [MatchStatusChanged::class, ScoreUpdated::class],

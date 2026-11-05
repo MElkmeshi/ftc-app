@@ -19,7 +19,7 @@ class SafeImage implements ValidationRule
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (! $value instanceof UploadedFile || strtolower($value->getClientOriginalExtension()) !== 'svg') {
+        if (! $value instanceof UploadedFile || ! self::isSvg($value)) {
             return;
         }
 
@@ -28,5 +28,14 @@ class SafeImage implements ValidationRule
         if ($problem !== null) {
             $fail("This SVG {$problem}, so it can't be used. Export it again as a plain image.");
         }
+    }
+
+    /**
+     * Judged by content as well as name, so an SVG renamed to .png or .html
+     * is still inspected.
+     */
+    public static function isSvg(UploadedFile $file): bool
+    {
+        return strtolower($file->getClientOriginalExtension()) === 'svg' || str_contains((string) $file->getMimeType(), 'svg');
     }
 }

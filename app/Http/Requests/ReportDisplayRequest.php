@@ -19,6 +19,7 @@ class ReportDisplayRequest extends FormRequest
     {
         return [
             'display_id' => ['required', 'uuid'],
+            'config_version' => ['nullable', 'integer', 'min:0'],
             ...DisplayConfigRules::rules(required: true),
         ];
     }

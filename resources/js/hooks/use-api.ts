@@ -1,6 +1,7 @@
 import { type ScheduleTimingValue } from '@/components/schedule-timing-fields';
 import { type DisplayConfig } from '@/lib/display-config';
 import { eventApiUrl } from '@/lib/event';
+import { uuid } from '@/lib/uuid';
 import {
     AllianceGroup,
     AllianceSelectionStatus,
@@ -35,7 +36,13 @@ async function request<T>(method: Method, url: string, data?: unknown): Promise<
             ...(data ? { 'Content-Type': 'application/json' } : {}),
         },
     });
-    return JSON.parse(response.data);
+    return response.data ? JSON.parse(response.data) : (undefined as T);
+}
+
+/** Settings match control chose for one display, numbered so the display can confirm which it applied. */
+export interface RequestedDisplayConfig {
+    config: DisplayConfig;
+    version: number;
 }
 
 /** The absolute number of times a score type is scored for one robot or alliance. */
@@ -60,7 +67,7 @@ function isNetworkFailure(error: unknown): boolean {
  * reach the server before the connection dropped is never counted twice.
  */
 async function sendIdempotent<T>(method: Method, url: string, data: Record<string, unknown>): Promise<T> {
-    return sendWithRetry<T>(method, url, { ...data, client_request_id: crypto.randomUUID() });
+    return sendWithRetry<T>(method, url, { ...data, client_request_id: uuid() });
 }
 
 /** Sends a write that is safe to repeat as it is (it sets a value instead of adding to it), retrying on network failures. */
@@ -174,9 +181,12 @@ export const useApi = () => {
         [],
     );
 
-    const reportDisplay = useCallback(async (displayId: string, config: DisplayConfig): Promise<void> => {
-        await post('/api/display/connected', { display_id: displayId, ...config });
-    }, []);
+    /** Resolves to the settings match control asked for, when this display has not applied them yet. */
+    const reportDisplay = useCallback(
+        async (displayId: string, config: DisplayConfig, configVersion: number): Promise<RequestedDisplayConfig | undefined> =>
+            post('/api/display/connected', { display_id: displayId, ...config, config_version: configVersion }),
+        [],
+    );
 
     const getConnectedDisplays = useCallback(async (): Promise<ConnectedDisplay[]> => {
         return get('/api/display/connected');

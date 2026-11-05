@@ -76,6 +76,18 @@ class EventArchive
      */
     public function export(Event $event): array
     {
+        return DB::transaction(fn (): array => $this->exportSnapshot($event));
+    }
+
+    /**
+     * Reads every table inside one transaction, so the archive is a single
+     * consistent snapshot: a score saved mid-export cannot appear in the score
+     * rows while missing from the totals read just before.
+     *
+     * @return array{format: string, version: int, exported_at: string, event: array<string, mixed>, game: array<string, mixed>, alliances: array<int, string>, tables: array<string, list<array<string, mixed>>>}
+     */
+    private function exportSnapshot(Event $event): array
+    {
         $tables = [];
         $game = $event->game;
 

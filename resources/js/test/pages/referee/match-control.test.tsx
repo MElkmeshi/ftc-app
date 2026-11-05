@@ -1,7 +1,7 @@
-import { act, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEST_TIMING, renderWithQueryClient } from '@/test/mocks';
 import type { CompetitionMatch, MatchStatusChangedEvent } from '@/types';
+import { act, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const echo = vi.hoisted(() => {
     const handlers = new Map<string, (payload: unknown) => void>();
@@ -92,7 +92,11 @@ describe('MatchControl', () => {
         const endedMatch = makeMatch({ status: 'completed', ended_at: new Date().toISOString() });
 
         act(() => {
-            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: endedMatch.id, match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', {
+                match_id: endedMatch.id,
+                match: endedMatch,
+                action: 'ended',
+            } satisfies MatchStatusChangedEvent);
         });
 
         expect(await screen.findByText(/RED ALLIANCE WINS!/i)).toBeInTheDocument();
@@ -108,13 +112,21 @@ describe('MatchControl', () => {
 
         const endedMatch = makeMatch({ id: 1, status: 'completed', ended_at: new Date().toISOString() });
         act(() => {
-            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: endedMatch.id, match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', {
+                match_id: endedMatch.id,
+                match: endedMatch,
+                action: 'ended',
+            } satisfies MatchStatusChangedEvent);
         });
         expect(await screen.findByText(/WINS!/i)).toBeInTheDocument();
 
         const nextMatch = makeMatch({ id: 2, status: 'ongoing', ended_at: null });
         act(() => {
-            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: nextMatch.id, match: nextMatch, action: 'started' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', {
+                match_id: nextMatch.id,
+                match: nextMatch,
+                action: 'started',
+            } satisfies MatchStatusChangedEvent);
         });
 
         expect(screen.queryByText(/WINS!/i)).not.toBeInTheDocument();
@@ -134,19 +146,40 @@ describe('MatchControl', () => {
         expect(api.getMatch).toHaveBeenCalledWith(3);
     });
 
+    it('retries the final scores after a failed fetch instead of giving up on the winner banner', async () => {
+        const { Wrapper } = renderWithQueryClient(() => null);
+        render(<MatchControl />, { wrapper: Wrapper });
+        const endedMatch = makeMatch({ id: 4, status: 'completed', ended_at: new Date().toISOString() });
+        api.getMatch.mockRejectedValueOnce(new Error('Wi-Fi dropped')).mockResolvedValue(endedMatch);
+
+        act(() => {
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: 4, action: 'ended' } satisfies MatchStatusChangedEvent);
+        });
+
+        expect(await screen.findByText(/RED ALLIANCE WINS!/i, {}, { timeout: 4000 })).toBeInTheDocument();
+    });
+
     it('ignores a duplicate ended broadcast for the same match', async () => {
         const { Wrapper } = renderWithQueryClient(() => null);
         render(<MatchControl />, { wrapper: Wrapper });
 
         const endedMatch = makeMatch({ status: 'completed', ended_at: new Date().toISOString() });
         act(() => {
-            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: endedMatch.id, match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', {
+                match_id: endedMatch.id,
+                match: endedMatch,
+                action: 'ended',
+            } satisfies MatchStatusChangedEvent);
         });
         await screen.findByText(/WINS!/i);
 
         // A second 'ended' for the same match (e.g. a retried broadcast) shouldn't re-trigger anything unexpected.
         act(() => {
-            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: endedMatch.id, match: endedMatch, action: 'ended' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', {
+                match_id: endedMatch.id,
+                match: endedMatch,
+                action: 'ended',
+            } satisfies MatchStatusChangedEvent);
         });
 
         expect(screen.getAllByText(/WINS!/i)).toHaveLength(1);

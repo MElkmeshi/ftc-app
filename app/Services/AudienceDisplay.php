@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\DisplayMode;
 use App\Events\AudienceDisplayChanged;
 use App\Models\Setting;
+use App\Support\LiveBroadcast;
 
 /**
  * The audience display's current screen for the current event. It is stored
@@ -53,6 +54,6 @@ class AudienceDisplay
 
         Setting::set(self::GROUP, self::NAME, $state);
 
-        broadcast(new AudienceDisplayChanged($this->currentEvent->require()->code, $state));
+        LiveBroadcast::send(new AudienceDisplayChanged($this->currentEvent->require()->code, $state));
     }
 }

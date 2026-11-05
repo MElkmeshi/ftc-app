@@ -1,23 +1,66 @@
+import { UnsyncedScoresError } from '@/lib/api-error';
 import { apiScope, eventChannel } from '@/lib/event';
 import { applyScoreCount } from '@/lib/score-count';
 import { CompetitionMatch, MatchBroadcast, MatchStatusChangedEvent, RefereeRole, ScoreTarget, ScoreType, ScoreUpdatedEvent } from '@/types';
 import { useEchoPublic } from '@laravel/echo-react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSyncExternalStore } from 'react';
 import { useApi } from './use-api';
 
 /** Every scoring write shares this key, so a reload waits for them and they are sent one at a time, in order. */
 export const SCORING_MUTATION_KEY = ['scoring'];
 
+/** The newest revision of this match any cache already shows. */
+function knownRevision(queryClient: QueryClient, matchId: number): number {
+    const cached = [
+        queryClient.getQueryData<CompetitionMatch>(['matches', matchId]),
+        queryClient.getQueryData<CompetitionMatch[]>(['matches'])?.find((match) => match.id === matchId),
+        queryClient.getQueryData<CompetitionMatch | null>(['active-match']),
+    ];
+
+    return Math.max(-1, ...cached.filter((match) => match?.id === matchId).map((match) => match?.revision ?? -1));
+}
+
+/**
+ * The server's snapshot with this tablet's not-yet-confirmed taps laid back
+ * on top, so a snapshot caused by another tablet never wipes a count this
+ * tablet shows but has not finished sending (which its next tap would then
+ * build on and lose). Counts are absolute, so reapplying one is harmless.
+ */
+function withPendingTaps(queryClient: QueryClient, match: CompetitionMatch): CompetitionMatch {
+    const scoreTypes = queryClient.getQueryData<ScoreType[]>(['score-types', apiScope()]) ?? [];
+
+    return queryClient
+        .getMutationCache()
+        .findAll({ mutationKey: SCORING_MUTATION_KEY, status: 'pending' })
+        .map((mutation) => mutation.state.variables as Partial<ScoreCountVariables> | undefined)
+        .filter((variables): variables is ScoreCountVariables => variables?.scoreType !== undefined && variables.match?.id === match.id)
+        .reduce(
+            (shown, { scoreType, target, count }) => applyScoreCount(shown, scoreType, scoreTypes.length ? scoreTypes : [scoreType], target, count),
+            match,
+        );
+}
+
 async function cacheMatch(queryClient: QueryClient, match: CompetitionMatch) {
+    if ((match.revision ?? Infinity) < knownRevision(queryClient, match.id)) {
+        return;
+    }
+
     await Promise.all([
         queryClient.cancelQueries({ queryKey: ['matches', match.id], exact: true }),
         queryClient.cancelQueries({ queryKey: ['matches'], exact: true }),
         queryClient.cancelQueries({ queryKey: ['active-match'], exact: true }),
     ]);
-    queryClient.setQueryData(['matches', match.id], match);
-    queryClient.setQueryData<CompetitionMatch[]>(['matches'], (matches) => matches?.map((current) => (current.id === match.id ? match : current)));
+
+    if ((match.revision ?? Infinity) < knownRevision(queryClient, match.id)) {
+        return;
+    }
+
+    const shown = withPendingTaps(queryClient, match);
+    queryClient.setQueryData(['matches', match.id], shown);
+    queryClient.setQueryData<CompetitionMatch[]>(['matches'], (matches) => matches?.map((current) => (current.id === match.id ? shown : current)));
     queryClient.setQueryData<CompetitionMatch | null>(['active-match'], (current) => {
-        if (match.status === 'ongoing') return match;
+        if (match.status === 'ongoing') return shown;
         return current?.id === match.id ? null : current;
     });
 }
@@ -58,7 +101,12 @@ export function useMatch(id: number | null, refetchInterval?: number) {
     useEchoPublic<MatchStatusChangedEvent>(id ? eventChannel(`matches.${id}`) : '', 'MatchStatusChanged', applyBroadcast);
     return useQuery<CompetitionMatch>({
         queryKey: ['matches', id],
-        queryFn: () => (id ? api.getMatch(id) : Promise.reject()),
+        queryFn: async () => {
+            if (!id) return Promise.reject();
+            const fetched = await api.getMatch(id);
+            const shown = queryClient.getQueryData<CompetitionMatch>(['matches', id]);
+            return shown && (fetched.revision ?? Infinity) < (shown.revision ?? -1) ? shown : withPendingTaps(queryClient, fetched);
+        },
         enabled: !!id,
         refetchInterval: refetchInterval || false,
     });
@@ -262,6 +310,48 @@ export function useCancelMatch() {
     });
 }
 
+export interface ScoreCountVariables {
+    match: CompetitionMatch;
+    scoreType: ScoreType;
+    target: ScoreTarget;
+    count: number;
+}
+
+/**
+ * Counts the server never confirmed (every retry failed), with the latest
+ * count the referee wanted, so submitting can resend them first and refuse
+ * to lock scores the server does not have.
+ */
+const unsyncedCounts = new Map<string, ScoreCountVariables>();
+const unsyncedListeners = new Set<() => void>();
+const unsyncedKey = ({ match, scoreType, target }: ScoreCountVariables) =>
+    `${match.id}:${scoreType.id}:${target.teamId ?? ''}:${target.allianceId ?? ''}`;
+
+function setUnsynced(variables: ScoreCountVariables, unsynced: boolean) {
+    const key = unsyncedKey(variables);
+    if (unsynced) {
+        unsyncedCounts.set(key, variables);
+    } else if (!unsyncedCounts.delete(key)) {
+        return;
+    }
+    unsyncedListeners.forEach((listener) => listener());
+}
+
+export function unsyncedCountsFor(matchId: number): ScoreCountVariables[] {
+    return [...unsyncedCounts.values()].filter((variables) => variables.match.id === matchId);
+}
+
+/** How many score counts on this match have not reached the server. */
+export function useUnsyncedCount(matchId: number | null | undefined): number {
+    return useSyncExternalStore(
+        (listener) => {
+            unsyncedListeners.add(listener);
+            return () => unsyncedListeners.delete(listener);
+        },
+        () => (matchId ? unsyncedCountsFor(matchId).length : 0),
+    );
+}
+
 /**
  * Sets how many times a score type is scored for one robot or alliance, like
  * FTC Live's referee snapshots. Taps go out one at a time and in order, the
@@ -275,7 +365,7 @@ export function useSetScoreCount() {
     return useMutation({
         mutationKey: SCORING_MUTATION_KEY,
         scope: { id: 'scoring' },
-        mutationFn: (params: { match: CompetitionMatch; scoreType: ScoreType; target: ScoreTarget; count: number }) =>
+        mutationFn: (params: ScoreCountVariables) =>
             api.setScoreCount({
                 match_id: params.match.id,
                 score_type_id: params.scoreType.id,
@@ -290,8 +380,12 @@ export function useSetScoreCount() {
                 current ? applyScoreCount(current, scoreType, scoreTypes, target, count) : current,
             );
         },
-        onError: (_error, { match }) => queryClient.invalidateQueries({ queryKey: ['matches', match.id], exact: true }),
-        onSuccess: ({ match }) => {
+        onError: (_error, variables) => {
+            setUnsynced(variables, true);
+            return queryClient.invalidateQueries({ queryKey: ['matches', variables.match.id], exact: true });
+        },
+        onSuccess: ({ match }, variables) => {
+            setUnsynced(variables, false);
             if (queryClient.isMutating({ mutationKey: SCORING_MUTATION_KEY }) <= 1) {
                 return cacheMatch(queryClient, match);
             }
@@ -307,8 +401,12 @@ export function useSetAllianceSubmitted() {
     return useMutation({
         mutationKey: SCORING_MUTATION_KEY,
         scope: { id: 'scoring' },
-        mutationFn: (params: { matchId: number; allianceId: number; role: RefereeRole; submitted: boolean }) =>
-            api.setAllianceSubmitted(params.matchId, params.allianceId, params.role, params.submitted),
+        mutationFn: async (params: { matchId: number; allianceId: number; role: RefereeRole; submitted: boolean }) => {
+            if (params.submitted && unsyncedCountsFor(params.matchId).length > 0) {
+                throw new UnsyncedScoresError();
+            }
+            return api.setAllianceSubmitted(params.matchId, params.allianceId, params.role, params.submitted);
+        },
         onSuccess: ({ match }) => cacheMatch(queryClient, match),
     });
 }

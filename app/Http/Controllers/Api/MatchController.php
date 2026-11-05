@@ -16,14 +16,17 @@ use App\Models\AllianceGroup;
 use App\Models\AllianceSelectionDecline;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
+use App\Models\Event;
 use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Services\AllianceSelectionService;
 use App\Services\AudienceDisplay;
 use App\Services\CurrentEvent;
+use App\Services\EliminationScheduler;
 use App\Services\MatchScheduler;
 use App\Services\MatchTimingService;
 use App\Services\ScheduleTiming;
+use App\Support\LiveBroadcast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +34,7 @@ class MatchController extends Controller
 {
     public function index()
     {
-        $matches = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType'])->get();
+        $matches = CompetitionMatch::query()->withScoreSummary()->get();
 
         return response()->json($matches);
     }
@@ -54,7 +57,9 @@ class MatchController extends Controller
 
     public function updateScore(UpdateMatchScoreRequest $request, int $id): JsonResponse
     {
-        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, $id): CompetitionMatch {
+        $bracketChanged = false;
+
+        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, $id, &$bracketChanged): CompetitionMatch {
             $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($id);
 
             foreach ($request->validated('match_alliances') as $item) {
@@ -75,107 +80,153 @@ class MatchController extends Controller
                 $matchAlliance->increment('score', $adjustment);
             }
 
+            $match->bumpRevision();
+            $bracketChanged = app(EliminationScheduler::class)->reconcileAfterScoreChange($match, $request->user()->id);
+
             return $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
         }, 3);
 
-        broadcast(new ScoreUpdated($match))->toOthers();
+        LiveBroadcast::send(new ScoreUpdated($match), toOthers: true);
+
+        if ($bracketChanged) {
+            LiveBroadcast::send(new EliminationBracketUpdated);
+        }
 
         return response()->json($match);
     }
 
-    public function startMatch(ControlMatchRequest $request, MatchTimingService $matchTiming, AudienceDisplay $display): JsonResponse
+    /**
+     * Starts a match. The event row is locked first, so two head referees
+     * pressing Start at once cannot both find no match running and start two.
+     */
+    public function startMatch(ControlMatchRequest $request, MatchTimingService $matchTiming, AudienceDisplay $display, CurrentEvent $currentEvent): JsonResponse
     {
-        $ongoingMatch = CompetitionMatch::where('status', MatchStatus::ONGOING)->first();
-        if ($ongoingMatch) {
-            return response()->json([
-                'message' => 'Another match is already ongoing.',
-                'ongoing_match_id' => $ongoingMatch->id,
-            ], 409);
+        $result = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, $matchTiming, $currentEvent): CompetitionMatch|JsonResponse {
+            Event::query()->lockForUpdate()->findOrFail($currentEvent->require()->id);
+
+            $ongoingMatch = CompetitionMatch::query()->where('status', MatchStatus::ONGOING)->first();
+            if ($ongoingMatch) {
+                return response()->json([
+                    'message' => 'Another match is already ongoing.',
+                    'ongoing_match_id' => $ongoingMatch->id,
+                ], 409);
+            }
+
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($request->input('match_id'));
+
+            if ($match->status !== MatchStatus::UPCOMING) {
+                return response()->json([
+                    'message' => 'Match must be in upcoming status to start.',
+                ], 422);
+            }
+
+            $timing = $matchTiming->current();
+
+            $match->update([
+                'status' => MatchStatus::ONGOING,
+                'started_at' => now(),
+                'submissions' => null,
+                'referee_seats' => null,
+                'duration_ms' => $timing['total_with_countdown'] * 1000,
+                'timing' => $timing,
+            ]);
+
+            return $match;
+        }, 3);
+
+        if ($result instanceof JsonResponse) {
+            return $result;
         }
-
-        $match = CompetitionMatch::findOrFail($request->input('match_id'));
-
-        if ($match->status !== MatchStatus::UPCOMING) {
-            return response()->json([
-                'message' => 'Match must be in upcoming status to start.',
-            ], 422);
-        }
-
-        $match->update([
-            'status' => MatchStatus::ONGOING,
-            'started_at' => now(),
-            'submissions' => null,
-            'referee_seats' => null,
-            'duration_ms' => $matchTiming->currentDurationMs(),
-        ]);
 
         cache()->forget($this->loadedMatchCacheKey());
 
-        $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+        $result->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
 
-        broadcast(new MatchStatusChanged($match, 'started'));
+        LiveBroadcast::send(new MatchStatusChanged($result, 'started'));
 
-        $display->show(DisplayMode::Match, $match->id);
+        $display->show(DisplayMode::Match, $result->id);
 
-        return response()->json($match);
+        return response()->json($result);
     }
 
+    /**
+     * Commits a match. The submission check and the status change happen
+     * under the same match lock that submitting and reopening take, so a
+     * referee reopening their scores cannot slip in between the two.
+     */
     public function endMatch(ControlMatchRequest $request): JsonResponse
     {
-        $match = CompetitionMatch::findOrFail($request->input('match_id'));
+        $result = (new CompetitionMatch)->getConnection()->transaction(function () use ($request): CompetitionMatch|JsonResponse {
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($request->input('match_id'));
 
-        if ($match->status !== MatchStatus::ONGOING) {
-            return response()->json([
-                'message' => 'Match must be in ongoing status to end.',
-            ], 422);
+            if ($match->status !== MatchStatus::ONGOING) {
+                return response()->json([
+                    'message' => 'Match must be in ongoing status to end.',
+                ], 422);
+            }
+
+            $waiting = $match->load('matchAlliances.alliance')->seatsAwaitingSubmission();
+
+            if ($waiting->isNotEmpty() && ! $request->boolean('force')) {
+                return response()->json([
+                    'message' => 'Waiting for '.$waiting->map(fn (array $seat): string => ucfirst($seat['alliance']->color).' '.$seat['role']->label())->join(', ', ' and ').' to submit.',
+                    'waiting_for' => $waiting->map(fn (array $seat): array => ['alliance_id' => $seat['alliance']->id, 'role' => $seat['role']->value]),
+                ], 409);
+            }
+
+            $match->update([
+                'status' => MatchStatus::COMPLETED,
+                'ended_at' => now(),
+            ]);
+
+            return $match;
+        }, 3);
+
+        if ($result instanceof JsonResponse) {
+            return $result;
         }
 
-        $waiting = $match->load('matchAlliances.alliance')->seatsAwaitingSubmission();
+        $result->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
 
-        if ($waiting->isNotEmpty() && ! $request->boolean('force')) {
-            return response()->json([
-                'message' => 'Waiting for '.$waiting->map(fn (array $seat): string => ucfirst($seat['alliance']->color).' '.$seat['role']->label())->join(', ', ' and ').' to submit.',
-                'waiting_for' => $waiting->map(fn (array $seat): array => ['alliance_id' => $seat['alliance']->id, 'role' => $seat['role']->value]),
-            ], 409);
-        }
+        LiveBroadcast::send(new MatchStatusChanged($result, 'ended'));
 
-        $match->update([
-            'status' => MatchStatus::COMPLETED,
-            'ended_at' => now(),
-        ]);
-
-        $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
-
-        broadcast(new MatchStatusChanged($match, 'ended'));
-
-        return response()->json($match);
+        return response()->json($result);
     }
 
     public function cancelMatch(ControlMatchRequest $request, AudienceDisplay $display): JsonResponse
     {
-        $match = CompetitionMatch::findOrFail($request->input('match_id'));
+        $result = (new CompetitionMatch)->getConnection()->transaction(function () use ($request): CompetitionMatch|JsonResponse {
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($request->input('match_id'));
 
-        if ($match->status !== MatchStatus::ONGOING) {
-            return response()->json([
-                'message' => 'Match must be in ongoing status to cancel.',
-            ], 422);
+            if ($match->status !== MatchStatus::ONGOING) {
+                return response()->json([
+                    'message' => 'Match must be in ongoing status to cancel.',
+                ], 422);
+            }
+
+            $match->update([
+                'status' => MatchStatus::UPCOMING,
+                'started_at' => null,
+                'cancelled_at' => now(),
+                'submissions' => null,
+                'referee_seats' => null,
+                'timing' => null,
+            ]);
+
+            return $match;
+        }, 3);
+
+        if ($result instanceof JsonResponse) {
+            return $result;
         }
 
-        $match->update([
-            'status' => MatchStatus::UPCOMING,
-            'started_at' => null,
-            'cancelled_at' => now(),
-            'submissions' => null,
-            'referee_seats' => null,
-        ]);
+        $result->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
 
-        $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+        LiveBroadcast::send(new MatchStatusChanged($result, 'cancelled'));
 
-        broadcast(new MatchStatusChanged($match, 'cancelled'));
+        $display->show(DisplayMode::Preview, $result->id);
 
-        $display->show(DisplayMode::Preview, $match->id);
-
-        return response()->json($match);
+        return response()->json($result);
     }
 
     public function loadMatch(ControlMatchRequest $request, AudienceDisplay $display): JsonResponse
@@ -185,7 +236,7 @@ class MatchController extends Controller
 
         cache()->put($this->loadedMatchCacheKey(), $match->id, now()->addHours(12));
 
-        broadcast(new MatchStatusChanged($match, 'loaded'));
+        LiveBroadcast::send(new MatchStatusChanged($match, 'loaded'));
 
         $display->show(DisplayMode::Preview, $match->id);
 
@@ -228,7 +279,7 @@ class MatchController extends Controller
             $request->validated('breaks') ?? $current['breaks'],
         );
 
-        broadcast(new MatchStatusChanged(CompetitionMatch::query()->orderBy('number')->firstOrFail(), 'scheduled'));
+        LiveBroadcast::send(new MatchStatusChanged(CompetitionMatch::query()->orderBy('number')->firstOrFail(), 'scheduled'));
 
         return response()->json(['message' => 'Schedule generated successfully.']);
     }
@@ -261,7 +312,7 @@ class MatchController extends Controller
             AllianceGroup::query()->delete();
         });
 
-        broadcast(new EliminationBracketUpdated);
+        LiveBroadcast::send(new EliminationBracketUpdated);
 
         return response()->json(['message' => 'All matches deleted successfully.']);
     }

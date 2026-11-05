@@ -24,7 +24,7 @@ export default function RefereeScoringOnly() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
+        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith, unsyncedCount,
     } = useScoringPage();
 
     // Only positive-point score types
@@ -265,6 +265,7 @@ export default function RefereeScoringOnly() {
                             submission={submission}
                             pending={isSubmitPending}
                             error={submitError}
+                            unsyncedCount={unsyncedCount}
                             onChange={setSubmitted}
                         />
                     </>

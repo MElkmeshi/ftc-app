@@ -10,6 +10,7 @@ use App\Http\Requests\InviteTeamRequest;
 use App\Http\Requests\StartAllianceSelectionRequest;
 use App\Models\AllianceGroup;
 use App\Services\AllianceSelectionService;
+use App\Support\LiveBroadcast;
 use Illuminate\Http\JsonResponse;
 
 class AllianceSelectionController extends Controller
@@ -131,7 +132,7 @@ class AllianceSelectionController extends Controller
      */
     private function broadcastState(string $action): void
     {
-        broadcast(new AllianceSelectionUpdated(
+        LiveBroadcast::send(new AllianceSelectionUpdated(
             action: $action,
             groups: $this->service->getGroups(),
             declinedTeams: $this->service->getDeclinedTeams(),

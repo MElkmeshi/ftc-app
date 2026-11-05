@@ -122,4 +122,28 @@ describe('useMatchTimer', () => {
         expect(playSound).toHaveBeenCalledWith('canel_match.wav');
         expect(result.current.phase).toBe('pre-match');
     });
+    it('plays the start whistle again for the next match after resuming the previous one', () => {
+        const playSound = vi.fn();
+        const { result } = renderHook(() => useMatchTimer({ timing: TIMING, playSound }));
+        act(() => result.current.resumeFrom('2026-01-01T00:00:00.000Z'));
+        act(() => vi.advanceTimersByTime(174_000));
+        playSound.mockClear();
+
+        act(() => result.current.resumeFrom(new Date(Date.now()).toISOString()));
+        act(() => vi.advanceTimersByTime(4_000));
+
+        expect(playSound).toHaveBeenCalledWith('match_start_whistle.wav');
+    });
+
+    it("splits a resumed match into phases with the match's own timing, not the current settings", () => {
+        const { result } = renderHook(() => useMatchTimer({ timing: TIMING }));
+        const matchTiming = { ...TIMING, autonomous: 15, total_match: 155, total_with_countdown: 158 };
+
+        act(() => {
+            vi.setSystemTime(new Date('2026-01-01T00:00:23.000Z'));
+            result.current.resumeFrom('2026-01-01T00:00:00.000Z', 158_000, matchTiming);
+        });
+
+        expect(result.current.phase).toBe('transition');
+    });
 });

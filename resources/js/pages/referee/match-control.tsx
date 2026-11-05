@@ -3,6 +3,7 @@ import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useApi } from '@/hooks/use-api';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { matchFromBroadcast, useLoadedMatch, useMatch } from '@/hooks/use-match';
+import { eventChannel } from '@/lib/event';
 import { determineWinner, formatTime, getAllianceMembers, getAllianceScore, getPhaseColors, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type MatchStatusChangedEvent } from '@/types';
@@ -10,9 +11,11 @@ import { Head } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { eventChannel } from '@/lib/event';
 
 type WinnerState = { winner: 'red' | 'blue' | 'tie'; redScore: number; blueScore: number; match: CompetitionMatch; matchId: number } | null;
+
+/** A missed final result is retried with backoff (about half a minute in all), and a repeated 'ended' broadcast tries again after that. */
+const FINAL_RESULT_RETRIES = 5;
 
 function winnerStateFrom(match: CompetitionMatch): WinnerState {
     return {
@@ -100,8 +103,19 @@ export default function MatchControl() {
                 break;
             case 'ended':
                 if (lastEndedMatchRef.current !== event.match_id) {
-                    lastEndedMatchRef.current = event.match_id;
-                    matchFromBroadcast(event, api.getMatch).then((match) => setWinnerState(winnerStateFrom(match)));
+                    void queryClient
+                        .fetchQuery({
+                            queryKey: ['final-result', event.match_id],
+                            queryFn: () => matchFromBroadcast(event, api.getMatch),
+                            retry: FINAL_RESULT_RETRIES,
+                        })
+                        .then((match) => {
+                            if (lastEndedMatchRef.current !== match.id) {
+                                lastEndedMatchRef.current = match.id;
+                                setWinnerState(winnerStateFrom(match));
+                            }
+                        })
+                        .catch(() => {});
                 }
                 break;
             case 'cancelled':
@@ -227,14 +241,16 @@ export default function MatchControl() {
                     <>
                         {/* Phase Label - hidden during transition */}
                         {timer.phase !== 'transition' ? (
-                            <div className={cn('text-3xl font-black tracking-[0.3em]', phaseColors.text, timer.phase === 'endgame' && 'animate-pulse')}>
+                            <div
+                                className={cn('text-3xl font-black tracking-[0.3em]', phaseColors.text, timer.phase === 'endgame' && 'animate-pulse')}
+                            >
                                 {getPhaseLabel(timer.phase)}
                             </div>
                         ) : null}
 
                         {/* Main Timer */}
                         {timer.phase === 'transition' ? (
-                            <div className="text-[10rem] leading-none font-black text-orange-400 tabular-nums animate-pulse">
+                            <div className="animate-pulse text-[10rem] leading-none font-black text-orange-400 tabular-nums">
                                 {timer.phaseRemainingSeconds}
                             </div>
                         ) : timer.phase === 'autonomous' ? (

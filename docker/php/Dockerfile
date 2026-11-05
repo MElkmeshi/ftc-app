@@ -13,13 +13,10 @@ FROM serversideup/php:8.4-fpm-alpine
 
 USER root
 
-RUN { \
-        echo 'opcache.enable=1'; \
-        echo 'opcache.validate_timestamps=0'; \
-        echo 'opcache.memory_consumption=128'; \
-        echo 'opcache.jit=tracing'; \
-        echo 'opcache.jit_buffer_size=64M'; \
-    } > /usr/local/etc/php/conf.d/opcache-prod.ini
+ENV PHP_OPCACHE_ENABLE=1 \
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
+    PHP_OPCACHE_JIT=tracing \
+    PHP_OPCACHE_JIT_BUFFER_SIZE=64M
 
 WORKDIR /var/www/html
 

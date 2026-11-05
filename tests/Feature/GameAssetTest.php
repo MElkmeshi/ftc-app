@@ -21,6 +21,18 @@ function svgUpload(string $body): UploadedFile
     return UploadedFile::fake()->createWithContent('piece.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'.$body.'</svg>');
 }
 
+/**
+ * A real file on disk, so its type is read from its content like a browser
+ * upload's is (a fake upload reports the type its name suggests).
+ */
+function svgFileNamed(string $name, string $body): UploadedFile
+{
+    $path = tempnam(sys_get_temp_dir(), 'svg');
+    file_put_contents($path, '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'.$body.'</svg>');
+
+    return new UploadedFile($path, $name, null, null, true);
+}
+
 it('stores a score type picture and serves it from the public disk', function () {
     $scoreType = ScoreType::factory()->create();
 
@@ -51,6 +63,28 @@ it('refuses SVGs that could run code or load other content', function (string $b
     'external image' => '<image href="https://example.com/x.png" width="5" height="5"/>',
     'external css' => '<style>@import url(https://example.com/x.css);</style>',
 ]);
+
+it('inspects an SVG renamed to another image extension', function () {
+    $scoreType = ScoreType::factory()->create();
+    $disguised = svgFileNamed('piece.png', '<script>alert(1)</script>');
+
+    $response = $this->actingAs($this->admin)
+        ->post("/api/score-types/{$scoreType->id}/icon", ['image' => $disguised], ['Accept' => 'application/json']);
+
+    $response->assertUnprocessable();
+    expect($scoreType->fresh()->icon_path)->toBeNull();
+});
+
+it('names a stored picture by what it contains, not the name it was sent with', function () {
+    $scoreType = ScoreType::factory()->create();
+    $renamed = svgFileNamed('piece.png', '<circle cx="5" cy="5" r="4"/>');
+
+    $this->actingAs($this->admin)
+        ->post("/api/score-types/{$scoreType->id}/icon", ['image' => $renamed], ['Accept' => 'application/json'])
+        ->assertSuccessful();
+
+    expect($scoreType->fresh()->icon_path)->toEndWith('.svg');
+});
 
 it('keeps plain SVGs with internal references', function () {
     expect(app(SvgInspector::class)->problem('<svg><defs><linearGradient id="g"/></defs><rect fill="url(#g)"/><use href="#g"/></svg>'))->toBeNull();

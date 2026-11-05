@@ -13,6 +13,7 @@ use App\Models\MatchAlliance;
 use App\Models\Score;
 use Exception;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class EliminationScheduler
 {
@@ -238,82 +239,140 @@ class EliminationScheduler
     }
 
     /**
-     * Determine the series winner. Returns null if tied (tiebreaker needed).
+     * The alliance group that has won the series, or null while it is still
+     * open: a group wins only once its lead is more than the matches still to
+     * be played, so 1-0 with a match left is not a win.
+     *
+     * @param  array{group_1_wins: int, group_2_wins: int, completed_matches: int, total_matches: int}  $result
      */
-    public function determineSeriesWinner(EliminationSeries $series): ?AllianceGroup
+    private function decidedWinnerId(EliminationSeries $series, array $result): ?int
     {
-        $result = $this->getSeriesResult($series);
+        $remaining = $result['total_matches'] - $result['completed_matches'];
 
-        if ($result['group_1_wins'] > $result['group_2_wins']) {
-            $series->update([
-                'winner_alliance_group_id' => $series->alliance_group_1_id,
-                'status' => 'completed',
-            ]);
-
-            return AllianceGroup::find($series->alliance_group_1_id);
-        }
-
-        if ($result['group_2_wins'] > $result['group_1_wins']) {
-            $series->update([
-                'winner_alliance_group_id' => $series->alliance_group_2_id,
-                'status' => 'completed',
-            ]);
-
-            return AllianceGroup::find($series->alliance_group_2_id);
-        }
-
-        // Update status to in_progress if matches are being played
-        if ($result['completed_matches'] > 0 && $series->status === 'pending') {
-            $series->update(['status' => 'in_progress']);
-        }
-
-        return null;
+        return match (true) {
+            $result['group_1_wins'] > $result['group_2_wins'] + $remaining => $series->alliance_group_1_id,
+            $result['group_2_wins'] > $result['group_1_wins'] + $remaining => $series->alliance_group_2_id,
+            default => null,
+        };
     }
 
     /**
-     * Generate a tiebreaker match for a tied series.
+     * Determine the series winner. Returns null while the series is open or
+     * tied (a tiebreaker is needed once every match is played).
+     */
+    public function determineSeriesWinner(EliminationSeries $series): ?AllianceGroup
+    {
+        return $series->getConnection()->transaction(function () use ($series): ?AllianceGroup {
+            $series = EliminationSeries::query()->lockForUpdate()->findOrFail($series->id);
+            $result = $this->getSeriesResult($series);
+            $winnerId = $this->decidedWinnerId($series, $result);
+
+            if ($winnerId !== null) {
+                $series->update(['winner_alliance_group_id' => $winnerId, 'status' => 'completed']);
+
+                return AllianceGroup::find($winnerId);
+            }
+
+            if ($result['completed_matches'] > 0 && $series->status === 'pending') {
+                $series->update(['status' => 'in_progress']);
+            }
+
+            return null;
+        }, 3);
+    }
+
+    /**
+     * Generate a tiebreaker match for a series whose matches are all played
+     * and split evenly.
      */
     public function generateTiebreaker(EliminationSeries $series, int $createdBy): CompetitionMatch
     {
-        if ($series->winner_alliance_group_id !== null) {
-            throw new Exception('Series already has a winner.');
+        return $series->getConnection()->transaction(function () use ($series, $createdBy): CompetitionMatch {
+            $series = EliminationSeries::query()->lockForUpdate()->findOrFail($series->id);
+
+            if ($series->winner_alliance_group_id !== null) {
+                throw new Exception('Series already has a winner.');
+            }
+
+            $result = $this->getSeriesResult($series);
+            if ($result['completed_matches'] < $result['total_matches']) {
+                throw new Exception('Play every match of the series before adding a tiebreaker.');
+            }
+            if ($result['completed_matches'] === 0 || $result['group_1_wins'] !== $result['group_2_wins']) {
+                throw new Exception('Series is not tied. Cannot generate tiebreaker.');
+            }
+
+            $alliances = Alliance::orderBy('id')->get();
+            $matchNumber = (CompetitionMatch::max('number') ?? 0) + 1;
+
+            $group1 = AllianceGroup::findOrFail($series->alliance_group_1_id);
+            $group2 = AllianceGroup::findOrFail($series->alliance_group_2_id);
+
+            // Higher seed (group 1) gets red (home)
+            $match = $this->createEliminationMatch($series, $group1, $group2, $alliances[0]->id, $alliances[1]->id, $matchNumber, $createdBy);
+
+            $match->update(['round' => match ($series->round) {
+                EliminationRound::SEMIFINAL_1->value => EliminationRound::TIEBREAKER_SEMIFINAL_1->value,
+                EliminationRound::SEMIFINAL_2->value => EliminationRound::TIEBREAKER_SEMIFINAL_2->value,
+                default => EliminationRound::TIEBREAKER_FINAL->value,
+            }]);
+
+            return $match;
+        }, 3);
+    }
+
+    /**
+     * After a completed playoff match's score is corrected, re-decides its
+     * series. If the correction changes who won a semifinal, a final that has
+     * not been played yet is rebuilt with the right alliances; one already
+     * under way is left alone and the correction refused, since replaying it
+     * needs a deliberate bracket reset.
+     *
+     * Call inside the transaction that changed the scores.
+     *
+     * @return bool whether the bracket changed.
+     */
+    public function reconcileAfterScoreChange(CompetitionMatch $match, int $createdBy): bool
+    {
+        if ($match->elimination_series_id === null || $match->status !== MatchStatus::COMPLETED) {
+            return false;
         }
 
-        $result = $this->getSeriesResult($series);
-        if ($result['group_1_wins'] !== $result['group_2_wins']) {
-            throw new Exception('Series is not tied. Cannot generate tiebreaker.');
+        $series = EliminationSeries::query()->lockForUpdate()->find($match->elimination_series_id);
+
+        if ($series === null || $series->winner_alliance_group_id === null) {
+            return false;
         }
 
-        $alliances = Alliance::orderBy('id')->get();
-        $redAllianceId = $alliances[0]->id;
-        $blueAllianceId = $alliances[1]->id;
+        if ($this->decidedWinnerId($series, $this->getSeriesResult($series)) === $series->winner_alliance_group_id) {
+            return false;
+        }
 
-        $matchNumber = (CompetitionMatch::max('number') ?? 0) + 1;
+        $final = in_array($series->round, [EliminationRound::SEMIFINAL_1->value, EliminationRound::SEMIFINAL_2->value], true)
+            ? EliminationSeries::query()->with('matches')->where('round', EliminationRound::FINAL->value)->first()
+            : null;
 
-        $group1 = AllianceGroup::findOrFail($series->alliance_group_1_id);
-        $group2 = AllianceGroup::findOrFail($series->alliance_group_2_id);
+        if ($final !== null && $final->matches->contains(fn (CompetitionMatch $finalMatch): bool => $finalMatch->status !== MatchStatus::UPCOMING)) {
+            throw ValidationException::withMessages([
+                'match_id' => 'This correction changes who won the semifinal, but the final has already started. Reset the bracket to replay it.',
+            ]);
+        }
 
-        // Higher seed (group 1) gets red (home)
-        $match = $this->createEliminationMatch(
-            $series,
-            $group1,
-            $group2,
-            $redAllianceId,
-            $blueAllianceId,
-            $matchNumber,
-            $createdBy,
-        );
+        if ($final !== null) {
+            $finalMatchIds = $final->matches->pluck('id');
+            Score::whereIn('match_id', $finalMatchIds)->forceDelete();
+            MatchAlliance::whereIn('match_id', $finalMatchIds)->forceDelete();
+            CompetitionMatch::query()->whereIn('id', $finalMatchIds)->forceDelete();
+            $final->delete();
+        }
 
-        // Override round to tiebreaker variant
-        $tiebreakerRound = match ($series->round) {
-            EliminationRound::SEMIFINAL_1->value => EliminationRound::TIEBREAKER_SEMIFINAL_1->value,
-            EliminationRound::SEMIFINAL_2->value => EliminationRound::TIEBREAKER_SEMIFINAL_2->value,
-            default => EliminationRound::TIEBREAKER_FINAL->value,
-        };
+        $series->update(['winner_alliance_group_id' => null, 'status' => 'in_progress']);
 
-        $match->update(['round' => $tiebreakerRound]);
+        if ($this->determineSeriesWinner($series) !== null) {
+            $this->advanceBracket($series->fresh(), $createdBy);
+        }
 
-        return $match;
+        return true;
     }
 
     /**

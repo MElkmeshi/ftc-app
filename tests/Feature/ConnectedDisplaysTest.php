@@ -76,3 +76,25 @@ it('only lets match control see and change displays', function () {
         ->putJson('/api/display/connected', ['display_ids' => [SCREEN], 'mute' => true])
         ->assertForbidden();
 });
+
+it('hands a display the settings it missed, in the answer to its next report', function () {
+    Event::fake([DisplayConfigured::class]);
+    reportScreen(SCREEN, ['type' => 'field']);
+    $this->actingAs($this->headReferee)->putJson('/api/display/connected', ['display_ids' => [SCREEN], 'mute' => true])->assertOk();
+
+    $missed = $this->postJson('/api/display/connected', ['display_id' => SCREEN, 'type' => 'field', 'mute' => false, 'flipped' => false]);
+
+    $missed->assertOk()->assertJsonPath('version', 1)->assertJsonPath('config.mute', true);
+    $this->actingAs($this->headReferee)->getJson('/api/display/connected')->assertJsonPath('0.config.mute', true);
+});
+
+it('stops resending settings once the display confirms them', function () {
+    Event::fake([DisplayConfigured::class]);
+    reportScreen(SCREEN, ['type' => 'field']);
+    $this->actingAs($this->headReferee)->putJson('/api/display/connected', ['display_ids' => [SCREEN], 'mute' => true])->assertOk();
+
+    $confirmed = $this->postJson('/api/display/connected', ['display_id' => SCREEN, 'type' => 'field', 'mute' => true, 'flipped' => false, 'config_version' => 1]);
+
+    $confirmed->assertNoContent();
+    Event::assertDispatched(DisplayConfigured::class, fn (DisplayConfigured $event): bool => $event->broadcastWith()['version'] === 1);
+});

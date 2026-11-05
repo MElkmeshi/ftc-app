@@ -288,3 +288,57 @@ it('counts alliance-wide points once per group across home and away matches', fu
     'penalty must not reverse a win' => [50, -20, 20, 2],
     'a real tie stays a tie' => [0, 20, 20, 0],
 ]);
+
+function playSeriesMatch(CompetitionMatch $match, int $winningGroupId): void
+{
+    foreach ($match->matchAlliances as $matchAlliance) {
+        $matchAlliance->update(['score' => $matchAlliance->alliance_group_id === $winningGroupId ? 100 : 50]);
+    }
+
+    $match->update(['status' => MatchStatus::COMPLETED, 'ended_at' => now()]);
+}
+
+it('does not crown a winner while a match that could still change the result is unplayed', function () {
+    createCompletedAllianceGroups(2);
+    $scheduler = new EliminationScheduler;
+    $scheduler->generate(1);
+    $series = EliminationSeries::first();
+    playSeriesMatch($series->matches()->orderBy('number')->first(), AllianceGroup::orderBy('seed')->first()->id);
+
+    $winner = $scheduler->determineSeriesWinner($series->fresh());
+
+    expect($winner)->toBeNull()
+        ->and($series->fresh()->winner_alliance_group_id)->toBeNull();
+});
+
+it('refuses a tiebreaker before every match of the series is played', function () {
+    createCompletedAllianceGroups(2);
+    $scheduler = new EliminationScheduler;
+    $scheduler->generate(1);
+    $series = EliminationSeries::first();
+
+    expect(fn () => $scheduler->generateTiebreaker($series, 1))->toThrow(Exception::class, 'Play every match');
+    expect($series->matches()->count())->toBe(2);
+});
+
+it('rebuilds an unplayed final when a corrected semifinal changes its winner', function () {
+    createCompletedAllianceGroups(4);
+    $scheduler = new EliminationScheduler;
+    $scheduler->generate(1);
+    $semifinal1 = EliminationSeries::where('round', 'semifinal_1')->first();
+    $semifinal2 = EliminationSeries::where('round', 'semifinal_2')->first();
+    $semifinal1->matches->each(fn (CompetitionMatch $match) => playSeriesMatch($match, $semifinal1->alliance_group_1_id));
+    $semifinal2->matches->each(fn (CompetitionMatch $match) => playSeriesMatch($match, $semifinal2->alliance_group_1_id));
+    $scheduler->determineSeriesWinner($semifinal1);
+    $scheduler->determineSeriesWinner($semifinal2);
+    $scheduler->advanceBracket($semifinal2->fresh(), 1);
+    $semifinal1->matches->each(fn (CompetitionMatch $match) => playSeriesMatch($match->fresh(['matchAlliances']), $semifinal1->alliance_group_2_id));
+
+    $changed = $scheduler->reconcileAfterScoreChange($semifinal1->matches->first()->fresh(), 1);
+
+    $final = EliminationSeries::where('round', 'final')->first();
+    expect($changed)->toBeTrue()
+        ->and($semifinal1->fresh()->winner_alliance_group_id)->toBe($semifinal1->alliance_group_2_id)
+        ->and([$final->alliance_group_1_id, $final->alliance_group_2_id])->toContain($semifinal1->alliance_group_2_id)
+        ->and([$final->alliance_group_1_id, $final->alliance_group_2_id])->not->toContain($semifinal1->alliance_group_1_id);
+});

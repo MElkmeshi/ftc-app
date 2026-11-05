@@ -12,11 +12,11 @@ const echo = vi.hoisted(() => {
         emit: (channel: string, event: string, payload: unknown) => handlers.get(`${channel}:${event}`)?.(payload),
     };
 });
-const api = vi.hoisted(() => ({ getMatch: vi.fn(), getMatches: vi.fn(), addScore: vi.fn(), deleteScore: vi.fn() }));
+const api = vi.hoisted(() => ({ getMatch: vi.fn(), getMatches: vi.fn(), addScore: vi.fn(), deleteScore: vi.fn(), setScoreCount: vi.fn() }));
 vi.mock('@laravel/echo-react', () => ({ useEchoPublic: echo.useEchoPublic }));
 vi.mock('@/hooks/use-api', () => ({ useApi: () => api }));
 
-const { useMatch, useMatches, useAddScore, useDeleteScore } = await import('./use-match');
+const { useMatch, useMatches, useAddScore, useDeleteScore, useSetScoreCount } = await import('./use-match');
 
 function makeMatch(score = 0): CompetitionMatch {
     return {
@@ -98,7 +98,13 @@ describe('match synchronization', () => {
         client.setQueryData(['active-match'], makeMatch());
         const { result } = renderHook(() => useMatches(), { wrapper: Wrapper });
         await waitFor(() => expect(result.current.data?.[0].id).toBe(1));
-        act(() => echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: 1, match: { ...makeMatch(), status: 'completed' }, action: 'ended' }));
+        act(() =>
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', {
+                match_id: 1,
+                match: { ...makeMatch(), status: 'completed' },
+                action: 'ended',
+            }),
+        );
         await waitFor(() => expect(result.current.data?.[0].status).toBe('completed'));
         expect(client.getQueryData(['active-match'])).toBeNull();
         expect(api.getMatches).toHaveBeenCalledTimes(1);
@@ -130,5 +136,32 @@ describe('match synchronization', () => {
         await waitFor(() => expect(client.getQueryData<CompetitionMatch>(['matches', 1])?.match_alliances[0].score).toBe(0));
         await act(async () => finish({ match: makeMatch() }));
         expect(client.getQueryData(['matches', 1])).toEqual(makeMatch());
+    });
+    it('ignores a snapshot older than the one already shown', async () => {
+        const { client, Wrapper } = renderWithQueryClient(() => null);
+        api.getMatch.mockResolvedValue({ ...makeMatch(10), revision: 3 });
+        client.setQueryData(['matches', 1], { ...makeMatch(30), revision: 5 });
+        const { result } = renderHook(() => useMatch(1), { wrapper: Wrapper });
+
+        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match_id: 1, match: { ...makeMatch(10), revision: 4 } }));
+
+        await waitFor(() => expect(result.current.data?.match_alliances[0].score).toBe(30));
+        expect(client.getQueryData<CompetitionMatch>(['matches', 1])?.revision).toBe(5);
+    });
+
+    it("keeps this tablet's unsent tap when another tablet's snapshot arrives", async () => {
+        const { client, Wrapper } = renderWithQueryClient(() => null);
+        const scoreType = { id: 9, name: 'artifact', points: 3, target: 'team', kind: 'count', choice_set: null, group_id: null } as never;
+        client.setQueryData(['matches', 1], { ...makeMatch(), revision: 1 });
+        api.setScoreCount.mockImplementation(() => new Promise(() => {}));
+        const { result } = renderHook(() => ({ match: useMatch(1), setCount: useSetScoreCount() }), { wrapper: Wrapper });
+        act(() => result.current.setCount.mutate({ match: makeMatch(), scoreType, target: { teamId: 1 }, count: 1 }));
+        await waitFor(() => expect(result.current.match.data?.scores).toHaveLength(1));
+
+        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match_id: 1, match: { ...makeMatch(), revision: 2 } }));
+
+        await waitFor(() => expect(client.getQueryData<CompetitionMatch>(['matches', 1])?.revision).toBe(2));
+        expect(result.current.match.data?.scores).toHaveLength(1);
+        expect(result.current.match.data?.match_alliances[0].score).toBe(3);
     });
 });

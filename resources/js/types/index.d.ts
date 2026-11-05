@@ -1,3 +1,4 @@
+import { type MatchTimingConfig } from '@/hooks/use-match-timer';
 import { type DisplayConfig } from '@/lib/display-config';
 import { LucideIcon } from 'lucide-react';
 import type { Config } from 'ziggy-js';
@@ -169,7 +170,8 @@ export interface Score {
     points?: number;
     score_type_id: number | null;
     score_type?: ScoreType | null;
-    created_at: string;
+    /** Only on scores the tablet created itself; the server does not send it. */
+    created_at?: string;
 }
 
 export interface MatchAlliance {
@@ -192,6 +194,10 @@ export interface CompetitionMatch {
     start_time: string;
     started_at: string | null;
     duration_ms: number | null;
+    /** Every phase boundary, pinned when the match started; null before then. */
+    timing?: MatchTimingConfig | null;
+    /** Goes up with every change to the match or its scores. */
+    revision?: number;
     ended_at: string | null;
     status: string;
     match_alliances: MatchAlliance[];

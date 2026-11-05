@@ -13,7 +13,7 @@ class DisplayConfigured implements ShouldBroadcastNow
     /**
      * @param  array{type: string, mute: bool, flipped: bool, field: int|null, name: string|null}  $config
      */
-    public function __construct(public string $eventCode, public string $displayId, public array $config) {}
+    public function __construct(public string $eventCode, public string $displayId, public array $config, public int $version = 0) {}
 
     /**
      * @return array<Channel>
@@ -24,10 +24,10 @@ class DisplayConfigured implements ShouldBroadcastNow
     }
 
     /**
-     * @return array{display_id: string, config: array{type: string, mute: bool, flipped: bool, field: int|null, name: string|null}}
+     * @return array{display_id: string, config: array{type: string, mute: bool, flipped: bool, field: int|null, name: string|null}, version: int}
      */
     public function broadcastWith(): array
     {
-        return ['display_id' => $this->displayId, 'config' => $this->config];
+        return ['display_id' => $this->displayId, 'config' => $this->config, 'version' => $this->version];
     }
 }

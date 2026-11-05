@@ -18,8 +18,6 @@ class MatchScheduler
 
     private array $teamOpponents = [];
 
-    private int $maxIterations = 100;
-
     public function generate(
         int $minMatchesPerTeam = 3,
         int $createdBy = 1,
@@ -53,58 +51,81 @@ class MatchScheduler
             throw new Exception('Minimum matches per team must be a positive number.');
         }
 
-        // Initialize tracking arrays
         $this->initializeTracking($teamIds);
 
-        // Scoped to the current event by EventScopedBuilder (forceDelete skips global scopes otherwise).
-        Score::withTrashed()->forceDelete();
-        MatchAlliance::withTrashed()->forceDelete();
-        CompetitionMatch::withTrashed()->forceDelete();
+        $plan = $this->plan($teamIds, $teamsPerMatch, $teamsPerAlliance, $minMatchesPerTeam, $maxScoringMatches);
 
-        $matchNumber = 1;
-        $iterations = 0;
+        (new CompetitionMatch)->getConnection()->transaction(function () use ($plan, $allianceIds, $createdBy): void {
+            // Scoped to the current event by EventScopedBuilder (forceDelete skips global scopes otherwise).
+            Score::withTrashed()->forceDelete();
+            MatchAlliance::withTrashed()->forceDelete();
+            CompetitionMatch::withTrashed()->forceDelete();
 
-        // Schedule matches until all teams meet minimum requirement
-        while (! $this->allTeamsMetMinimum($minMatchesPerTeam) && $iterations < $this->maxIterations) {
-            // Select teams for next match
+            foreach ($plan as $index => $match) {
+                $matchNumber = $index + 1;
+
+                $competitionMatch = CompetitionMatch::create([
+                    'number' => $matchNumber,
+                    'field' => app(FieldAssignment::class)->fieldFor($matchNumber),
+                    'start_time' => now()->addMinutes($matchNumber * 10),
+                    'status' => MatchStatus::UPCOMING,
+                    'created_by' => $createdBy,
+                    'updated_by' => $createdBy,
+                ]);
+
+                foreach ($match as $side => $seats) {
+                    foreach ($seats as $position => [$teamId, $countsForRanking]) {
+                        MatchAlliance::create([
+                            'match_id' => $competitionMatch->id,
+                            'team_id' => $teamId,
+                            'alliance_id' => $allianceIds[$side],
+                            'alliance_pos' => $position + 1,
+                            'score' => 0,
+                            'counts_for_ranking' => $countsForRanking,
+                            'created_by' => $createdBy,
+                            'updated_by' => $createdBy,
+                        ]);
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Works out the whole schedule before anything is saved, so a schedule
+     * that cannot be built leaves the current one (and its results) alone.
+     * Each match fills the teams with the fewest matches so far, so every
+     * team reaches the minimum within the ideal number of matches plus at
+     * most one extra round.
+     *
+     * @param  list<int>  $teamIds
+     * @return list<array{0: list<array{0: int, 1: bool}>, 1: list<array{0: int, 1: bool}>}>
+     */
+    private function plan(array $teamIds, int $teamsPerMatch, int $teamsPerAlliance, int $minMatchesPerTeam, ?int $maxScoringMatches): array
+    {
+        $teamCount = count($teamIds);
+        $maxMatches = (int) ceil($teamCount * $minMatchesPerTeam / $teamsPerMatch) + $teamCount;
+        $plan = [];
+
+        while (! $this->allTeamsMetMinimum($minMatchesPerTeam)) {
+            if (count($plan) >= $maxMatches) {
+                throw new Exception('Could not build a schedule with these settings.');
+            }
+
             $selectedTeams = $this->selectTeamsForMatch($teamIds, $teamsPerMatch);
             if ($selectedTeams === null) {
                 throw new Exception('Cannot form match: Not enough available teams');
             }
 
-            // Form alliances with partnership diversity optimization
             [$alliance1Teams, $alliance2Teams] = $this->formAlliances($selectedTeams, $teamsPerAlliance);
 
-            // Create the match
-            $competitionMatch = CompetitionMatch::create([
-                'number' => $matchNumber,
-                'field' => app(FieldAssignment::class)->fieldFor($matchNumber),
-                'start_time' => now()->addMinutes($matchNumber * 10),
-                'status' => MatchStatus::UPCOMING,
-                'created_by' => $createdBy,
-                'updated_by' => $createdBy,
-            ]);
+            $seat = fn (int $teamId): array => [$teamId, $maxScoringMatches === null || $this->teamMatchCounts[$teamId] < $maxScoringMatches];
+            $plan[] = [array_map($seat, array_values($alliance1Teams)), array_map($seat, array_values($alliance2Teams))];
 
-            // Assign teams to alliances
-            $this->assignTeamsToAlliances(
-                $competitionMatch->id,
-                $alliance1Teams,
-                $alliance2Teams,
-                $allianceIds,
-                $createdBy,
-                $maxScoringMatches
-            );
-
-            // Update tracking statistics
             $this->updateTracking($selectedTeams, $alliance1Teams, $alliance2Teams);
-
-            $matchNumber++;
-            $iterations++;
         }
 
-        if ($iterations >= $this->maxIterations) {
-            throw new Exception('Maximum iterations reached while scheduling matches');
-        }
+        return $plan;
     }
 
     private function initializeTracking(array $teamIds): void
@@ -230,47 +251,6 @@ class MatchScheduler
         }
 
         return $score;
-    }
-
-    private function assignTeamsToAlliances(
-        int $matchId,
-        array $alliance1Teams,
-        array $alliance2Teams,
-        array $allianceIds,
-        int $createdBy,
-        ?int $maxScoringMatches = null
-    ): void {
-        // Assign alliance 1
-        foreach ($alliance1Teams as $index => $teamId) {
-            $countsForRanking = $maxScoringMatches === null || $this->teamMatchCounts[$teamId] < $maxScoringMatches;
-
-            MatchAlliance::create([
-                'match_id' => $matchId,
-                'team_id' => $teamId,
-                'alliance_id' => $allianceIds[0],
-                'alliance_pos' => $index + 1,
-                'score' => 0,
-                'counts_for_ranking' => $countsForRanking,
-                'created_by' => $createdBy,
-                'updated_by' => $createdBy,
-            ]);
-        }
-
-        // Assign alliance 2
-        foreach ($alliance2Teams as $index => $teamId) {
-            $countsForRanking = $maxScoringMatches === null || $this->teamMatchCounts[$teamId] < $maxScoringMatches;
-
-            MatchAlliance::create([
-                'match_id' => $matchId,
-                'team_id' => $teamId,
-                'alliance_id' => $allianceIds[1],
-                'alliance_pos' => $index + 1,
-                'score' => 0,
-                'counts_for_ranking' => $countsForRanking,
-                'created_by' => $createdBy,
-                'updated_by' => $createdBy,
-            ]);
-        }
     }
 
     private function updateTracking(array $selectedTeams, array $alliance1Teams, array $alliance2Teams): void

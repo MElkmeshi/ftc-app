@@ -23,7 +23,7 @@ export default function RefereeFoulsOnly() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
+        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith, unsyncedCount,
     } = useScoringPage({ role: 'penalty' });
 
     // This layout is the alliance's penalty referee: only the fouls it calls (the − / + ones).
@@ -265,6 +265,7 @@ export default function RefereeFoulsOnly() {
                             submission={submission}
                             pending={isSubmitPending}
                             error={submitError}
+                            unsyncedCount={unsyncedCount}
                             onChange={setSubmitted}
                         />
                     </>

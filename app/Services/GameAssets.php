@@ -101,10 +101,12 @@ class GameAssets
 
     /**
      * Files get a random name so a replaced picture is never served from a browser cache.
+     * An upload's extension comes from its content, never from the name it was
+     * sent with, so a renamed file cannot be stored as a page the browser runs.
      */
     private function put(string $directory, string $name, UploadedFile|string $file): string
     {
-        $extension = strtolower($file instanceof UploadedFile ? $file->getClientOriginalExtension() : pathinfo($file, PATHINFO_EXTENSION));
+        $extension = strtolower($file instanceof UploadedFile ? ($file->guessExtension() ?? 'bin') : pathinfo($file, PATHINFO_EXTENSION));
         $filename = $name.'-'.Str::lower(Str::random(8)).'.'.$extension;
 
         return $file instanceof UploadedFile

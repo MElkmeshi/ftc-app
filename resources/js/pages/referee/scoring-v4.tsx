@@ -86,7 +86,7 @@ export default function RefereeScoring4() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
+        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith, unsyncedCount,
     } = useScoringPage();
 
     const allianceColorName = alliances.find((a) => a?.id === selectedAllianceId)?.color ?? 'gray';
@@ -255,6 +255,7 @@ export default function RefereeScoring4() {
                             submission={submission}
                             pending={isSubmitPending}
                             error={submitError}
+                            unsyncedCount={unsyncedCount}
                             onChange={setSubmitted}
                         />
                     </>

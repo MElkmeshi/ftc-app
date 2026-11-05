@@ -24,10 +24,28 @@ class CompetitionMatch extends Model
         return MatchFactory::new();
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (CompetitionMatch $match): void {
+            if ($match->isDirty()) {
+                $match->revision = ($match->revision ?? 0) + 1;
+            }
+        });
+    }
+
+    /**
+     * Marks a change to the match's scores, which are saved as their own rows
+     * and so do not save the match itself.
+     */
+    public function bumpRevision(): void
+    {
+        $this->increment('revision');
+    }
+
     protected $table = 'matches';
 
     protected $fillable = [
-        'event_id', 'number', 'type', 'round', 'field', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'ended_at', 'cancelled_at', 'submissions', 'referee_seats', 'created_by', 'updated_by',
+        'event_id', 'number', 'type', 'round', 'field', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'timing', 'ended_at', 'cancelled_at', 'submissions', 'referee_seats', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -42,12 +60,28 @@ class CompetitionMatch extends Model
             'start_time' => 'datetime',
             'started_at' => 'datetime',
             'duration_ms' => 'integer',
+            'revision' => 'integer',
+            'timing' => 'array',
             'field' => 'integer',
             'ended_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'submissions' => 'array',
             'referee_seats' => 'array',
         ];
+    }
+
+    /**
+     * Loads what a list of matches needs to show each alliance's total: the
+     * teams and only the alliance-wide score rows (robot points are already
+     * summed on each match alliance), without the full scoring history.
+     */
+    public function scopeWithScoreSummary(Builder $query): Builder
+    {
+        return $query->with([
+            'matchAlliances.team',
+            'matchAlliances.alliance',
+            'scores' => fn ($scores) => $scores->whereNull('team_id')->select(['id', 'match_id', 'team_id', 'alliance_id', 'score_type_id', 'points']),
+        ]);
     }
 
     public function scopeQualification(Builder $query): Builder

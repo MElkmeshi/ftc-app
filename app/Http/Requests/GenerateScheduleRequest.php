@@ -12,8 +12,8 @@ class GenerateScheduleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'matches_per_team' => ['required', 'integer', 'min:1'],
-            'teams_per_alliance' => ['required', 'integer', 'min:1'],
+            'matches_per_team' => ['required', 'integer', 'min:1', 'max:20'],
+            'teams_per_alliance' => ['required', 'integer', 'min:1', 'max:4'],
             'max_scoring_matches' => ['nullable', 'integer', 'min:1'],
             'first_match_at' => ['nullable', 'date_format:Y-m-d\TH:i'],
             'cycle_minutes' => ['nullable', 'integer', 'min:1', 'max:60'],

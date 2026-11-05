@@ -14,6 +14,7 @@ export function SubmitScoresPanel({
     submission,
     pending,
     error,
+    unsyncedCount = 0,
     onChange,
 }: {
     matchNumber: number;
@@ -22,9 +23,17 @@ export function SubmitScoresPanel({
     submission: ScoreSubmission | null;
     pending: boolean;
     error?: unknown;
+    /** Score counts that never reached the server. */
+    unsyncedCount?: number;
     onChange: (submitted: boolean) => void;
 }) {
     const message = getApiErrorMessage(error);
+    const unsyncedWarning =
+        unsyncedCount > 0 ? (
+            <p role="alert" className="text-destructive flex items-center gap-1 text-sm font-semibold">
+                <TriangleAlert className="size-4" /> {unsyncedCount} {unsyncedCount === 1 ? 'change has' : 'changes have'} not reached the server yet.
+            </p>
+        ) : null;
 
     if (submission) {
         return (
@@ -53,6 +62,7 @@ export function SubmitScoresPanel({
                     Submit {label} · Match #{matchNumber}
                 </p>
                 <p className="text-muted-foreground text-sm">Locks them and tells the head referee they are final.</p>
+                {unsyncedWarning}
                 {message && <p className="text-destructive text-sm">{message}</p>}
             </div>
             <Button onClick={() => onChange(true)} disabled={pending} className="bg-amber-600 text-white hover:bg-amber-500">

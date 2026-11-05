@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Alliance;
+use App\Models\CompetitionMatch;
+use App\Models\MatchAlliance;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -103,4 +106,16 @@ it('soft deletes a team', function () {
 
     $response->assertNoContent();
     $this->assertSoftDeleted('teams', ['id' => $team->id]);
+});
+
+it('refuses to delete a team that is in the match schedule', function () {
+    $team = Team::factory()->create(['number' => 4321]);
+    $alliance = Alliance::create(['name' => 'Red Alliance', 'color' => 'red']);
+    $match = CompetitionMatch::factory()->create();
+    MatchAlliance::create(['match_id' => $match->id, 'team_id' => $team->id, 'alliance_id' => $alliance->id, 'alliance_pos' => 1, 'score' => 0, 'created_by' => 1, 'updated_by' => 1]);
+
+    $response = $this->deleteJson("/api/teams/{$team->id}");
+
+    $response->assertUnprocessable()->assertJsonPath('message', 'Team 4321 is in the match schedule. Regenerate the schedule without it before deleting it.');
+    $this->assertNotSoftDeleted($team);
 });

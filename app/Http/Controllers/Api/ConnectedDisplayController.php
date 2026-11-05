@@ -17,19 +17,23 @@ class ConnectedDisplayController extends Controller
         return response()->json($displays->all());
     }
 
-    public function report(ReportDisplayRequest $request, ConnectedDisplays $displays): Response
+    /**
+     * A display's heartbeat. Answers with the settings it still has to apply
+     * when match control changed them and the display has not confirmed them.
+     */
+    public function report(ReportDisplayRequest $request, ConnectedDisplays $displays): JsonResponse|Response
     {
         $config = $request->safe()->only(DisplayConfigRules::KEYS);
 
-        $displays->report($request->validated('display_id'), $request->ip(), [
+        $pending = $displays->report($request->validated('display_id'), $request->ip(), [
             'type' => $config['type'],
             'mute' => (bool) $config['mute'],
             'flipped' => (bool) $config['flipped'],
             'field' => isset($config['field']) ? (int) $config['field'] : null,
             'name' => $config['name'] ?? null,
-        ]);
+        ], (int) $request->validated('config_version', 0));
 
-        return response()->noContent();
+        return $pending !== null ? response()->json($pending) : response()->noContent();
     }
 
     public function configure(ConfigureDisplaysRequest $request, ConnectedDisplays $displays): JsonResponse

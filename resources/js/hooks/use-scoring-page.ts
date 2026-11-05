@@ -1,5 +1,13 @@
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
-import { useMatch, useMatches, useScoreTypes, useSetAllianceSubmitted, useSetScoreCount } from '@/hooks/use-match';
+import {
+    unsyncedCountsFor,
+    useMatch,
+    useMatches,
+    useScoreTypes,
+    useSetAllianceSubmitted,
+    useSetScoreCount,
+    useUnsyncedCount,
+} from '@/hooks/use-match';
 import { useRefereeField } from '@/hooks/use-referee-field';
 import { useRefereeRole } from '@/hooks/use-referee-role';
 import { useRefereeSeat } from '@/hooks/use-referee-seat';
@@ -57,6 +65,14 @@ export function useScoringPage(options: { role?: RefereeRole } = {}) {
             setSelectedMatchId(activeMatch.id);
         }
     }, [activeMatch, selectedMatchId]);
+
+    const selectedMatchFinished = !!match && match.status !== 'ongoing';
+    useEffect(() => {
+        if (selectedMatchFinished && activeMatch?.id !== selectedMatchId) {
+            setSelectedMatchId(activeMatch?.id ?? null);
+            setSelectedAllianceId(null);
+        }
+    }, [selectedMatchFinished, activeMatch, selectedMatchId]);
 
     useEffect(() => {
         if (match && !selectedAllianceId && ongoingMatches.length === 1) {
@@ -165,7 +181,7 @@ export function useScoringPage(options: { role?: RefereeRole } = {}) {
     const changeCount = useCallback(
         (scoreTypeId: number, target: ScoreTarget, delta: 1 | -1) => {
             const scoreType = scoreTypes.find((st) => st.id === scoreTypeId);
-            if (!match || !scoreType || (!target.teamId && !target.allianceId)) return;
+            if (!match || match.status !== 'ongoing' || !scoreType || (!target.teamId && !target.allianceId)) return;
             const landsOn = resolveTarget(scoreType, target.teamId ? { teamId: target.teamId } : { allianceId: target.allianceId });
             const current = countScores(match, scoreTypeId, landsOn);
             if (current + delta < 0) return;
@@ -182,15 +198,20 @@ export function useScoringPage(options: { role?: RefereeRole } = {}) {
     const setSubmitted = useCallback(
         (submitted: boolean) => {
             if (!match || !selectedAllianceId) return;
+            if (submitted) {
+                unsyncedCountsFor(match.id).forEach((variables) => setScoreCount.mutate(variables));
+            }
             setAllianceSubmitted.mutate({ matchId: match.id, allianceId: selectedAllianceId, role, submitted });
         },
-        [match, selectedAllianceId, role, setAllianceSubmitted],
+        [match, selectedAllianceId, role, setAllianceSubmitted, setScoreCount],
     );
+
+    const unsyncedCount = useUnsyncedCount(match?.id);
 
     const sharingSeatWith = useRefereeSeat(match?.status === 'ongoing' ? match.id : null, selectedAllianceId, role);
 
-    /** A submitted alliance is locked on the tablet until its referee reopens it. */
-    const isPending = match?.status === 'ongoing' && submission !== null;
+    /** A submitted alliance is locked on the tablet until its referee reopens it, and a finished match is locked for good. */
+    const isPending = !!match && (match.status !== 'ongoing' || submission !== null);
 
     return {
         selectedAllianceId,
@@ -220,5 +241,7 @@ export function useScoringPage(options: { role?: RefereeRole } = {}) {
         submitError: setAllianceSubmitted.error,
         sharingSeatWith,
         isPending,
+        /** Score counts that never reached the server; submitting resends them first. */
+        unsyncedCount,
     };
 }

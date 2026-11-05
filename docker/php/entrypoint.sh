@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e
 
+# A blank or published Reverb secret lets anyone on the LAN forge live
+# updates to every screen, so refuse to start with one.
+if [ -z "${REVERB_APP_SECRET:-}" ] || [ "${REVERB_APP_SECRET}" = "event-local-secret" ]; then
+    echo "REVERB_APP_SECRET is blank or the published default. Run docker/setup.sh to generate unique Reverb credentials." >&2
+    exit 1
+fi
+
 if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ] && [ ! -f "database/database.sqlite" ]; then
     touch database/database.sqlite
 fi

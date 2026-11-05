@@ -28,7 +28,7 @@ export default function RefereeScoring2() {
         match, isLoading, ongoingMatches, alliances,
         colorClasses, sortedGroups, teamsInAlliance,
         getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith,
+        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith, unsyncedCount,
     } = useScoringPage();
 
     return (
@@ -232,6 +232,7 @@ export default function RefereeScoring2() {
                             submission={submission}
                             pending={isSubmitPending}
                             error={submitError}
+                            unsyncedCount={unsyncedCount}
                             onChange={setSubmitted}
                         />
                     </>

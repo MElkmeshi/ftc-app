@@ -6,6 +6,7 @@ use App\Enums\MatchStatus;
 use App\Enums\PointsAwardedTo;
 use App\Enums\RefereeRole;
 use App\Enums\ScoreKind;
+use App\Events\EliminationBracketUpdated;
 use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SetScoreCountRequest;
@@ -14,6 +15,8 @@ use App\Models\CompetitionMatch;
 use App\Models\MatchAlliance;
 use App\Models\Score;
 use App\Models\ScoreType;
+use App\Services\EliminationScheduler;
+use App\Support\LiveBroadcast;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
@@ -31,8 +34,9 @@ class ScoreController extends Controller
     public function store(StoreScoreRequest $request): JsonResponse
     {
         $recorded = true;
+        $bracketChanged = false;
 
-        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, &$recorded): CompetitionMatch {
+        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, &$recorded, &$bracketChanged): CompetitionMatch {
             $validated = $request->validated();
             $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($validated['match_id']);
             $clientRequestId = $validated['client_request_id'] ?? null;
@@ -60,6 +64,7 @@ class ScoreController extends Controller
             }
 
             $this->addScores($match, $scoreType, $teamId, $matchAlliance, 1, $request->user()->id, $clientRequestId);
+            $bracketChanged = $this->recordScoreChange($match);
 
             return $match->load(self::MATCH_RELATIONS);
         }, 3);
@@ -68,7 +73,7 @@ class ScoreController extends Controller
             return response()->json(['match' => $match]);
         }
 
-        broadcast(new ScoreUpdated($match))->toOthers();
+        $this->broadcastScoreChange($match, $bracketChanged);
 
         return response()->json(['match' => $match], 201);
     }
@@ -81,8 +86,9 @@ class ScoreController extends Controller
     public function setCount(SetScoreCountRequest $request): JsonResponse
     {
         $changed = false;
+        $bracketChanged = false;
 
-        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, &$changed): CompetitionMatch {
+        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, &$changed, &$bracketChanged): CompetitionMatch {
             $validated = $request->validated();
             $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($validated['match_id']);
 
@@ -104,11 +110,13 @@ class ScoreController extends Controller
                 $this->addScores($match, $scoreType, $teamId, $matchAlliance, $wanted - $existing->count(), $request->user()->id);
             }
 
+            $bracketChanged = $this->recordScoreChange($match);
+
             return $match->load(self::MATCH_RELATIONS);
         }, 3);
 
         if ($changed) {
-            broadcast(new ScoreUpdated($match))->toOthers();
+            $this->broadcastScoreChange($match, $bracketChanged);
         }
 
         return response()->json(['match' => $match]);
@@ -116,7 +124,9 @@ class ScoreController extends Controller
 
     public function destroy(Score $score): JsonResponse
     {
-        $match = $score->getConnection()->transaction(function () use ($score): CompetitionMatch {
+        $bracketChanged = false;
+
+        $match = $score->getConnection()->transaction(function () use ($score, &$bracketChanged): CompetitionMatch {
             $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($score->match_id);
             $currentScore = $match->scores()->lockForUpdate()->findOrFail($score->id);
 
@@ -127,11 +137,12 @@ class ScoreController extends Controller
             }
 
             $this->removeScore($match, $currentScore);
+            $bracketChanged = $this->recordScoreChange($match);
 
             return $match->load(self::MATCH_RELATIONS);
         }, 3);
 
-        broadcast(new ScoreUpdated($match))->toOthers();
+        $this->broadcastScoreChange($match, $bracketChanged);
 
         return response()->json(['match' => $match]);
     }
@@ -168,16 +179,22 @@ class ScoreController extends Controller
     }
 
     /**
-     * While a match is running, what a referee submitted is locked until they
-     * reopen it. The referee is the alliance's scoring or penalty referee; a
-     * foul whose points go to the opponent is entered by the fouling
-     * alliance's penalty referee. Head referees can still add fouls, and
-     * correct scores after the match ends.
+     * Referees only score a running match, and what they submitted is locked
+     * until they reopen it. The referee is the alliance's scoring or penalty
+     * referee; a foul whose points go to the opponent is entered by the
+     * fouling alliance's penalty referee. Head referees can always add fouls
+     * and correct scores, including before a match starts or after it ends.
      */
     private function ensureOpenFor(CompetitionMatch $match, ScoreType $scoreType, int $targetAllianceId): void
     {
-        if ($match->status !== MatchStatus::ONGOING || Gate::allows('control-matches')) {
+        if (Gate::allows('control-matches')) {
             return;
+        }
+
+        if ($match->status !== MatchStatus::ONGOING) {
+            throw ValidationException::withMessages([
+                'match_id' => 'This match is not running. Only the head referee can change its scores.',
+            ]);
         }
 
         $seatAllianceId = $scoreType->awarded_to === PointsAwardedTo::OPPONENT
@@ -254,6 +271,28 @@ class ScoreController extends Controller
 
         if ($teamId !== null) {
             $matchAlliance->increment('score', $scoreType->points * $times);
+        }
+    }
+
+    /**
+     * Marks the match as changed for the screens and, for a corrected playoff
+     * match, re-decides its series. Runs inside the scoring transaction.
+     *
+     * @return bool whether the elimination bracket changed.
+     */
+    private function recordScoreChange(CompetitionMatch $match): bool
+    {
+        $match->bumpRevision();
+
+        return app(EliminationScheduler::class)->reconcileAfterScoreChange($match, auth()->id() ?? 1);
+    }
+
+    private function broadcastScoreChange(CompetitionMatch $match, bool $bracketChanged): void
+    {
+        LiveBroadcast::send(new ScoreUpdated($match), toOthers: true);
+
+        if ($bracketChanged) {
+            LiveBroadcast::send(new EliminationBracketUpdated);
         }
     }
 

@@ -40,6 +40,17 @@ describe('applyScoreCount', () => {
         expect(based.match_alliances[0].score).toBe(10);
     });
 
+    it('removes the newest saved scores first when lowering a count, using scores as the server sends them', () => {
+        const saved = {
+            ...match,
+            scores: [5, 9, 7].map((id) => ({ id, match_id: 7, team_id: 11, alliance_id: 1, points: 3, score_type_id: artifact.id })),
+        } as unknown as CompetitionMatch;
+
+        const lowered = applyScoreCount(saved, artifact, scoreTypes, robot, 1);
+
+        expect(lowered.scores?.map((score) => score.id)).toEqual([5]);
+    });
+
     it('leaves the match untouched when the count is already right', () => {
         expect(applyScoreCount(match, artifact, scoreTypes, robot, 0)).toBe(match);
     });

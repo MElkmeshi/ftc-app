@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 import { initializeTheme } from './hooks/use-appearance';
 import { createVersionWatch } from './lib/app-version';
+import { clearCacheOnScopeChange } from './lib/event-scope-cache';
 import { watchReconnects } from './lib/realtime-recovery';
 import { startServerClockSync, syncServerClock } from './lib/server-clock';
 
@@ -30,6 +31,9 @@ configureEcho({
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const queryClient = new QueryClient();
 let versionWatch: ReturnType<typeof createVersionWatch> | null = null;
+
+const clearCacheIfEventChanged = clearCacheOnScopeChange(queryClient);
+router.on('navigate', () => clearCacheIfEventChanged());
 
 // Anything broadcast while this screen was offline is gone, so re-read the
 // page's live props and every cached query as soon as the socket is back.

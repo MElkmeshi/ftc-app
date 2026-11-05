@@ -7,6 +7,7 @@ use App\Events\MatchStatusChanged;
 use App\Models\CompetitionMatch;
 use App\Services\CurrentEvent;
 use App\Services\MatchTimingService;
+use App\Support\LiveBroadcast;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -54,7 +55,7 @@ class AutoEndMatchesJob implements ShouldQueue
         }, 3);
 
         if ($endedMatch) {
-            broadcast(new MatchStatusChanged($endedMatch, 'ended'));
+            LiveBroadcast::send(new MatchStatusChanged($endedMatch, 'ended'));
         }
     }
 }

@@ -1,3 +1,11 @@
+/** Raised on the tablet before submitting while some taps never reached the server. */
+export class UnsyncedScoresError extends Error {
+    constructor() {
+        super('Some taps did not reach the server. Check the Wi-Fi, then press Submit again to resend them.');
+        this.name = 'UnsyncedScoresError';
+    }
+}
+
 /**
  * The API returns validation and rule failures as `{ message: string }` with a
  * 422, which Inertia's XHR client surfaces as a rejected promise carrying the
@@ -6,6 +14,10 @@
 export function getApiErrorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string | null {
     if (!error) {
         return null;
+    }
+
+    if (error instanceof UnsyncedScoresError) {
+        return error.message;
     }
 
     const response = (error as { response?: { data?: unknown; status?: number } }).response;
