@@ -54,6 +54,32 @@ class ReportController extends Controller
     }
 
     /**
+     * How many practice matches each team has played and has still to play
+     * (FTC Live's practice participation report), to spot teams that have
+     * not tried their robot on the field yet.
+     */
+    public function practice(): Response
+    {
+        $practiceMatches = CompetitionMatch::query()
+            ->practice()
+            ->where('status', '!=', MatchStatus::CANCELLED)
+            ->with('matchAlliances:id,match_id,team_id')
+            ->get(['id', 'status']);
+
+        return Inertia::render('reports/practice', [
+            'teams' => $this->teams()->map(function (Team $team) use ($practiceMatches): array {
+                $own = $practiceMatches->filter(fn (CompetitionMatch $match): bool => $match->matchAlliances->contains('team_id', $team->id));
+
+                return [
+                    'team' => $team->only(['id', 'number', 'name']),
+                    'played' => $own->where('status', MatchStatus::COMPLETED)->count(),
+                    'remaining' => $own->whereIn('status', [MatchStatus::UPCOMING, MatchStatus::ONGOING])->count(),
+                ];
+            })->values(),
+        ]);
+    }
+
+    /**
      * Every card given so far, by team (FTC Live's head referee tracking
      * report), so the head referee knows who already holds a yellow card.
      */
@@ -132,7 +158,7 @@ class ReportController extends Controller
     {
         return CompetitionMatch::query()
             ->with(['matchAlliances.alliance', 'matchAlliances.team:id,number,name,organization,city,rookie_year'])
-            ->orderBy('number')
+            ->inPlayOrder()
             ->get(['id', 'number', 'type', 'round', 'field', 'start_time', 'status']);
     }
 
@@ -163,6 +189,7 @@ class ReportController extends Controller
     public function cycle(): Response
     {
         $matches = CompetitionMatch::query()
+            ->competitive()
             ->where('status', '!=', MatchStatus::CANCELLED)
             ->orderBy('number')
             ->get(['id', 'number', 'type', 'round', 'field', 'start_time', 'started_at', 'ended_at', 'status']);

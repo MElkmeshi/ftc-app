@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\DisplayMode;
 use App\Enums\MatchStatus;
+use App\Enums\MatchType;
 use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
 use App\Events\ScoreUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ControlMatchRequest;
+use App\Http\Requests\GeneratePracticeScheduleRequest;
 use App\Http\Requests\GenerateScheduleRequest;
 use App\Http\Requests\UpdateMatchScoreRequest;
 use App\Http\Requests\UpdateScheduleTimingRequest;
@@ -34,7 +36,7 @@ class MatchController extends Controller
 {
     public function index()
     {
-        $matches = CompetitionMatch::query()->withScoreSummary()->get();
+        $matches = CompetitionMatch::query()->withScoreSummary()->inPlayOrder()->get();
 
         return response()->json($matches);
     }
@@ -279,9 +281,60 @@ class MatchController extends Controller
             $request->validated('breaks') ?? $current['breaks'],
         );
 
-        LiveBroadcast::send(new MatchStatusChanged(CompetitionMatch::query()->orderBy('number')->firstOrFail(), 'scheduled'));
+        LiveBroadcast::send(new MatchStatusChanged(CompetitionMatch::query()->inPlayOrder()->firstOrFail(), 'scheduled'));
 
         return response()->json(['message' => 'Schedule generated successfully.']);
+    }
+
+    /**
+     * Builds the practice schedule, replacing any earlier practice matches
+     * but leaving qualification and playoff matches alone.
+     */
+    public function generatePracticeSchedule(GeneratePracticeScheduleRequest $request, ScheduleTiming $timing): JsonResponse
+    {
+        if (CompetitionMatch::query()->practice()->where('status', MatchStatus::ONGOING)->exists()) {
+            return response()->json(['message' => 'A practice match is running. End it before replacing the practice schedule.'], 422);
+        }
+
+        try {
+            (new MatchScheduler)->generate(
+                minMatchesPerTeam: $request->validated('matches_per_team'),
+                createdBy: $request->user()->id,
+                teamsPerAlliance: $request->validated('teams_per_alliance'),
+                type: MatchType::PRACTICE,
+            );
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $timing->applyToPractice($request->validated('first_match_at'), $request->validated('cycle_minutes'));
+
+        LiveBroadcast::send(new MatchStatusChanged(CompetitionMatch::query()->practice()->orderBy('number')->firstOrFail(), 'scheduled'));
+
+        return response()->json(['message' => 'Practice schedule generated.']);
+    }
+
+    public function deletePracticeSchedule(): JsonResponse
+    {
+        if (CompetitionMatch::query()->practice()->where('status', MatchStatus::ONGOING)->exists()) {
+            return response()->json(['message' => 'A practice match is running. End it before deleting the practice schedule.'], 422);
+        }
+
+        DB::transaction(function (): void {
+            $practiceIds = CompetitionMatch::withTrashed()->practice()->pluck('id');
+
+            Score::withTrashed()->whereIn('match_id', $practiceIds)->forceDelete();
+            MatchAlliance::withTrashed()->whereIn('match_id', $practiceIds)->forceDelete();
+            CompetitionMatch::withTrashed()->whereIn('id', $practiceIds)->forceDelete();
+        });
+
+        $first = CompetitionMatch::query()->inPlayOrder()->first();
+
+        if ($first !== null) {
+            LiveBroadcast::send(new MatchStatusChanged($first, 'scheduled'));
+        }
+
+        return response()->json(['message' => 'Practice schedule deleted.']);
     }
 
     public function scheduleTiming(ScheduleTiming $timing): JsonResponse

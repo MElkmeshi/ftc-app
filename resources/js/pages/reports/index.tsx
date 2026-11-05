@@ -10,6 +10,7 @@ interface ReportLink {
 
 const REPORTS: ReportLink[] = [
     { title: 'Cycle times', path: 'reports/cycle', description: 'Time between match starts and how far the event is from its schedule.' },
+    { title: 'Practice participation', path: 'reports/practice', description: 'Practice matches each team has played and still has to play.' },
     { title: 'Cards', path: 'reports/cards', description: 'Every yellow and red card given so far, by team, for the head referee.' },
     { title: 'Announcer sheet', path: 'reports/announcer', description: 'Each match with team names, where they are from and their rank.' },
     { title: 'Team placards', path: 'reports/placards', description: 'One page per team with its number, in ranking order.' },

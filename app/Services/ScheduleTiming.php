@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CompetitionMatch;
 use App\Models\Setting;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Gives qualification matches their planned start times, like FTC Live's
@@ -45,20 +46,40 @@ class ScheduleTiming
      */
     public function apply(string $firstMatchAt, int $cycleMinutes, array $breaks = []): void
     {
-        $startsAt = CarbonImmutable::parse($firstMatchAt, $this->currentEvent->require()->timezone)->utc();
-        $breakAfter = collect($breaks)->groupBy('after_match')->map(fn ($group) => $group->sum('minutes'));
-
-        $time = $startsAt;
-
-        CompetitionMatch::query()->qualification()->orderBy('number')->get()->each(function (CompetitionMatch $match) use (&$time, $cycleMinutes, $breakAfter): void {
-            $match->forceFill(['start_time' => $time])->save();
-            $time = $time->addMinutes($cycleMinutes + ($breakAfter[$match->number] ?? 0));
-        });
+        $startsAt = $this->retime(CompetitionMatch::query()->qualification(), $firstMatchAt, $cycleMinutes, $breaks);
 
         Setting::set('schedule', 'timing', [
             'first_match_at' => $startsAt->toIso8601String(),
             'cycle_minutes' => $cycleMinutes,
             'breaks' => array_values($breaks),
         ]);
+    }
+
+    /**
+     * Sets the practice matches' start times. Practice runs before
+     * qualification, so its timing is not remembered for the schedule form.
+     */
+    public function applyToPractice(string $firstMatchAt, int $cycleMinutes): void
+    {
+        $this->retime(CompetitionMatch::query()->practice(), $firstMatchAt, $cycleMinutes);
+    }
+
+    /**
+     * @param  Builder<CompetitionMatch>  $matches
+     * @param  list<array{after_match: int, minutes: int}>  $breaks
+     */
+    private function retime(Builder $matches, string $firstMatchAt, int $cycleMinutes, array $breaks = []): CarbonImmutable
+    {
+        $startsAt = CarbonImmutable::parse($firstMatchAt, $this->currentEvent->require()->timezone)->utc();
+        $breakAfter = collect($breaks)->groupBy('after_match')->map(fn ($group) => $group->sum('minutes'));
+
+        $time = $startsAt;
+
+        $matches->orderBy('number')->get()->each(function (CompetitionMatch $match) use (&$time, $cycleMinutes, $breakAfter): void {
+            $match->forceFill(['start_time' => $time])->save();
+            $time = $time->addMinutes($cycleMinutes + ($breakAfter[$match->number] ?? 0));
+        });
+
+        return $startsAt;
     }
 }

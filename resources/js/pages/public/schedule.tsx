@@ -103,6 +103,7 @@ export default function PublicSchedule() {
 
     const visible = team ? matches.filter((match) => match.match_alliances.some((matchAlliance) => matchAlliance.team?.number === team)) : matches;
     const sections = [
+        { title: 'Practice', matches: visible.filter((match) => match.type === 'practice') },
         { title: 'Qualifications', matches: visible.filter((match) => match.type === 'qualification') },
         { title: 'Playoffs', matches: visible.filter((match) => match.type === 'elimination') },
     ].filter((section) => section.matches.length > 0);

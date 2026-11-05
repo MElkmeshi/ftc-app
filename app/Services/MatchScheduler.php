@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\MatchStatus;
+use App\Enums\MatchType;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\MatchAlliance;
@@ -22,7 +23,8 @@ class MatchScheduler
         int $minMatchesPerTeam = 3,
         int $createdBy = 1,
         int $teamsPerAlliance = 1,
-        ?int $maxScoringMatches = null
+        ?int $maxScoringMatches = null,
+        MatchType $type = MatchType::QUALIFICATION,
     ): void {
         $teams = Team::all();
         if ($teams->isEmpty()) {
@@ -55,17 +57,21 @@ class MatchScheduler
 
         $plan = $this->plan($teamIds, $teamsPerMatch, $teamsPerAlliance, $minMatchesPerTeam, $maxScoringMatches);
 
-        (new CompetitionMatch)->getConnection()->transaction(function () use ($plan, $allianceIds, $createdBy): void {
-            // Scoped to the current event by EventScopedBuilder (forceDelete skips global scopes otherwise).
-            Score::withTrashed()->forceDelete();
-            MatchAlliance::withTrashed()->forceDelete();
-            CompetitionMatch::withTrashed()->forceDelete();
+        (new CompetitionMatch)->getConnection()->transaction(function () use ($plan, $allianceIds, $createdBy, $type): void {
+            $replaced = CompetitionMatch::withTrashed()
+                ->when($type === MatchType::PRACTICE, fn ($query) => $query->practice(), fn ($query) => $query->competitive())
+                ->pluck('id');
+
+            Score::withTrashed()->whereIn('match_id', $replaced)->forceDelete();
+            MatchAlliance::withTrashed()->whereIn('match_id', $replaced)->forceDelete();
+            CompetitionMatch::withTrashed()->whereIn('id', $replaced)->forceDelete();
 
             foreach ($plan as $index => $match) {
                 $matchNumber = $index + 1;
 
                 $competitionMatch = CompetitionMatch::create([
                     'number' => $matchNumber,
+                    'type' => $type,
                     'field' => app(FieldAssignment::class)->fieldFor($matchNumber),
                     'start_time' => now()->addMinutes($matchNumber * 10),
                     'status' => MatchStatus::UPCOMING,

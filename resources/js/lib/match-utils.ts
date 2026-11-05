@@ -171,6 +171,10 @@ export function getFieldLabel(match: Pick<CompetitionMatch, 'field'>, fieldCount
 }
 
 export function getMatchTitle(match: Pick<CompetitionMatch, 'number' | 'type' | 'round'>): string {
+    if (match.type === 'practice') {
+        return `Practice ${match.number}`;
+    }
+
     if (match.type !== 'elimination') {
         return `Qualification ${match.number}`;
     }

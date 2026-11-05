@@ -84,6 +84,27 @@ class CompetitionMatch extends Model
         ]);
     }
 
+    public function scopePractice(Builder $query): Builder
+    {
+        return $query->where('type', MatchType::PRACTICE);
+    }
+
+    /**
+     * Qualification and playoff matches, which share one run of match numbers.
+     */
+    public function scopeCompetitive(Builder $query): Builder
+    {
+        return $query->where('type', '!=', MatchType::PRACTICE);
+    }
+
+    /**
+     * The order matches are played in: practice first, then by number.
+     */
+    public function scopeInPlayOrder(Builder $query): Builder
+    {
+        return $query->orderByRaw('case when type = ? then 0 else 1 end', [MatchType::PRACTICE->value])->orderBy('number');
+    }
+
     public function scopeQualification(Builder $query): Builder
     {
         return $query->where('type', MatchType::QUALIFICATION);

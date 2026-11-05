@@ -41,7 +41,13 @@ interface DisplayModeOption {
     label: string;
 }
 
-type MatchFilter = 'qualification' | 'elimination';
+type MatchFilter = CompetitionMatch['type'];
+
+const MATCH_FILTERS: { value: MatchFilter; label: string }[] = [
+    { value: 'practice', label: 'Practice' },
+    { value: 'qualification', label: 'Qualification' },
+    { value: 'elimination', label: 'Playoffs' },
+];
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Match Control', href: '/match-control' }];
 
@@ -81,6 +87,21 @@ function TeamNumbers({ match, color }: { match: CompetitionMatch; color: 'red' |
     );
 }
 
+function currentPhase(matches: CompetitionMatch[], phases: { value: MatchFilter }[]): MatchFilter {
+    const ofPhase = (phase: MatchFilter) => matches.filter((match) => match.type === phase);
+    const startedIndex = phases.findLastIndex((phase) =>
+        ofPhase(phase.value).some((match) => match.status === 'ongoing' || match.status === 'completed'),
+    );
+
+    if (startedIndex === -1) {
+        return phases[0]?.value ?? 'qualification';
+    }
+
+    const finished = ofPhase(phases[startedIndex].value).every((match) => match.status === 'completed' || match.status === 'cancelled');
+
+    return finished && phases[startedIndex + 1] ? phases[startedIndex + 1].value : phases[startedIndex].value;
+}
+
 function MatchList({
     matches,
     selectedId,
@@ -92,10 +113,8 @@ function MatchList({
 }) {
     const eventTimezone = usePage<SharedData>().props.event?.timezone;
     const fieldCount = useFieldCount();
-    const hasPlayoffs = matches.some((match) => match.type === 'elimination');
-    const [filter, setFilter] = useState<MatchFilter>(() =>
-        matches.some((m) => m.type === 'elimination' && m.status !== 'completed') ? 'elimination' : 'qualification',
-    );
+    const filters = MATCH_FILTERS.filter((option) => matches.some((match) => match.type === option.value));
+    const [filter, setFilter] = useState<MatchFilter>(() => currentPhase(matches, filters));
     const visible = matches.filter((match) => match.type === filter);
 
     return (
@@ -105,19 +124,19 @@ function MatchList({
                     <CardTitle>Matches</CardTitle>
                     <ScheduleDrift matches={matches} />
                 </div>
-                {hasPlayoffs && (
+                {filters.length > 1 && (
                     <div className="flex rounded-md border p-0.5 text-sm">
-                        {(['qualification', 'elimination'] as const).map((option) => (
+                        {filters.map((option) => (
                             <button
-                                key={option}
+                                key={option.value}
                                 type="button"
-                                onClick={() => setFilter(option)}
+                                onClick={() => setFilter(option.value)}
                                 className={cn(
                                     'rounded px-3 py-1',
-                                    filter === option ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
+                                    filter === option.value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
                                 )}
                             >
-                                {option === 'qualification' ? 'Qualification' : 'Playoffs'}
+                                {option.label}
                             </button>
                         ))}
                     </div>
@@ -351,7 +370,12 @@ export default function MatchControlConsole() {
     const [displayError, setDisplayError] = useState<string | null>(null);
 
     const ongoing = matches.find((match) => match.status === 'ongoing') ?? null;
-    const nextUpcoming = matches.find((match) => match.status === 'upcoming') ?? null;
+    const phase = currentPhase(
+        matches,
+        MATCH_FILTERS.filter((option) => matches.some((match) => match.type === option.value)),
+    );
+    const nextUpcoming =
+        matches.find((match) => match.type === phase && match.status === 'upcoming') ?? matches.find((match) => match.status === 'upcoming') ?? null;
 
     // Follow the field: the running match wins, then whatever is on the display, then the next match to play.
     const selected = useMemo(

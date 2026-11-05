@@ -363,6 +363,17 @@ export const useApi = () => {
         await del('/api/matches/delete-all');
     }, []);
 
+    const generatePracticeSchedule = useCallback(
+        async (data: { matches_per_team: number; teams_per_alliance: number; first_match_at: string; cycle_minutes: number }): Promise<void> => {
+            await post('/api/matches/practice', data);
+        },
+        [],
+    );
+
+    const deletePracticeSchedule = useCallback(async (): Promise<void> => {
+        await del('/api/matches/practice');
+    }, []);
+
     return {
         getMatches,
         getMatch,
@@ -401,6 +412,8 @@ export const useApi = () => {
         getDashboardStats,
         generateSchedule,
         deleteAllMatches,
+        generatePracticeSchedule,
+        deletePracticeSchedule,
         getAllianceSelectionRankings,
         startAllianceSelection,
         getAllianceGroups,

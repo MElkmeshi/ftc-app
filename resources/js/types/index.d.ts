@@ -209,7 +209,7 @@ export interface MatchAlliance {
 export interface CompetitionMatch {
     id: number;
     number: number;
-    type: 'qualification' | 'elimination';
+    type: 'practice' | 'qualification' | 'elimination';
     round: string | null;
     /** Which field the match is played on (1 at a single-field event). */
     field?: number;

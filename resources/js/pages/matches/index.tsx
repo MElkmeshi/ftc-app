@@ -10,12 +10,12 @@ import { useApi } from '@/hooks/use-api';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useMatches, useStartMatch } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
-import { formatMatchTime } from '@/lib/match-utils';
+import { formatMatchTime, getMatchTitle } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Clock, Eye, Pause, Play, Printer, Trash2, XCircle } from 'lucide-react';
+import { Calendar, Clock, Dumbbell, Eye, Pause, Play, Printer, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 
 interface Position {
@@ -122,7 +122,9 @@ function GenerateScheduleDialog() {
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>Generate Match Schedule</DialogTitle>
-                        <DialogDescription>This will delete all existing matches and generate a new schedule.</DialogDescription>
+                        <DialogDescription>
+                            Replaces the qualification and playoff matches with a new schedule. Practice matches are kept.
+                        </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -226,6 +228,140 @@ function RetimeScheduleDialog() {
     );
 }
 
+function PracticeScheduleDialog({ hasPractice }: { hasPractice: boolean }) {
+    const [open, setOpen] = useState(false);
+    const [matchesPerTeam, setMatchesPerTeam] = useState('1');
+    const [teamsPerAlliance, setTeamsPerAlliance] = useState('2');
+    const [firstMatchAt, setFirstMatchAt] = useState<string | null>(null);
+    const [cycleMinutes, setCycleMinutes] = useState('6');
+    const [error, setError] = useState('');
+    const api = useApi();
+    const queryClient = useQueryClient();
+    const { data: savedTiming } = useScheduleTiming(open);
+    const firstMatchValue = firstMatchAt ?? savedTiming?.first_match_at ?? '';
+
+    const onSuccess = () => {
+        queryClient.invalidateQueries({ queryKey: ['matches'] });
+        setOpen(false);
+    };
+    const generate = useMutation({
+        mutationFn: () =>
+            api.generatePracticeSchedule({
+                matches_per_team: parseInt(matchesPerTeam, 10),
+                teams_per_alliance: parseInt(teamsPerAlliance, 10),
+                first_match_at: firstMatchValue,
+                cycle_minutes: parseInt(cycleMinutes, 10),
+            }),
+        onSuccess,
+        onError: (err: unknown) => setError(apiErrorMessage(err, 'Could not build the practice schedule.')),
+    });
+    const remove = useMutation({
+        mutationFn: () => api.deletePracticeSchedule(),
+        onSuccess,
+        onError: (err: unknown) => setError(apiErrorMessage(err, 'Could not delete the practice schedule.')),
+    });
+
+    return (
+        <Dialog
+            open={open}
+            onOpenChange={(v) => {
+                setOpen(v);
+                setError('');
+                setFirstMatchAt(null);
+            }}
+        >
+            <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                    <Dumbbell className="mr-1 h-4 w-4" />
+                    Practice
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        setError('');
+                        generate.mutate();
+                    }}
+                >
+                    <DialogHeader>
+                        <DialogTitle>Practice schedule</DialogTitle>
+                        <DialogDescription>
+                            Practice matches are played and scored like any other match, but never count toward the rankings.
+                            {hasPractice && ' Generating again replaces the current practice matches.'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                            <Label htmlFor="practice-mpt">Matches per team</Label>
+                            <Input
+                                id="practice-mpt"
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={matchesPerTeam}
+                                onChange={(e) => setMatchesPerTeam(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="practice-tpa">Teams per alliance</Label>
+                            <Input
+                                id="practice-tpa"
+                                type="number"
+                                min="1"
+                                max="4"
+                                value={teamsPerAlliance}
+                                onChange={(e) => setTeamsPerAlliance(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="practice-start">First match</Label>
+                            <Input
+                                id="practice-start"
+                                type="datetime-local"
+                                value={firstMatchValue}
+                                onChange={(e) => setFirstMatchAt(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="practice-cycle">Minutes between matches</Label>
+                            <Input
+                                id="practice-cycle"
+                                type="number"
+                                min="1"
+                                max="60"
+                                value={cycleMinutes}
+                                onChange={(e) => setCycleMinutes(e.target.value)}
+                                required
+                            />
+                        </div>
+                    </div>
+                    {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
+                    <DialogFooter className="gap-2">
+                        {hasPractice && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="text-red-600"
+                                disabled={remove.isPending}
+                                onClick={() => remove.mutate()}
+                            >
+                                Delete practice matches
+                            </Button>
+                        )}
+                        <Button type="submit" disabled={generate.isPending || firstMatchValue === ''}>
+                            {generate.isPending ? 'Generating...' : 'Generate practice'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function DeleteAllMatchesDialog() {
     const [open, setOpen] = useState(false);
     const api = useApi();
@@ -297,6 +433,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                             <Printer className="mr-1 h-4 w-4" />
                             Print Schedule
                         </Button>
+                        <PracticeScheduleDialog hasPractice={matches.some((match) => match.type === 'practice')} />
                         <GenerateScheduleDialog />
                         <RetimeScheduleDialog />
                         <DeleteAllMatchesDialog />
@@ -344,7 +481,7 @@ export default function MatchesIndex({ positions, allianceLabels }: MatchesPageP
                                     ) : (
                                         matches.map((match) => (
                                             <tr key={match.id} className="hover:bg-muted/50 border-b">
-                                                <td className="px-4 py-2 font-medium">{match.number}</td>
+                                                <td className="px-4 py-2 font-medium whitespace-nowrap">{getMatchTitle(match)}</td>
                                                 <td className="px-4 py-2 whitespace-nowrap tabular-nums">
                                                     {formatMatchTime(match.start_time, eventTimezone)}
                                                 </td>

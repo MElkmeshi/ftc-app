@@ -137,6 +137,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('reports/scoresheets', [ReportController::class, 'scoresheets'])->name('reports.scoresheets');
         Route::get('reports/notes', [ReportController::class, 'notes'])->name('reports.notes');
         Route::get('reports/cards', [ReportController::class, 'cards'])->name('reports.cards');
+        Route::get('reports/practice', [ReportController::class, 'practice'])->name('reports.practice');
     });
 
     Route::get('match-control', function (EventLiveProps $live) {
@@ -170,7 +171,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('competition-matches', function () {
             $matches = CompetitionMatch::query()
                 ->with(['matchAlliances.team', 'matchAlliances.alliance'])
-                ->orderBy('number')
+                ->inPlayOrder()
                 ->get();
 
             $positions = MatchAlliance::select('alliance_id', 'alliance_pos')

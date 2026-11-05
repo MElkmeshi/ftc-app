@@ -46,7 +46,7 @@ class EliminationScheduler
         $redAllianceId = $alliances[0]->id;
         $blueAllianceId = $alliances[1]->id;
 
-        $lastMatchNumber = CompetitionMatch::max('number') ?? 0;
+        $lastMatchNumber = CompetitionMatch::query()->competitive()->max('number') ?? 0;
         $matchNumber = $lastMatchNumber + 1;
 
         if ($groups->count() === 2) {
@@ -317,7 +317,7 @@ class EliminationScheduler
             }
 
             $alliances = Alliance::orderBy('id')->get();
-            $matchNumber = (CompetitionMatch::max('number') ?? 0) + 1;
+            $matchNumber = (CompetitionMatch::query()->competitive()->max('number') ?? 0) + 1;
 
             $group1 = AllianceGroup::findOrFail($series->alliance_group_1_id);
             $group2 = AllianceGroup::findOrFail($series->alliance_group_2_id);
@@ -423,7 +423,7 @@ class EliminationScheduler
         $redAllianceId = $alliances[0]->id;
         $blueAllianceId = $alliances[1]->id;
 
-        $matchNumber = (CompetitionMatch::max('number') ?? 0) + 1;
+        $matchNumber = (CompetitionMatch::query()->competitive()->max('number') ?? 0) + 1;
 
         // Higher seed gets home advantage in match 1
         $homeGroup = $winner1->seed < $winner2->seed ? $winner1 : $winner2;

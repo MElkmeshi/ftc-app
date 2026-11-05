@@ -73,7 +73,7 @@ class EventLiveProps
             fn () => CompetitionMatch::query()
                 ->withScoreSummary()
                 ->with('eliminationSeries:id,round')
-                ->orderBy('number')
+                ->inPlayOrder()
                 ->get(),
             on: [MatchStatusChanged::class, ScoreUpdated::class],
             channel: $this->currentEvent->channel('match-control'),
