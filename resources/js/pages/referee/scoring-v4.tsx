@@ -67,9 +67,9 @@ function SplitTile({ scoreType, count, isPending, accentColor, onAdd, onRemove }
                         'flex flex-1 items-center justify-center transition-all select-none',
                         isPending
                             ? 'cursor-not-allowed bg-white/5 text-white/20'
-                            : scoreType.points > 0
+                            : scoreType.points > 0 && scoreType.referee !== 'penalty'
                               ? 'bg-emerald-900/60 text-emerald-300 hover:bg-emerald-800 active:bg-emerald-700'
-                              : scoreType.points < 0
+                              : scoreType.points < 0 || scoreType.referee === 'penalty'
                                 ? 'bg-rose-900/60 text-rose-300 hover:bg-rose-800 active:bg-rose-700'
                                 : 'bg-slate-700 text-slate-300 hover:bg-slate-600 active:bg-slate-500',
                     )}

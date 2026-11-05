@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TeamCard;
 use App\Models\Concerns\BelongsToEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,7 +16,7 @@ class MatchAlliance extends Model
     protected $attributes = ['score' => 0];
 
     protected $fillable = [
-        'event_id', 'match_id', 'team_id', 'alliance_id', 'alliance_pos', 'score', 'counts_for_ranking', 'alliance_group_id', 'created_by', 'updated_by',
+        'event_id', 'match_id', 'team_id', 'alliance_id', 'alliance_pos', 'score', 'card', 'counts_for_ranking', 'alliance_group_id', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -29,7 +30,13 @@ class MatchAlliance extends Model
     {
         return [
             'counts_for_ranking' => 'boolean',
+            'card' => TeamCard::class,
         ];
+    }
+
+    public function isDisqualified(): bool
+    {
+        return $this->card === TeamCard::Red;
     }
 
     public function match()

@@ -106,7 +106,20 @@ export function getAllianceColorClasses(color: string): AllianceColorClasses {
     };
 }
 
+export function isAllianceDisqualified(match: CompetitionMatch, color: string): boolean {
+    return getAllianceMembers(match, color).some((member) => member.card === 'red');
+}
+
 export function determineWinner(match: CompetitionMatch): 'red' | 'blue' | 'tie' {
+    if (match.type === 'elimination') {
+        const redOut = isAllianceDisqualified(match, 'red');
+        const blueOut = isAllianceDisqualified(match, 'blue');
+
+        if (redOut || blueOut) {
+            return redOut && blueOut ? 'tie' : redOut ? 'blue' : 'red';
+        }
+    }
+
     const red = getAllianceScore(match, 'red');
     const blue = getAllianceScore(match, 'blue');
     return red > blue ? 'red' : blue > red ? 'blue' : 'tie';

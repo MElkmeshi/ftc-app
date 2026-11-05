@@ -1,3 +1,4 @@
+import { TeamCardBadge } from '@/components/team-card-badge';
 import { useChangedAt } from '@/hooks/use-changed-at';
 import EventPageLayout from '@/layouts/event-page-layout';
 import { formatMatchTime, getAllianceColorClasses, getAllianceMembers, getAllianceScore, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
@@ -97,10 +98,13 @@ function AllianceSheet({
             <header className={cn('flex items-center justify-between px-4 py-3 text-white', classes.bg)}>
                 <div>
                     <div className="text-xs font-semibold tracking-wide uppercase opacity-80">{color} alliance</div>
-                    <div className="font-mono text-lg font-semibold">
-                        {getAllianceMembers(match, color)
-                            .map((matchAlliance) => matchAlliance.team?.number)
-                            .join(' · ')}
+                    <div className="flex flex-wrap items-center gap-x-3 font-mono text-lg font-semibold">
+                        {getAllianceMembers(match, color).map((matchAlliance) => (
+                            <span key={matchAlliance.id} className="flex items-center gap-1">
+                                {matchAlliance.team?.number}
+                                <TeamCardBadge card={matchAlliance.card} className="font-sans" />
+                            </span>
+                        ))}
                     </div>
                 </div>
                 <div className="text-4xl font-black tabular-nums">{total}</div>

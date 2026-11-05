@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\MatchStatus;
 use App\Models\CompetitionMatch;
 use App\Models\Group;
+use App\Models\MatchAlliance;
 use App\Models\ScoreType;
 use App\Models\Team;
 use App\Services\AllianceSelectionService;
@@ -49,6 +50,37 @@ class ReportController extends Controller
                 ->sortBy(fn (Team $team) => [$standings[$team->id]['rank'] ?? PHP_INT_MAX, (int) $team->number])
                 ->values(),
             'standings' => $standings,
+        ]);
+    }
+
+    /**
+     * Every card given so far, by team (FTC Live's head referee tracking
+     * report), so the head referee knows who already holds a yellow card.
+     */
+    public function cards(): Response
+    {
+        $cards = MatchAlliance::query()
+            ->whereNotNull('card')
+            ->whereHas('match', fn ($query) => $query->where('status', '!=', MatchStatus::CANCELLED))
+            ->with(['match:id,number,type,round', 'team:id,number,name'])
+            ->get();
+
+        return Inertia::render('reports/cards', [
+            'teams' => $cards
+                ->filter(fn (MatchAlliance $matchAlliance): bool => $matchAlliance->team !== null)
+                ->groupBy('team_id')
+                ->map(fn (Collection $teamCards): array => [
+                    'team' => $teamCards->first()->team->only(['id', 'number', 'name']),
+                    'cards' => $teamCards
+                        ->sortBy(fn (MatchAlliance $matchAlliance) => $matchAlliance->match->number)
+                        ->map(fn (MatchAlliance $matchAlliance): array => [
+                            'card' => $matchAlliance->card->value,
+                            'match' => $matchAlliance->match->only(['id', 'number', 'type', 'round']),
+                        ])
+                        ->values(),
+                ])
+                ->sortBy(fn (array $row): int => (int) $row['team']['number'])
+                ->values(),
         ]);
     }
 

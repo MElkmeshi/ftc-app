@@ -36,13 +36,8 @@ function describeKind(scoreType: ScoreType): string {
     return 'Count';
 }
 
-/** Who enters a score type, and for opponent fouls where the points go. */
 function describeReferee(scoreType: ScoreType): string {
-    if (scoreType.referee !== 'penalty') {
-        return 'Scoring';
-    }
-
-    return scoreType.awarded_to === 'opponent' ? 'Penalty → opponent' : 'Penalty';
+    return scoreType.referee === 'penalty' ? 'Foul → opponent' : 'Scoring';
 }
 
 function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: ScoreType; groups: Group[]; trigger: React.ReactNode }) {
@@ -53,7 +48,6 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
     const [kind, setKind] = useState<ScoreKind>(scoreType?.kind ?? 'count');
     const [choiceSet, setChoiceSet] = useState(scoreType?.choice_set ?? '');
     const [referee, setReferee] = useState<RefereeRole>(scoreType?.referee ?? 'scoring');
-    const [awardedTo, setAwardedTo] = useState<PointsAwardedTo>(scoreType?.awarded_to ?? 'own');
     const [groupId, setGroupId] = useState<string>(scoreType?.group_id ? String(scoreType.group_id) : 'none');
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const createScoreType = useCreateScoreType();
@@ -69,7 +63,6 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
             setKind(scoreType?.kind ?? 'count');
             setChoiceSet(scoreType?.choice_set ?? '');
             setReferee(scoreType?.referee ?? 'scoring');
-            setAwardedTo(scoreType?.awarded_to ?? 'own');
             setGroupId(scoreType?.group_id ? String(scoreType.group_id) : 'none');
             setErrors({});
         }
@@ -79,16 +72,16 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
         e.preventDefault();
         setErrors({});
 
+        const isFoul = referee === 'penalty';
         const data = {
             name,
             points: parseInt(points, 10),
-            target,
-            kind,
-            choice_set: kind === 'choice' ? choiceSet : null,
+            target: isFoul ? 'alliance' : target,
+            kind: isFoul ? 'count' : kind,
+            choice_set: !isFoul && kind === 'choice' ? choiceSet : null,
             referee,
-            // Points for the opponent are always alliance-wide.
-            awarded_to: target === 'alliance' ? awardedTo : 'own',
-            group_id: groupId === 'none' ? null : parseInt(groupId, 10),
+            awarded_to: (isFoul ? 'opponent' : 'own') as PointsAwardedTo,
+            group_id: isFoul || groupId === 'none' ? null : parseInt(groupId, 10),
         };
 
         const onSuccess = () => setOpen(false);
@@ -122,105 +115,102 @@ function ScoreTypeFormDialog({ scoreType, groups, trigger }: { scoreType?: Score
                             {errors.name && <p className="text-sm text-red-500">{errors.name[0]}</p>}
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="st-points">Points</Label>
-                            <Input id="st-points" type="number" value={points} onChange={(e) => setPoints(e.target.value)} required />
-                            {errors.points && <p className="text-sm text-red-500">{errors.points[0]}</p>}
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>Target</Label>
-                            <Select value={target} onValueChange={(value) => setTarget(value as 'team' | 'alliance')}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="team">Team</SelectItem>
-                                    <SelectItem value="alliance">Alliance</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            {errors.target && <p className="text-sm text-red-500">{errors.target[0]}</p>}
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>Scored as</Label>
-                            <Select value={kind} onValueChange={(value) => setKind(value as ScoreKind)}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SCORE_KINDS.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <p className="text-muted-foreground text-xs">{SCORE_KINDS.find((option) => option.value === kind)?.hint}</p>
-                            {errors.kind && <p className="text-sm text-red-500">{errors.kind[0]}</p>}
-                        </div>
-                        {kind === 'choice' && (
-                            <div className="grid gap-2">
-                                <Label htmlFor="st-choice-set">Set</Label>
-                                <Input
-                                    id="st-choice-set"
-                                    value={choiceSet}
-                                    onChange={(e) => setChoiceSet(e.target.value)}
-                                    placeholder="For example Base or Ascent"
-                                    required
-                                />
-                                <p className="text-muted-foreground text-xs">
-                                    Score types with the same set name are shown together; a robot gets only one of them.
-                                </p>
-                                {errors.choice_set && <p className="text-sm text-red-500">{errors.choice_set[0]}</p>}
-                            </div>
-                        )}
-                        <div className="grid gap-2">
-                            <Label>Entered by</Label>
+                            <Label>Type</Label>
                             <Select value={referee} onValueChange={(value) => setReferee(value as RefereeRole)}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="scoring">Scoring referee</SelectItem>
-                                    <SelectItem value="penalty">Penalty referee (fouls)</SelectItem>
+                                    <SelectItem value="scoring">Scoring (entered by the scoring referee)</SelectItem>
+                                    <SelectItem value="penalty">Foul level (entered by the penalty referee)</SelectItem>
                                 </SelectContent>
                             </Select>
                             <p className="text-muted-foreground text-xs">
-                                Each alliance can have a scoring referee and a penalty referee, who calls the fouls that alliance&apos;s robots
-                                commit.
+                                {referee === 'penalty'
+                                    ? 'A foul level such as Minor or Major. The referee watching the alliance that fouled counts it, and each one gives its points to the opponent.'
+                                    : 'Something robots score points for.'}
                             </p>
                             {errors.referee && <p className="text-sm text-red-500">{errors.referee[0]}</p>}
                         </div>
-                        {referee === 'penalty' && target === 'alliance' && (
-                            <div className="grid gap-2">
-                                <Label>Points go to</Label>
-                                <Select value={awardedTo} onValueChange={(value) => setAwardedTo(value as PointsAwardedTo)}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="own">The alliance that fouled (use negative points)</SelectItem>
-                                        <SelectItem value="opponent">The opponent (like FTC)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                {errors.awarded_to && <p className="text-sm text-red-500">{errors.awarded_to[0]}</p>}
-                            </div>
-                        )}
                         <div className="grid gap-2">
-                            <Label>Group</Label>
-                            <Select value={groupId} onValueChange={setGroupId}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">No Group</SelectItem>
-                                    {groups.map((g) => (
-                                        <SelectItem key={g.id} value={String(g.id)}>
-                                            {g.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {errors.group_id && <p className="text-sm text-red-500">{errors.group_id[0]}</p>}
+                            <Label htmlFor="st-points">{referee === 'penalty' ? 'Points to the opponent per foul' : 'Points'}</Label>
+                            <Input
+                                id="st-points"
+                                type="number"
+                                min={referee === 'penalty' ? 1 : 0}
+                                value={points}
+                                onChange={(e) => setPoints(e.target.value)}
+                                required
+                            />
+                            {errors.points && <p className="text-sm text-red-500">{errors.points[0]}</p>}
                         </div>
+                        {referee === 'scoring' && (
+                            <>
+                                <div className="grid gap-2">
+                                    <Label>Target</Label>
+                                    <Select value={target} onValueChange={(value) => setTarget(value as 'team' | 'alliance')}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="team">Team</SelectItem>
+                                            <SelectItem value="alliance">Alliance</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.target && <p className="text-sm text-red-500">{errors.target[0]}</p>}
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label>Scored as</Label>
+                                    <Select value={kind} onValueChange={(value) => setKind(value as ScoreKind)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {SCORE_KINDS.map((option) => (
+                                                <SelectItem key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-muted-foreground text-xs">{SCORE_KINDS.find((option) => option.value === kind)?.hint}</p>
+                                    {errors.kind && <p className="text-sm text-red-500">{errors.kind[0]}</p>}
+                                </div>
+                                {kind === 'choice' && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="st-choice-set">Set</Label>
+                                        <Input
+                                            id="st-choice-set"
+                                            value={choiceSet}
+                                            onChange={(e) => setChoiceSet(e.target.value)}
+                                            placeholder="For example Base or Ascent"
+                                            required
+                                        />
+                                        <p className="text-muted-foreground text-xs">
+                                            Score types with the same set name are shown together; a robot gets only one of them.
+                                        </p>
+                                        {errors.choice_set && <p className="text-sm text-red-500">{errors.choice_set[0]}</p>}
+                                    </div>
+                                )}
+                                <div className="grid gap-2">
+                                    <Label>Group</Label>
+                                    <Select value={groupId} onValueChange={setGroupId}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">No Group</SelectItem>
+                                            {groups.map((g) => (
+                                                <SelectItem key={g.id} value={String(g.id)}>
+                                                    {g.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.group_id && <p className="text-sm text-red-500">{errors.group_id[0]}</p>}
+                                </div>
+                            </>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={isPending}>

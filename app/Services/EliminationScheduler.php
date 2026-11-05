@@ -210,7 +210,8 @@ class EliminationScheduler
     }
 
     /**
-     * Determine which alliance group won a specific match.
+     * Determine which alliance group won a specific match. A red card on any
+     * of an alliance's teams disqualifies the whole alliance from the match.
      */
     private function getMatchWinnerGroupId(CompetitionMatch $match, EliminationSeries $series): ?int
     {
@@ -222,6 +223,19 @@ class EliminationScheduler
                 ->whereIn('alliance_id', $allianceIds)
                 ->whereNull('team_id')
                 ->sum('points');
+        }
+
+        $disqualified = $match->matchAlliances
+            ->filter(fn (MatchAlliance $member): bool => $member->isDisqualified())
+            ->pluck('alliance_group_id')
+            ->unique();
+
+        if ($disqualified->count() === 1) {
+            return $disqualified->first() === $series->alliance_group_1_id ? $series->alliance_group_2_id : $series->alliance_group_1_id;
+        }
+
+        if ($disqualified->count() > 1) {
+            return null;
         }
 
         $group1Score = $scoreByGroup[$series->alliance_group_1_id] ?? 0;

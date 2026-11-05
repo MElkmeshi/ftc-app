@@ -1,4 +1,6 @@
 import { DisplaySwitch } from '@/components/match-control/display-switch';
+import { TeamCards } from '@/components/match-control/team-cards';
+import { TeamCardBadge } from '@/components/team-card-badge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -291,7 +293,7 @@ function AllianceSummary({
             <ul className="mt-2 space-y-0.5 text-sm">
                 {getAllianceMembers(match, color).map((member) => (
                     <li key={member.id} className="truncate">
-                        <span className="font-mono font-semibold">{member.team.number}</span> {member.team.name}
+                        <span className="font-mono font-semibold">{member.team.number}</span> <TeamCardBadge card={member.card} /> {member.team.name}
                     </li>
                 ))}
             </ul>
@@ -504,6 +506,10 @@ export default function MatchControlConsole() {
                                             )}
 
                                             {error && <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>}
+
+                                            {(selected.status === 'ongoing' || selected.status === 'completed') && (
+                                                <TeamCards match={selected} matches={matches} />
+                                            )}
 
                                             <div className="grid gap-2">
                                                 {selected.status === 'upcoming' && (

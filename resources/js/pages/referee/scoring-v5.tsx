@@ -43,7 +43,7 @@ export default function RefereeScoringOnly() {
         submitError,
         sharingSeatWith,
         unsyncedCount,
-    } = useScoringPage();
+    } = useScoringPage({ role: 'scoring' });
 
     // Only positive-point score types
     const filteredGroups = sortedGroups

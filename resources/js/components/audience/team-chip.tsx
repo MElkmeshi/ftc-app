@@ -1,3 +1,4 @@
+import { TeamCardBadge } from '@/components/team-card-badge';
 import { cn } from '@/lib/utils';
 import { type MatchAlliance } from '@/types';
 
@@ -15,6 +16,7 @@ export function TeamChip({ member, color, size = 'md' }: { member: MatchAlliance
             >
                 {member.team.name}
             </span>
+            <TeamCardBadge card={member.card} className={size === 'lg' ? 'mt-1 text-xl' : 'mt-1 text-base'} />
         </div>
     );
 }

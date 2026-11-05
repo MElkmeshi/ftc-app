@@ -3,7 +3,11 @@
 namespace App\Models;
 
 use App\Enums\MatchStatus;
+use App\Enums\PointsAwardedTo;
 use App\Enums\RankingMethod;
+use App\Enums\RefereeRole;
+use App\Enums\ScoreKind;
+use App\Enums\ScoreTarget;
 use App\Services\GameAssets;
 use Database\Factories\GameFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -28,6 +32,9 @@ class Game extends Model
 
     /** Timing keys a game may override; anything missing uses config/competition.php. */
     public const TIMING_KEYS = ['pre_match_countdown', 'autonomous', 'transition', 'teleop', 'endgame_warning', 'controllers_warning_offset'];
+
+    /** Foul levels a new game starts with: points each foul gives the opponent. */
+    public const DEFAULT_FOULS = ['Minor foul' => 5, 'Major foul' => 15];
 
     protected $fillable = [
         'name', 'description', 'timing', 'ranking_method', 'logo_path', 'background_path', 'created_by',
@@ -126,6 +133,27 @@ class Game extends Model
                     ->exists(),
             ])
             ->all();
+    }
+
+    /**
+     * Gives a new game FTC style minor and major fouls, which an organiser can
+     * rename, re-point or add to.
+     */
+    public function addDefaultFouls(): self
+    {
+        foreach (self::DEFAULT_FOULS as $name => $points) {
+            $this->scoreTypes()->create([
+                'name' => $name,
+                'points' => $points,
+                'target' => ScoreTarget::ALLIANCE,
+                'kind' => ScoreKind::COUNT,
+                'referee' => RefereeRole::PENALTY,
+                'awarded_to' => PointsAwardedTo::OPPONENT,
+                'created_by' => $this->created_by,
+            ]);
+        }
+
+        return $this;
     }
 
     /**

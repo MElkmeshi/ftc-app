@@ -19,6 +19,7 @@ import {
     type PointsAwardedTo,
     type RefereeRole,
     type ScoreKind,
+    type TeamCard,
 } from '@/types';
 import { http } from '@inertiajs/react';
 import { useCallback } from 'react';
@@ -122,6 +123,10 @@ export const useApi = () => {
 
     const updateScore = useCallback(async (matchId: number, scoreData: { match_alliances: { id: number; score: number }[] }) => {
         return post(`/api/matches/${matchId}/update-score`, scoreData);
+    }, []);
+
+    const setTeamCard = useCallback(async (matchId: number, teamId: number, card: TeamCard | null): Promise<CompetitionMatch> => {
+        return request('put', `/api/matches/${matchId}/cards`, { team_id: teamId, card });
     }, []);
 
     const getScoreTypes = useCallback(async (): Promise<ScoreType[]> => {
@@ -363,6 +368,7 @@ export const useApi = () => {
         getMatch,
         getActiveMatch,
         updateScore,
+        setTeamCard,
         getScoreTypes,
         addScore,
         deleteScore,

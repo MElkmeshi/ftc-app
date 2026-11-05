@@ -201,13 +201,23 @@ it('warns two tablets in the same seat but not a scoring and a penalty referee',
     $this->postJson('/api/referee-seats', $seat('penalty'))->assertJsonPath('sharing_with', ['Red ref']);
 });
 
-it('only gives the opponent points for alliance-wide fouls', function () {
+it('makes every penalty score type an alliance foul whose points go to the opponent', function () {
     $this->actingAs($this->headReferee);
 
-    $this->postJson('/api/score-types', ['name' => 'Foul', 'points' => 5, 'target' => 'team', 'referee' => 'penalty', 'awarded_to' => 'opponent'])
-        ->assertJsonValidationErrors('awarded_to');
-    $this->postJson('/api/score-types', ['name' => 'Foul', 'points' => 5, 'target' => 'alliance', 'referee' => 'penalty', 'awarded_to' => 'opponent'])
+    $this->postJson('/api/score-types', ['name' => 'Foul', 'points' => 5, 'target' => 'team', 'kind' => 'toggle', 'referee' => 'penalty', 'awarded_to' => 'own'])
         ->assertCreated()
         ->assertJsonPath('referee', 'penalty')
+        ->assertJsonPath('target', 'alliance')
+        ->assertJsonPath('kind', 'count')
         ->assertJsonPath('awarded_to', 'opponent');
 });
+
+it('does not let a score type take points away', function (array $scoreType, string $message) {
+    $this->actingAs($this->headReferee);
+
+    $this->postJson('/api/score-types', ['name' => 'Bad', 'target' => 'alliance', ...$scoreType])
+        ->assertJsonValidationErrors(['points' => $message]);
+})->with([
+    'negative scoring' => [['points' => -10, 'referee' => 'scoring'], 'Points cannot be negative'],
+    'free foul' => [['points' => 0, 'referee' => 'penalty'], 'at least 1 point'],
+]);

@@ -26,8 +26,8 @@ enum RankingMethod: string
     public function description(): string
     {
         return match ($this) {
-            self::TotalScore => 'Teams are ranked by the total points they earned in all qualification matches.',
-            self::Record => 'A win is worth 2 ranking points and a tie 1, averaged over matches played. Ties are broken by average alliance score, then highest match score.',
+            self::TotalScore => 'Teams are ranked by the total points they earned in all qualification matches. A team earns nothing from a match it got a red card in.',
+            self::Record => 'A win is worth 2 ranking points and a tie 1, averaged over matches played. Ties are broken by average alliance score, then highest match score. A red card counts as a loss.',
         };
     }
 

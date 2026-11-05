@@ -1,3 +1,4 @@
+import { TeamCardBadge } from '@/components/team-card-badge';
 import { useChangedAt } from '@/hooks/use-changed-at';
 import EventPageLayout from '@/layouts/event-page-layout';
 import { formatMatchTime, getAllianceColorClasses, getAllianceMembers, getAllianceScore, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
@@ -71,6 +72,7 @@ function AllianceTeams({ match, color, highlight, align }: { match: CompetitionM
                     )}
                 >
                     {matchAlliance.team?.number}
+                    <TeamCardBadge card={matchAlliance.card} className="ml-1 font-sans" />
                 </span>
             ))}
         </div>

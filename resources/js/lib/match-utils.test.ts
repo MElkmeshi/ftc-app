@@ -1,6 +1,6 @@
 import type { CompetitionMatch } from '@/types';
 import { describe, expect, it } from 'vitest';
-import { getAllianceBreakdown, getAllianceScore, getMatchTitle, scheduleDriftMinutes } from './match-utils';
+import { determineWinner, getAllianceBreakdown, getAllianceScore, getMatchTitle, scheduleDriftMinutes } from './match-utils';
 
 function makeMatch(points: number | undefined): CompetitionMatch {
     return {
@@ -126,5 +126,32 @@ describe('schedule drift', () => {
 
     it('says nothing before the first match is played', () => {
         expect(scheduleDriftMinutes([match(1, 'upcoming', '2026-12-01T09:00:00Z')], at('2026-11-30T20:00:00Z'))).toBeNull();
+    });
+});
+
+describe('match winner', () => {
+    function playedMatch(type: CompetitionMatch['type'], redCard: boolean): CompetitionMatch {
+        const member = (id: number, color: string, score: number) => ({
+            id,
+            team: { id, number: String(id), name: `Team ${id}` },
+            alliance: { id: color === 'red' ? 1 : 2, color },
+            alliance_group_id: null,
+            score,
+            card: color === 'red' && redCard ? ('red' as const) : null,
+        });
+
+        return { ...makeMatch(undefined), type, scores: [], match_alliances: [member(1, 'red', 40), member(2, 'blue', 10)] };
+    }
+
+    it('goes to the higher score', () => {
+        expect(determineWinner(playedMatch('elimination', false))).toBe('red');
+    });
+
+    it('goes to the opponent of a playoff alliance with a red card, whatever the score', () => {
+        expect(determineWinner(playedMatch('elimination', true))).toBe('blue');
+    });
+
+    it('keeps the score result in qualification, where a red card only costs that team', () => {
+        expect(determineWinner(playedMatch('qualification', true))).toBe('red');
     });
 });

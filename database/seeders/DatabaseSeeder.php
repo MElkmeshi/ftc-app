@@ -43,8 +43,8 @@ class DatabaseSeeder extends Seeder
 
         $scoreTypes = [
             ['name' => 'score', 'points' => 1, 'created_by' => $admin->id],
-            ['name' => 'minor_penalty', 'points' => -10, 'created_by' => $admin->id],
-            ['name' => 'major_penalty', 'points' => -30, 'created_by' => $admin->id],
+            ['name' => 'Minor foul', 'points' => 5, 'target' => 'alliance', 'referee' => 'penalty', 'awarded_to' => 'opponent', 'created_by' => $admin->id],
+            ['name' => 'Major foul', 'points' => 15, 'target' => 'alliance', 'referee' => 'penalty', 'awarded_to' => 'opponent', 'created_by' => $admin->id],
             ['name' => 'bonus', 'points' => 20, 'created_by' => $admin->id],
         ];
         foreach ($scoreTypes as $type) {

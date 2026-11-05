@@ -18,7 +18,9 @@ class AllianceSelectionService
     public function __construct(private EliminationScheduler $eliminationScheduler) {}
 
     /**
-     * Get team rankings from completed qualification matches.
+     * Get team rankings from completed qualification matches. A team with a
+     * red card in a match is disqualified from it: the match counts as a
+     * loss that earns it no points, while its partner keeps the result.
      *
      * @return Collection<int, array{team_id: int, team_number: int|string, team_name: string, alliance_color: ?string, team_score: int, alliance_score: int, total_score: int, rank: int}>
      */
@@ -73,6 +75,17 @@ class AllianceSelectionService
                 ];
 
                 $team = &$teamScores[$teamId];
+                $team['played']++;
+
+                if ($ma->isDisqualified()) {
+                    $team['losses']++;
+                    $team['ranking_points'] = $this->tidyNumber((2 * $team['wins'] + $team['ties']) / $team['played']);
+                    $team['average_score'] = $this->tidyNumber($team['match_points'] / $team['played']);
+
+                    unset($team);
+
+                    continue;
+                }
 
                 $team['team_score'] += $ma->score ?? 0;
 
@@ -87,7 +100,6 @@ class AllianceSelectionService
                 $ownTotal = $allianceTotals[$ma->alliance_id] ?? 0;
                 $opponentTotal = collect($allianceTotals)->except($ma->alliance_id)->max() ?? 0;
 
-                $team['played']++;
                 $team['match_points'] += $ownTotal;
                 $team['highest_score'] = max($team['highest_score'], $ownTotal);
 

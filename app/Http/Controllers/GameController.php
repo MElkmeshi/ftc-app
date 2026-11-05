@@ -47,7 +47,7 @@ class GameController extends Controller
 
         $game = $source !== null
             ? $source->duplicate($request->validated('name'), $request->user()->id)
-            : Game::query()->create([...$request->safe()->only(['name', 'description']), 'created_by' => $request->user()->id]);
+            : Game::query()->create([...$request->safe()->only(['name', 'description']), 'created_by' => $request->user()->id])->addDefaultFouls();
 
         if ($source !== null && $request->filled('description')) {
             $game->update(['description' => $request->validated('description')]);

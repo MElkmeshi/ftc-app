@@ -209,7 +209,12 @@ export default function RefereeScoring2() {
                                                                     }
                                                                     disabled={isPending}
                                                                     size="sm"
-                                                                    className={cn('h-10 flex-1', getAddStyle(scoreType.points))}
+                                                                    className={cn(
+                                                                        'h-10 flex-1',
+                                                                        getAddStyle(
+                                                                            scoreType.referee === 'penalty' ? -scoreType.points : scoreType.points,
+                                                                        ),
+                                                                    )}
                                                                 >
                                                                     <Plus className="h-4 w-4" />
                                                                 </Button>
@@ -268,7 +273,14 @@ export default function RefereeScoring2() {
                                                                         onClick={() => handleAddScore(scoreType.id, { teamId: ma.team.id })}
                                                                         disabled={isPending}
                                                                         size="sm"
-                                                                        className={cn('h-10 flex-1', getAddStyle(scoreType.points))}
+                                                                        className={cn(
+                                                                            'h-10 flex-1',
+                                                                            getAddStyle(
+                                                                                scoreType.referee === 'penalty'
+                                                                                    ? -scoreType.points
+                                                                                    : scoreType.points,
+                                                                            ),
+                                                                        )}
                                                                     >
                                                                         <Plus className="h-4 w-4" />
                                                                     </Button>

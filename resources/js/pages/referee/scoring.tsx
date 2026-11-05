@@ -131,13 +131,13 @@ function PreviewFoulsOnly() {
             <div className="flex items-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-50 p-2 dark:border-rose-800 dark:bg-rose-950/40">
                 <div className="h-3 w-3 rounded-full bg-rose-500" />
                 <div className="h-2 w-24 rounded bg-rose-400/40" />
-                <div className="ml-auto text-xs font-black text-rose-600">−10</div>
+                <div className="ml-auto text-xs font-black text-rose-600">+5</div>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
                 {[...Array(4)].map((_, i) => (
                     <div key={i} className="bg-card flex flex-col gap-1 rounded-lg border border-rose-100 p-2 dark:border-rose-900">
                         <div className="bg-muted-foreground/30 h-2 w-full rounded" />
-                        <div className="text-xs font-black text-rose-600">−{(i + 1) * 5}</div>
+                        <div className="text-xs font-black text-rose-600">+{(i + 1) * 5}</div>
                         <div className="flex gap-1">
                             <div className="bg-muted/60 h-4 flex-1 rounded" />
                             <div className="h-4 flex-1 rounded bg-rose-500/50" />
@@ -161,7 +161,7 @@ function PreviewFoulsBoth() {
                     <div key={color} className="flex-1 space-y-1.5">
                         <div className={cn('flex items-center justify-between rounded-lg border-2 px-2 py-1', border, bg)}>
                             <span className={cn('text-xs font-black uppercase', text)}>{color}</span>
-                            <span className="text-xs font-black text-rose-600">−10</span>
+                            <span className="text-xs font-black text-rose-600">+5</span>
                         </div>
                         {[...Array(3)].map((_, i) => (
                             <div key={i} className="bg-card space-y-1 rounded border p-1.5">
@@ -253,8 +253,8 @@ export default function RefereeScoring() {
                         href={resolveEventHref('/referee/scoring5')}
                         icon={<Star className="h-5 w-5" />}
                         title="Scoring Only"
-                        subtitle="Layout 5 · Positive points"
-                        description="Shows only positive-point score types. Use alongside the Fouls layout to split duties between two referees."
+                        subtitle="Layout 5 · Scoring referee"
+                        description="Shows only what robots score. Use alongside the Fouls layout to split duties between two referees."
                         accent="border-emerald-200 hover:border-emerald-400 dark:border-emerald-800 dark:hover:border-emerald-600"
                         preview={<PreviewScoringOnly />}
                     />
@@ -263,8 +263,8 @@ export default function RefereeScoring() {
                         href={resolveEventHref('/referee/scoring6')}
                         icon={<AlertTriangle className="h-5 w-5" />}
                         title="Fouls Only"
-                        subtitle="Layout 6 · Negative points"
-                        description="Shows only foul and penalty score types. Assign this to a field judge while a second referee handles regular scoring."
+                        subtitle="Layout 6 · Penalty referee"
+                        description="Counts the minor and major fouls an alliance commits; their points go to the opponent. Pair it with a scoring referee."
                         accent="border-rose-200 hover:border-rose-400 dark:border-rose-800 dark:hover:border-rose-600"
                         preview={<PreviewFoulsOnly />}
                     />
@@ -274,7 +274,7 @@ export default function RefereeScoring() {
                         icon={<SplitSquareHorizontal className="h-5 w-5" />}
                         title="Fouls — Both Alliances"
                         subtitle="Layout 7 · Red &amp; Blue side by side"
-                        description="Foul types for red and blue shown in two columns simultaneously. One referee can call fouls for both alliances without switching."
+                        description="Minor and major fouls for red and blue in two columns. One referee can call fouls for both alliances without switching."
                         accent="border-rose-200 hover:border-rose-400 dark:border-rose-800 dark:hover:border-rose-600"
                         preview={<PreviewFoulsBoth />}
                     />

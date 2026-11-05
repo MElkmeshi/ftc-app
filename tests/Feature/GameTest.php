@@ -43,12 +43,14 @@ it('lists games with the events that play them', function () {
         ->where('games.0.events', []));
 });
 
-it('creates a blank game', function () {
+it('creates a new game with only minor and major fouls', function () {
     $this->actingAs($this->admin)->post('/games', ['name' => 'Bottle Flip'])->assertRedirect();
 
-    expect(Game::query()->where('name', 'Bottle Flip')->sole())
-        ->scoreTypes->toBeEmpty()
-        ->ranking_method->toBe(RankingMethod::TotalScore);
+    $game = Game::query()->where('name', 'Bottle Flip')->sole();
+
+    expect($game->scoreTypes->sortBy('points')->values()->map(fn ($scoreType) => [$scoreType->name, $scoreType->points, $scoreType->referee->value, $scoreType->awarded_to->value])->all())
+        ->toBe([['Minor foul', 5, 'penalty', 'opponent'], ['Major foul', 15, 'penalty', 'opponent']])
+        ->and($game->ranking_method)->toBe(RankingMethod::TotalScore);
 });
 
 it('duplicates a game with its groups, score types, timing and ranking', function () {

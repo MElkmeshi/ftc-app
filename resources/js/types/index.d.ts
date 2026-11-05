@@ -194,11 +194,14 @@ export interface Score {
     created_at?: string;
 }
 
+export type TeamCard = 'yellow' | 'red';
+
 export interface MatchAlliance {
     id: number;
     team: Team;
     alliance: Alliance;
     score: number;
+    card?: TeamCard | null;
     alliance_group_id: number | null;
     scores?: Score[];
 }

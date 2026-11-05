@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DisplayController;
 use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\EventArchiveController;
+use App\Http\Controllers\Api\MatchCardController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\MatchSubmissionController;
 use App\Http\Controllers\Api\RefereeSeatController;
@@ -50,6 +51,7 @@ Route::middleware(['auth', 'can:score-matches'])->group(function () {
 
 Route::middleware(['auth', 'can:control-matches'])->group(function () {
     Route::post('/matches/{id}/update-score', [MatchController::class, 'updateScore'])->whereNumber('id');
+    Route::put('/matches/{id}/cards', [MatchCardController::class, 'update'])->whereNumber('id');
     Route::post('/matches/load', [MatchController::class, 'loadMatch']);
     Route::post('/matches/start', [MatchController::class, 'startMatch']);
     Route::post('/matches/end', [MatchController::class, 'endMatch']);
