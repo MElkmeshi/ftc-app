@@ -71,6 +71,12 @@ it('keeps event-day tools to the head referee and admins', function (string $uri
     'team match lists' => ['/event/testevent/reports/team-schedules'],
     'paper scoresheets' => ['/event/testevent/reports/scoresheets'],
     'notes sheet' => ['/event/testevent/reports/notes'],
+    'cards' => ['/event/testevent/reports/cards'],
+    'practice participation' => ['/event/testevent/reports/practice'],
+    'judge observer sheets' => ['/event/testevent/reports/judge'],
+    'team list' => ['/event/testevent/reports/team-list'],
+    'field notes' => ['/event/testevent/reports/field-notes'],
+    'emcee scripts' => ['/event/testevent/scripts'],
 ]);
 
 it('reports the time between match starts and how far each ran from the schedule', function () {

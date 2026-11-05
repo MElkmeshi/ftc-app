@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\MatchStatus;
+use App\Enums\MatchType;
 use App\Models\CompetitionMatch;
 use App\Models\Group;
 use App\Models\MatchAlliance;
@@ -50,6 +51,38 @@ class ReportController extends Controller
                 ->sortBy(fn (Team $team) => [$standings[$team->id]['rank'] ?? PHP_INT_MAX, (int) $team->number])
                 ->values(),
             'standings' => $standings,
+        ]);
+    }
+
+    /**
+     * A sheet per team listing its qualification matches, for judges who
+     * watch teams play (FTC Live's judge match observer sheets).
+     */
+    public function judge(): Response
+    {
+        return Inertia::render('reports/judge', [
+            'teams' => $this->teams(),
+            'matches' => $this->schedule()->where('type', MatchType::QUALIFICATION)->values(),
+        ]);
+    }
+
+    /**
+     * Every team with the details the organiser picks, for check-in or the
+     * pit announcer (FTC Live's team list).
+     */
+    public function teamList(): Response
+    {
+        return Inertia::render('reports/team-list', ['teams' => $this->teams()]);
+    }
+
+    /**
+     * Every match with its teams and room to write, for the field technical
+     * staff to note robot and field problems (FTC Live's FTA notes).
+     */
+    public function fieldNotes(): Response
+    {
+        return Inertia::render('reports/field-notes', [
+            'matches' => $this->schedule()->where('status', '!=', MatchStatus::CANCELLED)->values(),
         ]);
     }
 

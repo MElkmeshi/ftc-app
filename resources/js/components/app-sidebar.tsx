@@ -14,6 +14,7 @@ import {
     Home,
     KeyRound,
     ListChecks,
+    Mic,
     MonitorPlay,
     QrCode,
     Settings,
@@ -32,6 +33,7 @@ const runEventNavItems: NavItem[] = [
     { title: 'Inspection', href: '/inspection', icon: ClipboardList },
     { title: 'Schedule & Results', href: '/competition-matches', icon: Trophy },
     { title: 'Reports', href: '/reports', icon: FileText },
+    { title: 'Emcee Scripts', href: '/scripts', icon: Mic },
     { title: 'Connect Devices', href: '/connect', icon: QrCode },
     { title: 'Event Home', href: '/', icon: Home },
 ];

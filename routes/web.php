@@ -16,6 +16,7 @@ use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\MatchSheetController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScreenReloadController;
+use App\Http\Controllers\ScriptController;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
@@ -138,6 +139,11 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('reports/notes', [ReportController::class, 'notes'])->name('reports.notes');
         Route::get('reports/cards', [ReportController::class, 'cards'])->name('reports.cards');
         Route::get('reports/practice', [ReportController::class, 'practice'])->name('reports.practice');
+        Route::get('reports/judge', [ReportController::class, 'judge'])->name('reports.judge');
+        Route::get('reports/team-list', [ReportController::class, 'teamList'])->name('reports.team-list');
+        Route::get('reports/field-notes', [ReportController::class, 'fieldNotes'])->name('reports.field-notes');
+        Route::get('scripts', [ScriptController::class, 'index'])->name('scripts.index');
+        Route::put('scripts/{kind}', [ScriptController::class, 'update'])->middleware('can:manage-competition')->name('scripts.update');
     });
 
     Route::get('match-control', function (EventLiveProps $live) {

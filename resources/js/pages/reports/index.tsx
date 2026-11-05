@@ -20,6 +20,13 @@ const REPORTS: ReportLink[] = [
         description: 'Each team’s own matches, partners and opponents, to hand out at check-in.',
     },
     { title: 'Paper scoresheets', path: 'reports/scoresheets', description: 'Blank scoresheets built from the game, for when a tablet fails.' },
+    {
+        title: 'Judge observer sheets',
+        path: 'reports/judge',
+        description: 'A sheet per team with its qualification matches, for judges watching play.',
+    },
+    { title: 'Team list', path: 'reports/team-list', description: 'Every team, with the details you choose to show.' },
+    { title: 'Field notes', path: 'reports/field-notes', description: 'Every match with its teams and room to note robot or field problems.' },
     { title: 'Notes sheet', path: 'reports/notes', description: 'A row per team for judges, inspectors or field staff to write on.' },
 ];
 
