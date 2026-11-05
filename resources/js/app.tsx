@@ -5,6 +5,7 @@ import { echo } from '@inertiajs/react/echo';
 import { configureEcho, echo as echoInstance } from '@laravel/echo-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
+import { route } from 'ziggy-js';
 import { initializeTheme } from './hooks/use-appearance';
 import { createVersionWatch } from './lib/app-version';
 import { clearCacheOnScopeChange } from './lib/event-scope-cache';
@@ -27,6 +28,8 @@ configureEcho({
     forceTLS: import.meta.env.VITE_REVERB_SCHEME ? import.meta.env.VITE_REVERB_SCHEME === 'https' : window.location.protocol === 'https:',
     enabledTransports: ['ws', 'wss'],
 });
+
+Object.assign(globalThis, { route });
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const queryClient = new QueryClient();

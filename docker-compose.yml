@@ -16,6 +16,7 @@ services:
             - ./database:/var/www/html/database
             - ./storage/app:/var/www/html/storage/app
             - ./storage/logs:/var/www/html/storage/logs
+            - sessions:/var/www/html/storage/framework/sessions
         restart: unless-stopped
 
     nginx:
@@ -91,3 +92,6 @@ services:
         healthcheck:
             disable: true
         restart: unless-stopped
+
+volumes:
+    sessions:

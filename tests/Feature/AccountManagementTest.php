@@ -5,7 +5,6 @@ use App\Models\Score;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 uses(RefreshDatabase::class);
@@ -87,10 +86,21 @@ it('keeps the scores and teams an official entered when their account is deleted
 
 it('signs an account out everywhere when its password is reset', function () {
     $referee = User::factory()->create(['role' => UserRole::Referee]);
-    DB::table('sessions')->insert(['id' => 'tablet-session', 'user_id' => $referee->id, 'payload' => '', 'last_activity' => now()->timestamp]);
-    config(['session.driver' => 'database']);
+    $this->actingAs($referee)->get('/settings/profile')->assertOk();
+    $tabletSession = session()->all();
 
-    $this->actingAs($this->admin)->post("/accounts/{$referee->id}/reset-password");
+    $this->flushSession();
+    $this->actingAs($this->admin)->post("/accounts/{$referee->id}/reset-password")->assertRedirect();
 
-    expect(DB::table('sessions')->where('user_id', $referee->id)->exists())->toBeFalse();
+    $this->flushSession();
+    $this->withSession($tabletSession)->actingAs($referee->fresh())->get('/settings/profile')->assertRedirect('/login');
+    $this->assertGuest();
+});
+
+it('keeps an account signed in when nothing about its password changed', function () {
+    $referee = User::factory()->create(['role' => UserRole::Referee]);
+    $this->actingAs($referee)->get('/settings/profile')->assertOk();
+
+    $this->get('/settings/profile')->assertOk();
+    $this->assertAuthenticatedAs($referee);
 });
