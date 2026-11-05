@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\MatchStatus;
 use App\Models\CompetitionMatch;
+use App\Models\Group;
+use App\Models\ScoreType;
+use App\Models\Team;
+use App\Services\AllianceSelectionService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -18,6 +22,105 @@ class ReportController extends Controller
     public function index(): Response
     {
         return Inertia::render('reports/index');
+    }
+
+    /**
+     * Every match with each team's name, where it is from and how it is doing,
+     * for whoever announces the matches.
+     */
+    public function announcer(): Response
+    {
+        return Inertia::render('reports/announcer', [
+            'matches' => $this->schedule(),
+            'standings' => $this->standings(),
+        ]);
+    }
+
+    /**
+     * One page per team with its number big enough to read across the pits,
+     * in ranking order so they can be handed out at alliance selection.
+     */
+    public function placards(): Response
+    {
+        $standings = $this->standings();
+
+        return Inertia::render('reports/placards', [
+            'teams' => $this->teams()
+                ->sortBy(fn (Team $team) => [$standings[$team->id]['rank'] ?? PHP_INT_MAX, (int) $team->number])
+                ->values(),
+            'standings' => $standings,
+        ]);
+    }
+
+    /**
+     * Each team's own matches on its own page, to hand out at check-in.
+     */
+    public function teamSchedules(): Response
+    {
+        return Inertia::render('reports/team-schedules', [
+            'teams' => $this->teams(),
+            'matches' => $this->schedule(),
+        ]);
+    }
+
+    /**
+     * Blank paper scoresheets, one per alliance per match, for when a tablet
+     * fails or a referee prefers paper.
+     */
+    public function scoresheets(): Response
+    {
+        return Inertia::render('reports/scoresheets', [
+            'matches' => $this->schedule()->where('status', '!=', MatchStatus::CANCELLED)->values(),
+            'groups' => Group::query()->orderBy('display_order')->get(['id', 'name', 'display_order']),
+            'scoreTypes' => ScoreType::query()->orderBy('id')->get(['id', 'name', 'points', 'group_id', 'target', 'kind', 'choice_set', 'referee', 'awarded_to']),
+        ]);
+    }
+
+    /**
+     * A sheet with a row per team and room to write, for inspectors, judges
+     * or the field technical advisor.
+     */
+    public function notes(): Response
+    {
+        return Inertia::render('reports/notes', ['teams' => $this->teams()]);
+    }
+
+    /**
+     * @return Collection<int, Team>
+     */
+    private function teams(): Collection
+    {
+        return Team::query()->get(['id', 'number', 'name', 'organization', 'city', 'rookie_year'])->sortBy(fn (Team $team) => (int) $team->number)->values();
+    }
+
+    /**
+     * @return Collection<int, CompetitionMatch>
+     */
+    private function schedule(): Collection
+    {
+        return CompetitionMatch::query()
+            ->with(['matchAlliances.alliance', 'matchAlliances.team:id,number,name,organization,city,rookie_year'])
+            ->orderBy('number')
+            ->get(['id', 'number', 'type', 'round', 'field', 'start_time', 'status']);
+    }
+
+    /**
+     * Each ranked team's rank and record, keyed by team id.
+     *
+     * @return array<int, array{rank: int, wins: int, losses: int, ties: int, played: int}>
+     */
+    private function standings(): array
+    {
+        return app(AllianceSelectionService::class)->getRankings()
+            ->values()
+            ->mapWithKeys(fn (array $ranking, int $index): array => [$ranking['team_id'] => [
+                'rank' => $ranking['rank'] ?? $index + 1,
+                'wins' => $ranking['wins'],
+                'losses' => $ranking['losses'],
+                'ties' => $ranking['ties'],
+                'played' => $ranking['played'],
+            ]])
+            ->all();
     }
 
     /**

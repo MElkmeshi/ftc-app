@@ -120,6 +120,11 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('connect', fn () => Inertia::render('events/connect'))->name('events.connect');
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/cycle', [ReportController::class, 'cycle'])->name('reports.cycle');
+        Route::get('reports/announcer', [ReportController::class, 'announcer'])->name('reports.announcer');
+        Route::get('reports/placards', [ReportController::class, 'placards'])->name('reports.placards');
+        Route::get('reports/team-schedules', [ReportController::class, 'teamSchedules'])->name('reports.team-schedules');
+        Route::get('reports/scoresheets', [ReportController::class, 'scoresheets'])->name('reports.scoresheets');
+        Route::get('reports/notes', [ReportController::class, 'notes'])->name('reports.notes');
     });
 
     Route::get('match-control', function (EventLiveProps $live) {

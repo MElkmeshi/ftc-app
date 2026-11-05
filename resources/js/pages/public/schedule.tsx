@@ -1,16 +1,11 @@
 import { useChangedAt } from '@/hooks/use-changed-at';
 import EventPageLayout from '@/layouts/event-page-layout';
 import { formatMatchTime, getAllianceColorClasses, getAllianceMembers, getAllianceScore, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
+import { allianceColorsOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type SharedData } from '@/types';
 import { Head, Link, usePage, useProp } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
-
-function allianceColors(match: CompetitionMatch): string[] {
-    return [...new Set(match.match_alliances.map((matchAlliance) => matchAlliance.alliance.color))].sort((a, b) =>
-        a === 'red' ? -1 : b === 'red' ? 1 : a.localeCompare(b),
-    );
-}
 
 function readStoredTeam(key: string): string {
     try {
@@ -141,7 +136,7 @@ export default function PublicSchedule() {
                     <h2 className="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">{section.title}</h2>
                     <ul className="divide-y rounded-lg border">
                         {section.matches.map((match) => {
-                            const colors = allianceColors(match);
+                            const colors = allianceColorsOf(match);
                             const field = getFieldLabel(match, event?.field_count ?? 1);
 
                             return (

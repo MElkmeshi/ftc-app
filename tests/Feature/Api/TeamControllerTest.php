@@ -119,3 +119,22 @@ it('refuses to delete a team that is in the match schedule', function () {
     $response->assertUnprocessable()->assertJsonPath('message', 'Team 4321 is in the match schedule. Regenerate the schedule without it before deleting it.');
     $this->assertNotSoftDeleted($team);
 });
+
+it('saves where a team is from and its rookie year', function () {
+    $team = Team::factory()->create();
+
+    $this->putJson("/api/teams/{$team->id}", [
+        'number' => $team->number,
+        'name' => $team->name,
+        'organization' => 'Central High',
+        'city' => 'Tripoli',
+        'rookie_year' => 2019,
+    ])->assertSuccessful();
+
+    expect($team->fresh()->only(['organization', 'city', 'rookie_year']))->toBe(['organization' => 'Central High', 'city' => 'Tripoli', 'rookie_year' => 2019]);
+});
+
+it('rejects a rookie year in the future', function () {
+    $this->postJson('/api/teams', ['number' => 5, 'name' => 'Future', 'rookie_year' => now()->year + 2])
+        ->assertJsonValidationErrors(['rookie_year']);
+});

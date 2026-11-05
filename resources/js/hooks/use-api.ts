@@ -15,6 +15,7 @@ import {
     ScoreType,
     Team,
     TeamDisplay,
+    TeamInput,
     type PointsAwardedTo,
     type RefereeRole,
     type ScoreKind,
@@ -201,11 +202,11 @@ export const useApi = () => {
         return get('/api/teams');
     }, []);
 
-    const createTeam = useCallback(async (data: { number: number; name: string }): Promise<Team> => {
+    const createTeam = useCallback(async (data: TeamInput): Promise<Team> => {
         return post('/api/teams', data);
     }, []);
 
-    const updateTeam = useCallback(async (id: number, data: { number: number; name: string }): Promise<Team> => {
+    const updateTeam = useCallback(async (id: number, data: TeamInput): Promise<Team> => {
         return put(`/api/teams/${id}`, data);
     }, []);
 

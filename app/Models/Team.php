@@ -12,7 +12,7 @@ class Team extends Model
     use BelongsToEvent, HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'event_id', 'number', 'name', 'created_by', 'updated_by',
+        'event_id', 'number', 'name', 'organization', 'city', 'rookie_year', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [

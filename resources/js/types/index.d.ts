@@ -122,7 +122,12 @@ export interface Team {
     id: number;
     number: string;
     name: string;
+    organization?: string | null;
+    city?: string | null;
+    rookie_year?: number | null;
 }
+
+export type TeamInput = Pick<Team, 'name' | 'organization' | 'city' | 'rookie_year'> & { number: number };
 
 export interface Alliance {
     id: number;

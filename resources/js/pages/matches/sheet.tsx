@@ -1,6 +1,7 @@
 import { useChangedAt } from '@/hooks/use-changed-at';
 import EventPageLayout from '@/layouts/event-page-layout';
 import { formatMatchTime, getAllianceColorClasses, getAllianceMembers, getAllianceScore, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
+import { allianceColorsOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type Group, type ScoreType, type SharedData } from '@/types';
 import { Head, Link, usePage, useProp } from '@inertiajs/react';
@@ -19,12 +20,6 @@ interface SheetSection {
     title: string;
     lines: SheetLine[];
     points: number;
-}
-
-function allianceColors(match: CompetitionMatch): string[] {
-    return [...new Set(match.match_alliances.map((matchAlliance) => matchAlliance.alliance.color))].sort((a, b) =>
-        a === 'red' ? -1 : b === 'red' ? 1 : a.localeCompare(b),
-    );
 }
 
 function buildSections(match: CompetitionMatch, color: string, scoreTypes: Map<number, SheetScoreType>, groups: Group[]): SheetSection[] {
@@ -161,7 +156,7 @@ export default function MatchSheet() {
         return null;
     }
 
-    const colors = allianceColors(match);
+    const colors = allianceColorsOf(match);
     const totals = colors.map((color) => getAllianceScore(match, color));
     const best = Math.max(...totals);
     const winners = colors.filter((_, index) => totals.at(index) === best);

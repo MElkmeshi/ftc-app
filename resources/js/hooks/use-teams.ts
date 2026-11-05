@@ -1,4 +1,4 @@
-import { Team } from '@/types';
+import { Team, TeamInput } from '@/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
 
@@ -14,7 +14,7 @@ export function useCreateTeam() {
     const api = useApi();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: { number: number; name: string }) => api.createTeam(data),
+        mutationFn: (data: TeamInput) => api.createTeam(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['teams'] });
         },
@@ -25,7 +25,7 @@ export function useUpdateTeam() {
     const api = useApi();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (params: { id: number; data: { number: number; name: string } }) => api.updateTeam(params.id, params.data),
+        mutationFn: (params: { id: number; data: TeamInput }) => api.updateTeam(params.id, params.data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['teams'] });
         },

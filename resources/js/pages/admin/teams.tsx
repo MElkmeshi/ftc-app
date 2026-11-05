@@ -19,6 +19,9 @@ function TeamFormDialog({ team, trigger, onClose }: { team?: Team; trigger: Reac
     const [open, setOpen] = useState(false);
     const [number, setNumber] = useState(team?.number ?? '');
     const [name, setName] = useState(team?.name ?? '');
+    const [organization, setOrganization] = useState(team?.organization ?? '');
+    const [city, setCity] = useState(team?.city ?? '');
+    const [rookieYear, setRookieYear] = useState(team?.rookie_year ? String(team.rookie_year) : '');
     const [errors, setErrors] = useState<Record<string, string[]>>({});
     const createTeam = useCreateTeam();
     const updateTeam = useUpdateTeam();
@@ -29,6 +32,9 @@ function TeamFormDialog({ team, trigger, onClose }: { team?: Team; trigger: Reac
         if (value) {
             setNumber(team?.number ?? '');
             setName(team?.name ?? '');
+            setOrganization(team?.organization ?? '');
+            setCity(team?.city ?? '');
+            setRookieYear(team?.rookie_year ? String(team.rookie_year) : '');
             setErrors({});
         }
     };
@@ -37,7 +43,13 @@ function TeamFormDialog({ team, trigger, onClose }: { team?: Team; trigger: Reac
         e.preventDefault();
         setErrors({});
 
-        const data = { number: parseInt(String(number), 10), name };
+        const data = {
+            number: parseInt(String(number), 10),
+            name,
+            organization: organization.trim() || null,
+            city: city.trim() || null,
+            rookie_year: rookieYear ? parseInt(rookieYear, 10) : null,
+        };
         const mutation = team ? updateTeam : createTeam;
         const mutationArg = team ? { id: team.id, data } : data;
 
@@ -75,6 +87,24 @@ function TeamFormDialog({ team, trigger, onClose }: { team?: Team; trigger: Reac
                             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
                             {errors.name && <p className="text-sm text-red-500">{errors.name[0]}</p>}
                         </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="organization">School or organization</Label>
+                            <Input id="organization" value={organization} onChange={(e) => setOrganization(e.target.value)} />
+                            {errors.organization && <p className="text-sm text-red-500">{errors.organization[0]}</p>}
+                        </div>
+                        <div className="grid grid-cols-[1fr_8rem] gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="city">City</Label>
+                                <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
+                                {errors.city && <p className="text-sm text-red-500">{errors.city[0]}</p>}
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="rookie_year">Rookie year</Label>
+                                <Input id="rookie_year" type="number" value={rookieYear} onChange={(e) => setRookieYear(e.target.value)} />
+                                {errors.rookie_year && <p className="text-sm text-red-500">{errors.rookie_year[0]}</p>}
+                            </div>
+                        </div>
+                        <p className="text-muted-foreground text-xs">Optional. Shown on the announcer sheet and team placards.</p>
                     </div>
                     <DialogFooter>
                         <Button type="submit" disabled={isPending}>
@@ -157,13 +187,15 @@ export default function TeamsPage() {
                                     <tr className="border-b">
                                         <th className="px-4 py-2 text-left font-medium">Number</th>
                                         <th className="px-4 py-2 text-left font-medium">Name</th>
+                                        <th className="px-4 py-2 text-left font-medium">From</th>
+                                        <th className="px-4 py-2 text-left font-medium">Rookie year</th>
                                         <th className="px-4 py-2 text-right font-medium">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {teams.length === 0 ? (
                                         <tr>
-                                            <td colSpan={3} className="text-muted-foreground px-4 py-8 text-center">
+                                            <td colSpan={5} className="text-muted-foreground px-4 py-8 text-center">
                                                 No teams found
                                             </td>
                                         </tr>
@@ -172,6 +204,10 @@ export default function TeamsPage() {
                                             <tr key={team.id} className="hover:bg-muted/50 border-b">
                                                 <td className="px-4 py-2 font-medium">{team.number}</td>
                                                 <td className="px-4 py-2">{team.name}</td>
+                                                <td className="text-muted-foreground px-4 py-2 text-sm">
+                                                    {[team.organization, team.city].filter(Boolean).join(' · ')}
+                                                </td>
+                                                <td className="text-muted-foreground px-4 py-2 text-sm">{team.rookie_year ?? ''}</td>
                                                 <td className="px-4 py-2">
                                                     <div className="flex justify-end gap-2">
                                                         <TeamFormDialog

@@ -4,7 +4,10 @@ use App\Enums\MatchStatus;
 use App\Enums\MatchType;
 use App\Enums\UserRole;
 use App\Events\ScreensReloadRequested;
+use App\Models\Alliance;
 use App\Models\CompetitionMatch;
+use App\Models\MatchAlliance;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -63,6 +66,11 @@ it('keeps event-day tools to the head referee and admins', function (string $uri
     'connect devices' => ['/event/testevent/connect'],
     'reports' => ['/event/testevent/reports'],
     'cycle times' => ['/event/testevent/reports/cycle'],
+    'announcer sheet' => ['/event/testevent/reports/announcer'],
+    'team placards' => ['/event/testevent/reports/placards'],
+    'team match lists' => ['/event/testevent/reports/team-schedules'],
+    'paper scoresheets' => ['/event/testevent/reports/scoresheets'],
+    'notes sheet' => ['/event/testevent/reports/notes'],
 ]);
 
 it('reports the time between match starts and how far each ran from the schedule', function () {
@@ -113,4 +121,34 @@ it('reloads every screen by changing the app version and telling screens to chec
 
 it('does not let referees reload every screen', function () {
     $this->actingAs(User::factory()->create(['role' => UserRole::Referee]))->post('/screens/reload')->assertForbidden();
+});
+
+it('puts ranked teams first on the placards, then the rest by number', function () {
+    $red = Alliance::create(['name' => 'Red Alliance', 'color' => 'red']);
+    $blue = Alliance::create(['name' => 'Blue Alliance', 'color' => 'blue']);
+    $unranked = Team::factory()->create(['number' => 5]);
+    $winner = Team::factory()->create(['number' => 300]);
+    $loser = Team::factory()->create(['number' => 20]);
+    $laterUnranked = Team::factory()->create(['number' => 40]);
+    $match = CompetitionMatch::factory()->create(['type' => MatchType::QUALIFICATION, 'status' => MatchStatus::COMPLETED]);
+    MatchAlliance::create(['match_id' => $match->id, 'team_id' => $winner->id, 'alliance_id' => $red->id, 'alliance_pos' => 1, 'score' => 50]);
+    MatchAlliance::create(['match_id' => $match->id, 'team_id' => $loser->id, 'alliance_id' => $blue->id, 'alliance_pos' => 1, 'score' => 10]);
+
+    $this->actingAs($this->admin)->get('/event/testevent/reports/placards')->assertInertia(fn ($page) => $page
+        ->component('reports/placards')
+        ->where('teams', fn ($teams) => collect($teams)->pluck('id')->all() === [$winner->id, $loser->id, $unranked->id, $laterUnranked->id])
+        ->where("standings.{$winner->id}.rank", 1)
+        ->missing("standings.{$unranked->id}")
+    );
+});
+
+it('leaves cancelled matches off the paper scoresheets', function () {
+    $played = CompetitionMatch::factory()->create(['status' => MatchStatus::UPCOMING]);
+    CompetitionMatch::factory()->create(['status' => MatchStatus::CANCELLED]);
+
+    $this->actingAs($this->admin)->get('/event/testevent/reports/scoresheets')->assertInertia(fn ($page) => $page
+        ->component('reports/scoresheets')
+        ->has('matches', 1)
+        ->where('matches.0.id', $played->id)
+    );
 });

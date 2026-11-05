@@ -17,6 +17,9 @@ class StoreTeamRequest extends FormRequest
         return [
             'number' => ['required', 'integer', $this->uniqueInEvent('teams', 'number')],
             'name' => ['required', 'string', 'max:255'],
+            'organization' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'rookie_year' => ['nullable', 'integer', 'min:1900', 'max:'.(now()->year + 1)],
         ];
     }
 }
