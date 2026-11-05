@@ -16,25 +16,27 @@ use Illuminate\Support\Facades\Route;
 /** These session-authenticated endpoints inherit web middleware and CSRF protection from web.php. */
 Route::group([], __DIR__.'/game-api.php');
 
-Route::get('/matches', [MatchController::class, 'index']);
-Route::get('/matches/active', [MatchController::class, 'active']);
-Route::get('/matches/loaded', [MatchController::class, 'loadedMatch']);
-Route::get('/matches/teams-display', [MatchController::class, 'teamsDisplay']);
-Route::get('/matches/{id}', [MatchController::class, 'show'])->whereNumber('id');
-Route::get('/teams', [TeamController::class, 'index']);
-Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
-Route::get('/dashboard/config', [DashboardController::class, 'config']);
-Route::get('/elimination/bracket', [EliminationController::class, 'bracket']);
-Route::get('/display', [DisplayController::class, 'show']);
-/** Display screens are public pages; they only report that they are open, which changes no competition data. */
-Route::post('/display/connected', [ConnectedDisplayController::class, 'report'])->middleware('throttle:60,1')->name('api.display.report');
+/** Public reads and the display heartbeat skip the session: they serve every screen and need no signed-in user. */
+Route::withoutMiddleware('stateful')->group(function () {
+    Route::get('/matches', [MatchController::class, 'index']);
+    Route::get('/matches/active', [MatchController::class, 'active']);
+    Route::get('/matches/loaded', [MatchController::class, 'loadedMatch']);
+    Route::get('/matches/teams-display', [MatchController::class, 'teamsDisplay']);
+    Route::get('/matches/{id}', [MatchController::class, 'show'])->whereNumber('id');
+    Route::get('/teams', [TeamController::class, 'index']);
+    Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+    Route::get('/dashboard/config', [DashboardController::class, 'config']);
+    Route::get('/elimination/bracket', [EliminationController::class, 'bracket']);
+    Route::get('/display', [DisplayController::class, 'show']);
+    Route::post('/display/connected', [ConnectedDisplayController::class, 'report'])->middleware('throttle:60,1')->name('api.display.report');
 
-Route::prefix('alliance-selection')->group(function () {
-    Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
-    Route::get('/groups', [AllianceSelectionController::class, 'groups']);
-    Route::get('/available-teams', [AllianceSelectionController::class, 'availableTeams']);
-    Route::get('/declined-teams', [AllianceSelectionController::class, 'declinedTeams']);
-    Route::get('/status', [AllianceSelectionController::class, 'status']);
+    Route::prefix('alliance-selection')->group(function () {
+        Route::get('/rankings', [AllianceSelectionController::class, 'rankings']);
+        Route::get('/groups', [AllianceSelectionController::class, 'groups']);
+        Route::get('/available-teams', [AllianceSelectionController::class, 'availableTeams']);
+        Route::get('/declined-teams', [AllianceSelectionController::class, 'declinedTeams']);
+        Route::get('/status', [AllianceSelectionController::class, 'status']);
+    });
 });
 
 Route::middleware(['auth', 'can:score-matches'])->group(function () {

@@ -32,3 +32,22 @@ it('tells screens the server time for clock sync', function () {
 
     expect(abs($this->getJson('/server-time')->json('now') - now()->getTimestampMs()))->toBeLessThan(5000);
 });
+
+it('serves public screens without starting a session', function (string $method, string $uri, array $body) {
+    $this->json($method, $uri, $body)
+        ->assertSuccessful()
+        ->assertCookieMissing(config('session.cookie'))
+        ->assertCookieMissing('XSRF-TOKEN');
+})->with([
+    'clock sync' => ['GET', '/server-time', []],
+    'audience display' => ['GET', '/event/testevent/display', []],
+    'rankings display' => ['GET', '/event/testevent/referee/display', []],
+    'bracket display' => ['GET', '/event/testevent/elimination/bracket', []],
+    'alliance selection display' => ['GET', '/event/testevent/alliance-selection/display', []],
+    'match list' => ['GET', '/api/matches', []],
+    'display heartbeat' => ['POST', '/api/display/connected', ['display_id' => '0b9f9a5e-6a8d-4c1b-9f3a-2d7e5c4b1a90', 'type' => 'audience', 'mute' => false, 'flipped' => false]],
+]);
+
+it('keeps the session on pages that can sign people in', function () {
+    $this->get('/event/testevent')->assertOk()->assertCookie(config('session.cookie'));
+});

@@ -35,7 +35,7 @@ Route::redirect('/dashboard', '/');
 Route::get('server-time', fn (Request $request) => response()->json([
     'now' => now()->getTimestampMs(),
     'version' => app(HandleInertiaRequests::class)->version($request),
-])->header('Cache-Control', 'no-store'))->name('server-time');
+])->header('Cache-Control', 'no-store'))->withoutMiddleware('stateful')->name('server-time');
 
 Route::middleware(['auth', 'verified', 'can:manage-competition'])->group(function () {
     Route::get('events/create', [EventController::class, 'create'])->name('events.create');
@@ -71,20 +71,34 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::post('archive', [EventController::class, 'archive'])->name('events.archive');
     });
 
-    Route::get('display', function (EventLiveProps $live) {
-        return Inertia::render('display/index', [
-            'display' => $live->audienceDisplay(),
-            'rankings' => $live->rankings(),
-            'rankingMethod' => RankingMethod::current()->value,
-            'bracket' => $live->bracket(),
-            'matches' => $live->matches(),
-        ]);
-    })->name('display');
+    Route::withoutMiddleware('stateful')->group(function () {
+        Route::get('display', function (EventLiveProps $live) {
+            return Inertia::render('display/index', [
+                'display' => $live->audienceDisplay(),
+                'rankings' => $live->rankings(),
+                'rankingMethod' => RankingMethod::current()->value,
+                'bracket' => $live->bracket(),
+                'matches' => $live->matches(),
+            ]);
+        })->name('display');
 
-    Route::get('display/pit', fn () => to_route('display', ['type' => 'pit']))->name('display.pit');
-    Route::get('display/match-overlay', fn () => to_route('display', ['type' => 'overlay']))->name('display.match-overlay');
+        Route::get('display/pit', fn () => to_route('display', ['type' => 'pit']))->name('display.pit');
+        Route::get('display/match-overlay', fn () => to_route('display', ['type' => 'overlay']))->name('display.match-overlay');
 
-    Route::get('referee/match-control', fn () => to_route('display'))->name('referee.match-control');
+        Route::get('referee/match-control', fn () => to_route('display'))->name('referee.match-control');
+
+        Route::get('alliance-selection/display', function () {
+            return Inertia::render('alliance-selection/display');
+        })->name('alliance-selection.display');
+
+        Route::get('elimination/bracket', function (EventLiveProps $live) {
+            return Inertia::render('elimination/bracket', ['bracket' => $live->bracket()]);
+        })->name('elimination.bracket');
+
+        Route::get('referee/display', function (EventLiveProps $live) {
+            return Inertia::render('referee/display', ['rankings' => $live->rankings(), 'rankingMethod' => RankingMethod::current()->value]);
+        })->name('referee.display');
+    });
 
     Route::get('match-control', function (EventLiveProps $live) {
         return Inertia::render('match-control/index', [
@@ -93,18 +107,6 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
             'displayModes' => array_map(fn (DisplayMode $mode): array => ['value' => $mode->value, 'label' => $mode->label()], DisplayMode::cases()),
         ]);
     })->middleware(['auth', 'can:control-matches'])->name('match-control');
-
-    Route::get('alliance-selection/display', function () {
-        return Inertia::render('alliance-selection/display');
-    })->name('alliance-selection.display');
-
-    Route::get('elimination/bracket', function (EventLiveProps $live) {
-        return Inertia::render('elimination/bracket', ['bracket' => $live->bracket()]);
-    })->name('elimination.bracket');
-
-    Route::get('referee/display', function (EventLiveProps $live) {
-        return Inertia::render('referee/display', ['rankings' => $live->rankings(), 'rankingMethod' => RankingMethod::current()->value]);
-    })->name('referee.display');
 
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('dashboard', function (CurrentEvent $currentEvent, EventSetupChecklist $checklist) {
