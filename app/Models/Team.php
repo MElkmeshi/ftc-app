@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToEvent;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Team extends Model
@@ -18,6 +19,14 @@ class Team extends Model
     protected $hidden = [
         'created_by', 'updated_by', 'deleted_at', 'created_at', 'updated_at',
     ];
+
+    /**
+     * @return HasOne<Inspection, $this>
+     */
+    public function inspection(): HasOne
+    {
+        return $this->hasOne(Inspection::class);
+    }
 
     public function creator()
     {

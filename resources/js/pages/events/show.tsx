@@ -114,7 +114,13 @@ export default function EventShow() {
                 </LinkSection>
 
                 <LinkSection title="Referees" icon={UserCheck}>
-                    <LinkList links={[{ label: 'Referee scoring', href: `${base}/referee/scoring`, description: 'sign-in required' }]} />
+                    <LinkList
+                        links={[
+                            { label: 'Referee scoring', href: `${base}/referee/scoring`, description: 'sign-in required' },
+                            { label: 'Robot inspection', href: `${base}/inspection`, description: 'inspectors, sign-in required' },
+                            { label: 'Inspection status board', href: `${base}/inspection/status` },
+                        ]}
+                    />
                 </LinkSection>
 
                 <LinkSection title="Event Admin" icon={ClipboardCheck}>

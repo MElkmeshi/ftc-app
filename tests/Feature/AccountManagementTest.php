@@ -15,7 +15,7 @@ beforeEach(function () {
 
 it('lists every account for admins only', function () {
     $this->actingAs($this->admin)->get('/accounts')->assertOk()
-        ->assertInertia(fn ($page) => $page->component('accounts/index')->has('accounts', 1)->has('roles', 4));
+        ->assertInertia(fn ($page) => $page->component('accounts/index')->has('accounts', 1)->has('roles', 5));
 
     $this->actingAs(User::factory()->create())->get('/accounts')->assertForbidden();
 });

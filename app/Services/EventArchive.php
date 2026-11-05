@@ -41,6 +41,7 @@ class EventArchive
         'groups' => [],
         'score_types' => ['group_id' => 'groups'],
         'teams' => [],
+        'inspections' => ['team_id' => 'teams'],
         'awards' => [],
         'award_winners' => ['award_id' => 'awards', 'team_id' => 'teams'],
         'alliance_groups' => ['captain_team_id' => 'teams', 'picked_team_id' => 'teams', 'pending_team_id' => 'teams'],

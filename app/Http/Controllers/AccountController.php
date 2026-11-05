@@ -45,14 +45,14 @@ class AccountController extends Controller
     }
 
     /**
-     * Creates numbered head referee and referee logins (e.g. referee1@officials.local)
+     * Creates numbered head referee, referee and inspector logins (e.g. referee1@officials.local)
      * in one go, skipping numbers that already exist.
      */
     public function generate(GenerateOfficialAccountsRequest $request): RedirectResponse
     {
         $credentials = [];
 
-        foreach ([[UserRole::HeadReferee, 'headref', 'Head Referee', $request->integer('head_referees')], [UserRole::Referee, 'referee', 'Referee', $request->integer('referees')]] as [$role, $prefix, $title, $count]) {
+        foreach ([[UserRole::HeadReferee, 'headref', 'Head Referee', $request->integer('head_referees')], [UserRole::Referee, 'referee', 'Referee', $request->integer('referees')], [UserRole::Inspector, 'inspector', 'Inspector', $request->integer('inspectors')]] as [$role, $prefix, $title, $count]) {
             $number = 0;
 
             for ($created = 0; $created < $count; $created++) {

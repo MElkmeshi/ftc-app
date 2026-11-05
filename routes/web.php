@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\AwardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\MatchSheetController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScreenReloadController;
@@ -113,7 +114,16 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
             'progress' => $live->qualificationProgress(),
         ]))->name('rankings');
 
+        Route::get('inspection/status', [InspectionController::class, 'board'])->name('inspection.board');
+
         Route::get('matches/{match}', [MatchSheetController::class, 'show'])->whereNumber('match')->name('matches.sheet');
+    });
+
+    Route::middleware(['auth', 'can:inspect-robots'])->group(function () {
+        Route::get('inspection', [InspectionController::class, 'index'])->name('inspection.index');
+        Route::put('inspection/checklist', [InspectionController::class, 'updateChecklist'])->middleware('can:manage-competition')->name('inspection.checklist');
+        Route::get('inspection/{team}', [InspectionController::class, 'show'])->whereNumber('team')->name('inspection.show');
+        Route::put('inspection/{team}', [InspectionController::class, 'update'])->whereNumber('team')->name('inspection.update');
     });
 
     Route::middleware(['auth', 'can:control-matches'])->group(function () {

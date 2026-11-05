@@ -125,7 +125,7 @@ export interface User {
     id: number;
     name: string;
     email: string;
-    role?: 'admin' | 'head_referee' | 'referee' | 'viewer';
+    role?: 'admin' | 'head_referee' | 'referee' | 'inspector' | 'viewer';
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;

@@ -13,7 +13,7 @@ import { Copy, KeyRound, Printer, Trash2, UserPlus, Wand2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { type FormEventHandler, useState } from 'react';
 
-type RoleValue = 'admin' | 'head_referee' | 'referee' | 'viewer';
+type RoleValue = 'admin' | 'head_referee' | 'referee' | 'inspector' | 'viewer';
 
 interface Account {
     id: number;
@@ -119,7 +119,7 @@ function NewCredentials({ credentials, validForDays }: { credentials: Credential
 }
 
 function GenerateOfficials() {
-    const { data, setData, post, processing, errors } = useForm({ head_referees: 1, referees: 4 });
+    const { data, setData, post, processing, errors } = useForm({ head_referees: 1, referees: 4, inspectors: 0 });
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -164,7 +164,20 @@ function GenerateOfficials() {
                         />
                         <InputError message={errors.referees} />
                     </div>
-                    <Button type="submit" disabled={processing || data.head_referees + data.referees === 0}>
+                    <div className="grid gap-2">
+                        <Label htmlFor="inspectors">Inspectors</Label>
+                        <Input
+                            id="inspectors"
+                            type="number"
+                            min={0}
+                            max={8}
+                            className="w-24"
+                            value={data.inspectors}
+                            onChange={(e) => setData('inspectors', Number(e.target.value))}
+                        />
+                        <InputError message={errors.inspectors} />
+                    </div>
+                    <Button type="submit" disabled={processing || data.head_referees + data.referees + data.inspectors === 0}>
                         Generate
                     </Button>
                 </form>

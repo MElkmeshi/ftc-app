@@ -18,6 +18,8 @@ const LINKS: DeviceLink[] = [
     { title: 'Rankings', path: 'rankings', who: 'Teams and spectators' },
     { title: 'Referee scoring', path: 'referee/scoring', who: 'Referee tablets (sign-in required)' },
     { title: 'Match control', path: 'match-control', who: 'Head referee (sign-in required)' },
+    { title: 'Robot inspection', path: 'inspection', who: 'Inspectors (sign-in required)' },
+    { title: 'Inspection status', path: 'inspection/status', who: 'Screen at the inspection table or in the pits' },
     { title: 'Audience display', path: 'display?type=audience', who: 'Projector or TV for the audience' },
     { title: 'Field display', path: 'display?type=field', who: 'Screen facing the drive teams' },
     { title: 'Pit display', path: 'display?type=pit', who: 'TV in the pits' },

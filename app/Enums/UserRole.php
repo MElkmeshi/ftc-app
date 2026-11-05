@@ -7,6 +7,7 @@ enum UserRole: string
     case Admin = 'admin';
     case HeadReferee = 'head_referee';
     case Referee = 'referee';
+    case Inspector = 'inspector';
     case Viewer = 'viewer';
 
     public function label(): string
@@ -15,6 +16,7 @@ enum UserRole: string
             self::Admin => 'Admin / Scorekeeper',
             self::HeadReferee => 'Head Referee',
             self::Referee => 'Referee',
+            self::Inspector => 'Inspector',
             self::Viewer => 'Viewer',
         };
     }
@@ -25,6 +27,7 @@ enum UserRole: string
             self::Admin => 'Sets up events, runs match control and edits everything.',
             self::HeadReferee => 'Starts and stops matches and commits scores.',
             self::Referee => 'Scores matches from a tablet.',
+            self::Inspector => 'Inspects robots and records the results.',
             self::Viewer => 'Can sign in but only sees public pages.',
         };
     }

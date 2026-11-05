@@ -14,6 +14,7 @@ class GenerateOfficialAccountsRequest extends FormRequest
         return [
             'head_referees' => ['required', 'integer', 'min:0', 'max:4'],
             'referees' => ['required', 'integer', 'min:0', 'max:16'],
+            'inspectors' => ['sometimes', 'integer', 'min:0', 'max:8'],
         ];
     }
 }

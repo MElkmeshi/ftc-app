@@ -28,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::define('manage-competition', fn (User $user): bool => $user->role === UserRole::Admin);
         Gate::define('control-matches', fn (User $user): bool => in_array($user->role, [UserRole::Admin, UserRole::HeadReferee], true));
+        Gate::define('inspect-robots', fn (User $user): bool => in_array($user->role, [UserRole::Admin, UserRole::Inspector], true));
         Gate::define('score-matches', fn (User $user): bool => in_array($user->role, [UserRole::Admin, UserRole::HeadReferee, UserRole::Referee], true));
 
         // Force https URLs in production, but only when the app is actually served
