@@ -10,6 +10,7 @@
         "dyrynda/laravel-cascade-soft-deletes": "dev-l13-compatibility",
         "inertiajs/inertia-laravel": "^3.7",
         "laravel/framework": "^13.0",
+        "laravel/octane": "^2.23",
         "laravel/reverb": "^1.0",
         "laravel/telescope": "^5.7",
         "laravel/tinker": "^3.0",

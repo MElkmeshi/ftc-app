@@ -9,7 +9,7 @@ RUN composer install \
     --prefer-dist \
     --ignore-platform-reqs
 
-FROM serversideup/php:8.4-fpm-alpine
+FROM serversideup/php:8.4-frankenphp-alpine
 
 USER root
 
@@ -32,4 +32,4 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 USER www-data
 
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["php-fpm"]
+CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8000", "--workers=auto", "--max-requests=1000"]

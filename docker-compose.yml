@@ -6,6 +6,12 @@ services:
         env_file: .env.docker
         environment:
             CONTAINER_ROLE: app
+        healthcheck:
+            test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/up"]
+            interval: 10s
+            timeout: 3s
+            retries: 3
+            start_period: 20s
         volumes:
             - ./database:/var/www/html/database
             - ./storage/app:/var/www/html/storage/app
