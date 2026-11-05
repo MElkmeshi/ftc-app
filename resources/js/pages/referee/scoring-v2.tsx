@@ -1,17 +1,17 @@
-import { SeatWarning, SubmitScoresPanel } from '@/components/scoring/submit-scores-panel';
-import { GroupScoreControls } from '@/components/scoring/score-controls';
 import { ScoreTypeIcon } from '@/components/game-look';
-import { resolveEventHref } from '@/lib/event';
+import { MatchTimerBanner } from '@/components/match-timer-banner';
+import { GroupScoreControls } from '@/components/scoring/score-controls';
+import { SeatWarning, SubmitScoresPanel } from '@/components/scoring/submit-scores-panel';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useScoringPage } from '@/hooks/use-scoring-page';
-import { getAllianceColorClasses } from '@/lib/match-utils';
 import AppLayout from '@/layouts/app-layout';
+import { resolveEventHref } from '@/lib/event';
+import { getAllianceColorClasses } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { Minus, Plus, LayoutGrid, Trophy, Users } from 'lucide-react';
+import { LayoutGrid, Minus, Plus, Trophy, Users } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Scoring — Action Grid', href: '/referee/scoring2' }];
 
@@ -23,12 +23,30 @@ function getAddStyle(points: number): string {
 
 export default function RefereeScoring2() {
     const {
-        selectedAllianceId, setSelectedAllianceId,
-        selectedMatchId, setSelectedMatchId,
-        match, isLoading, ongoingMatches, alliances,
-        colorClasses, sortedGroups, teamsInAlliance,
-        getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith, unsyncedCount,
+        selectedAllianceId,
+        setSelectedAllianceId,
+        selectedMatchId,
+        setSelectedMatchId,
+        match,
+        isLoading,
+        ongoingMatches,
+        alliances,
+        colorClasses,
+        sortedGroups,
+        teamsInAlliance,
+        getTotalAllianceScore,
+        getAllianceScoreTypeCount,
+        getTeamScoreTypeCount,
+        handleAddScore,
+        handleRemoveScore,
+        isPending,
+        seatLabel,
+        submission,
+        setSubmitted,
+        isSubmitPending,
+        submitError,
+        sharingSeatWith,
+        unsyncedCount,
     } = useScoringPage();
 
     return (
@@ -38,14 +56,16 @@ export default function RefereeScoring2() {
             <div className="space-y-4">
                 {/* Compact top bar */}
                 <div className={cn('flex flex-wrap items-center gap-3 rounded-xl border-2 p-4', colorClasses.border, colorClasses.bgLight)}>
-                    <div className="flex items-center gap-3 flex-1 flex-wrap">
+                    <div className="flex flex-1 flex-wrap items-center gap-3">
                         <Select value={selectedMatchId?.toString() ?? ''} onValueChange={(v) => setSelectedMatchId(Number(v))}>
                             <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Select match" />
                             </SelectTrigger>
                             <SelectContent>
                                 {ongoingMatches.map((m) => (
-                                    <SelectItem key={m.id} value={m.id.toString()}>Match #{m.number}</SelectItem>
+                                    <SelectItem key={m.id} value={m.id.toString()}>
+                                        Match #{m.number}
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -74,12 +94,12 @@ export default function RefereeScoring2() {
 
                     {selectedAllianceId && (
                         <div className="text-right">
-                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Total</p>
+                            <p className="text-muted-foreground text-xs font-medium tracking-widest uppercase">Total</p>
                             <p className={cn('text-4xl font-black tabular-nums', colorClasses.text)}>{getTotalAllianceScore()}</p>
                         </div>
                     )}
 
-                    <Link href={resolveEventHref("/referee/scoring")} className="text-xs text-muted-foreground hover:underline ml-auto">
+                    <Link href={resolveEventHref('/referee/scoring')} className="text-muted-foreground ml-auto text-xs hover:underline">
                         ← Pick layout
                     </Link>
                 </div>
@@ -93,21 +113,21 @@ export default function RefereeScoring2() {
                 )}
 
                 {!isLoading && !match && (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl border-dashed border-2 text-muted-foreground">
+                    <div className="text-muted-foreground flex h-40 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed">
                         <Trophy className="h-10 w-10" />
                         <p>Select an ongoing match above</p>
                     </div>
                 )}
 
                 {match && match.match_alliances.length === 0 && (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl border-dashed border-2 text-muted-foreground">
+                    <div className="text-muted-foreground flex h-40 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed">
                         <Users className="h-10 w-10" />
                         <p>No teams assigned to Match #{match.number}</p>
                     </div>
                 )}
 
                 {match && !selectedAllianceId && match.match_alliances.length > 0 && (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl border-dashed border-2 text-muted-foreground">
+                    <div className="text-muted-foreground flex h-40 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed">
                         <LayoutGrid className="h-10 w-10" />
                         <p>Select an alliance above to begin scoring</p>
                     </div>
@@ -122,7 +142,7 @@ export default function RefereeScoring2() {
                                 <div key={groupName}>
                                     {groupName !== 'ungrouped' && (
                                         <div className={cn('mb-3 border-l-4 pl-3', colorClasses.border)}>
-                                            <h2 className="text-lg font-bold uppercase tracking-widest">{groupName}</h2>
+                                            <h2 className="text-lg font-bold tracking-widest uppercase">{groupName}</h2>
                                         </div>
                                     )}
                                     {selectedAllianceId && (
@@ -143,29 +163,53 @@ export default function RefereeScoring2() {
                                     {/* Alliance-wide score types */}
                                     {alliance.length > 0 && (
                                         <>
-                                            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Alliance-wide</p>
-                                            <div className="mb-4 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                                            <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">
+                                                Alliance-wide
+                                            </p>
+                                            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                                                 {alliance.map((scoreType) => {
                                                     const count = getAllianceScoreTypeCount(scoreType.id);
                                                     return (
-                                                        <div key={scoreType.id} className="rounded-lg border bg-card p-3 flex flex-col gap-2">
+                                                        <div key={scoreType.id} className="bg-card flex flex-col gap-2 rounded-lg border p-3">
                                                             <div className="flex items-start justify-between gap-1">
-                                                                <p className="flex items-center gap-1.5 text-xs font-semibold leading-tight"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
-                                                                <span className="text-xs font-bold shrink-0">{scoreType.points > 0 ? '+' : ''}{scoreType.points}</span>
+                                                                <p className="flex items-center gap-1.5 text-xs leading-tight font-semibold">
+                                                                    <ScoreTypeIcon scoreType={scoreType} className="size-6" />
+                                                                    {scoreType.name.replace(/_/g, ' ').toUpperCase()}
+                                                                </p>
+                                                                <span className="shrink-0 text-xs font-bold">
+                                                                    {scoreType.points > 0 ? '+' : ''}
+                                                                    {scoreType.points}
+                                                                </span>
                                                             </div>
-                                                            <p className={cn('text-center text-3xl font-black tabular-nums', count > 0 ? colorClasses.text : 'text-muted-foreground')}>{count}</p>
+                                                            <p
+                                                                className={cn(
+                                                                    'text-center text-3xl font-black tabular-nums',
+                                                                    count > 0 ? colorClasses.text : 'text-muted-foreground',
+                                                                )}
+                                                            >
+                                                                {count}
+                                                            </p>
                                                             <div className="flex gap-1">
                                                                 <Button
-                                                                    onClick={() => handleRemoveScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })}
+                                                                    onClick={() =>
+                                                                        handleRemoveScore(scoreType.id, {
+                                                                            allianceId: selectedAllianceId ?? undefined,
+                                                                        })
+                                                                    }
                                                                     disabled={count === 0 || isPending}
-                                                                    size="sm" variant="outline" className="flex-1 h-10"
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-10 flex-1"
                                                                 >
                                                                     <Minus className="h-4 w-4" />
                                                                 </Button>
                                                                 <Button
-                                                                    onClick={() => handleAddScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })}
+                                                                    onClick={() =>
+                                                                        handleAddScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })
+                                                                    }
                                                                     disabled={isPending}
-                                                                    size="sm" className={cn('flex-1 h-10', getAddStyle(scoreType.points))}
+                                                                    size="sm"
+                                                                    className={cn('h-10 flex-1', getAddStyle(scoreType.points))}
                                                                 >
                                                                     <Plus className="h-4 w-4" />
                                                                 </Button>
@@ -178,44 +222,63 @@ export default function RefereeScoring2() {
                                     )}
 
                                     {/* Per-team score types */}
-                                    {team.length > 0 && teamsInAlliance.map((ma) => (
-                                        <div key={ma.id} className="mb-4">
-                                            <div className="mb-2 flex items-center justify-between">
-                                                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{ma.team.name}</p>
-                                                <span className={cn('text-sm font-black tabular-nums', colorClasses.text)}>{ma.score} pts</span>
-                                            </div>
-                                            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-                                                {team.map((scoreType) => {
-                                                    const count = getTeamScoreTypeCount(scoreType.id, ma.team.id);
-                                                    return (
-                                                        <div key={scoreType.id} className="rounded-lg border bg-card p-3 flex flex-col gap-2">
-                                                            <div className="flex items-start justify-between gap-1">
-                                                                <p className="flex items-center gap-1.5 text-xs font-semibold leading-tight"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
-                                                                <span className="text-xs font-bold shrink-0">{scoreType.points > 0 ? '+' : ''}{scoreType.points}</span>
-                                                            </div>
-                                                            <p className={cn('text-center text-3xl font-black tabular-nums', count > 0 ? colorClasses.text : 'text-muted-foreground')}>{count}</p>
-                                                            <div className="flex gap-1">
-                                                                <Button
-                                                                    onClick={() => handleRemoveScore(scoreType.id, { teamId: ma.team.id })}
-                                                                    disabled={count === 0 || isPending}
-                                                                    size="sm" variant="outline" className="flex-1 h-10"
+                                    {team.length > 0 &&
+                                        teamsInAlliance.map((ma) => (
+                                            <div key={ma.id} className="mb-4">
+                                                <div className="mb-2 flex items-center justify-between">
+                                                    <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
+                                                        {ma.team.name}
+                                                    </p>
+                                                    <span className={cn('text-sm font-black tabular-nums', colorClasses.text)}>{ma.score} pts</span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                                                    {team.map((scoreType) => {
+                                                        const count = getTeamScoreTypeCount(scoreType.id, ma.team.id);
+                                                        return (
+                                                            <div key={scoreType.id} className="bg-card flex flex-col gap-2 rounded-lg border p-3">
+                                                                <div className="flex items-start justify-between gap-1">
+                                                                    <p className="flex items-center gap-1.5 text-xs leading-tight font-semibold">
+                                                                        <ScoreTypeIcon scoreType={scoreType} className="size-6" />
+                                                                        {scoreType.name.replace(/_/g, ' ').toUpperCase()}
+                                                                    </p>
+                                                                    <span className="shrink-0 text-xs font-bold">
+                                                                        {scoreType.points > 0 ? '+' : ''}
+                                                                        {scoreType.points}
+                                                                    </span>
+                                                                </div>
+                                                                <p
+                                                                    className={cn(
+                                                                        'text-center text-3xl font-black tabular-nums',
+                                                                        count > 0 ? colorClasses.text : 'text-muted-foreground',
+                                                                    )}
                                                                 >
-                                                                    <Minus className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    onClick={() => handleAddScore(scoreType.id, { teamId: ma.team.id })}
-                                                                    disabled={isPending}
-                                                                    size="sm" className={cn('flex-1 h-10', getAddStyle(scoreType.points))}
-                                                                >
-                                                                    <Plus className="h-4 w-4" />
-                                                                </Button>
+                                                                    {count}
+                                                                </p>
+                                                                <div className="flex gap-1">
+                                                                    <Button
+                                                                        onClick={() => handleRemoveScore(scoreType.id, { teamId: ma.team.id })}
+                                                                        disabled={count === 0 || isPending}
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        className="h-10 flex-1"
+                                                                    >
+                                                                        <Minus className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        onClick={() => handleAddScore(scoreType.id, { teamId: ma.team.id })}
+                                                                        disabled={isPending}
+                                                                        size="sm"
+                                                                        className={cn('h-10 flex-1', getAddStyle(scoreType.points))}
+                                                                    >
+                                                                        <Plus className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))}
                                 </div>
                             );
                         })}

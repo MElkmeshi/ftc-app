@@ -7,11 +7,13 @@ import {
     BarChart3,
     CalendarRange,
     ClipboardCheck,
+    FileText,
     Gamepad2,
     Home,
     KeyRound,
     ListChecks,
     MonitorPlay,
+    QrCode,
     Settings,
     Swords,
     Trophy,
@@ -26,6 +28,8 @@ const runEventNavItems: NavItem[] = [
     { title: 'Match Control', href: '/match-control', icon: MonitorPlay },
     { title: 'Referee Scoring', href: '/referee/scoring', icon: UserCheck },
     { title: 'Schedule & Results', href: '/competition-matches', icon: Trophy },
+    { title: 'Reports', href: '/reports', icon: FileText },
+    { title: 'Connect Devices', href: '/connect', icon: QrCode },
     { title: 'Event Home', href: '/', icon: Home },
 ];
 

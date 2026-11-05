@@ -7,6 +7,7 @@ use App\Http\Requests\GenerateOfficialAccountsRequest;
 use App\Http\Requests\StoreAccountRequest;
 use App\Http\Requests\UpdateAccountRequest;
 use App\Models\User;
+use App\Support\SignInLink;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,6 +30,7 @@ class AccountController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'email', 'role', 'created_at']),
             'roles' => UserRole::options(),
+            'signInLinkDays' => SignInLink::VALID_FOR_DAYS,
         ]);
     }
 
@@ -120,10 +122,16 @@ class AccountController extends Controller
     }
 
     /**
-     * @return array{name: string, email: string, role: string, password: string}
+     * @return array{name: string, email: string, role: string, password: string, sign_in_link: string}
      */
     private function credential(User $account, string $password): array
     {
-        return ['name' => $account->name, 'email' => $account->email, 'role' => $account->role->label(), 'password' => $password];
+        return [
+            'name' => $account->name,
+            'email' => $account->email,
+            'role' => $account->role->label(),
+            'password' => $password,
+            'sign_in_link' => SignInLink::for($account),
+        ];
     }
 }

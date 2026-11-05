@@ -1,19 +1,19 @@
-import { SeatWarning, SubmitScoresPanel } from '@/components/scoring/submit-scores-panel';
 import { ScoreTypeIcon } from '@/components/game-look';
-import { resolveEventHref } from '@/lib/event';
+import { MatchTimerBanner } from '@/components/match-timer-banner';
+import { ScoreControlList } from '@/components/scoring/score-controls';
+import { SeatWarning, SubmitScoresPanel } from '@/components/scoring/submit-scores-panel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScoreControlList } from '@/components/scoring/score-controls';
-import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useScoringPage } from '@/hooks/use-scoring-page';
-import { getAllianceColorClasses } from '@/lib/match-utils';
 import AppLayout from '@/layouts/app-layout';
+import { resolveEventHref } from '@/lib/event';
+import { getAllianceColorClasses } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { Minus, Plus, Users, Trophy } from 'lucide-react';
+import { Minus, Plus, Trophy, Users } from 'lucide-react';
 import { useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Scoring — Team Tabs', href: '/referee/scoring3' }];
@@ -28,12 +28,30 @@ export default function RefereeScoring3() {
     const [activeTab, setActiveTab] = useState<'alliance' | number>('alliance');
 
     const {
-        selectedAllianceId, setSelectedAllianceId,
-        selectedMatchId, setSelectedMatchId,
-        match, isLoading, ongoingMatches, alliances,
-        colorClasses, sortedGroups, teamsInAlliance,
-        getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith, unsyncedCount,
+        selectedAllianceId,
+        setSelectedAllianceId,
+        selectedMatchId,
+        setSelectedMatchId,
+        match,
+        isLoading,
+        ongoingMatches,
+        alliances,
+        colorClasses,
+        sortedGroups,
+        teamsInAlliance,
+        getTotalAllianceScore,
+        getAllianceScoreTypeCount,
+        getTeamScoreTypeCount,
+        handleAddScore,
+        handleRemoveScore,
+        isPending,
+        seatLabel,
+        submission,
+        setSubmitted,
+        isSubmitPending,
+        submitError,
+        sharingSeatWith,
+        unsyncedCount,
     } = useScoringPage();
 
     const allianceScoreTypes = sortedGroups.flatMap(([, { alliance }]) => alliance);
@@ -55,7 +73,9 @@ export default function RefereeScoring3() {
                         </SelectTrigger>
                         <SelectContent>
                             {ongoingMatches.map((m) => (
-                                <SelectItem key={m.id} value={m.id.toString()}>Match #{m.number}</SelectItem>
+                                <SelectItem key={m.id} value={m.id.toString()}>
+                                    Match #{m.number}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -68,10 +88,13 @@ export default function RefereeScoring3() {
                             return (
                                 <Button
                                     key={alliance.id}
-                                    onClick={() => { setSelectedAllianceId(alliance.id); setActiveTab('alliance'); }}
+                                    onClick={() => {
+                                        setSelectedAllianceId(alliance.id);
+                                        setActiveTab('alliance');
+                                    }}
                                     size="sm"
                                     className={cn(
-                                        'capitalize font-semibold',
+                                        'font-semibold capitalize',
                                         isSelected ? cn(cc.bg, cc.bgHover, 'text-white') : 'bg-secondary hover:bg-secondary/80',
                                     )}
                                 >
@@ -83,12 +106,12 @@ export default function RefereeScoring3() {
 
                     {selectedAllianceId && (
                         <div className={cn('ml-auto rounded-xl px-4 py-2 text-center', colorClasses.bgLight)}>
-                            <p className="text-xs text-muted-foreground">Total</p>
+                            <p className="text-muted-foreground text-xs">Total</p>
                             <p className={cn('text-3xl font-black', colorClasses.text)}>{getTotalAllianceScore()}</p>
                         </div>
                     )}
 
-                    <Link href={resolveEventHref("/referee/scoring")} className="text-xs text-muted-foreground hover:underline">
+                    <Link href={resolveEventHref('/referee/scoring')} className="text-muted-foreground text-xs hover:underline">
                         ← Pick layout
                     </Link>
                 </div>
@@ -102,21 +125,21 @@ export default function RefereeScoring3() {
                 )}
 
                 {!isLoading && !match && (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <div className="text-muted-foreground flex h-40 flex-col items-center justify-center gap-2">
                         <Trophy className="h-10 w-10" />
                         <p>Select an ongoing match above</p>
                     </div>
                 )}
 
                 {match && match.match_alliances.length === 0 && (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <div className="text-muted-foreground flex h-40 flex-col items-center justify-center gap-2">
                         <Users className="h-10 w-10" />
                         <p>No teams assigned to Match #{match.number}</p>
                     </div>
                 )}
 
                 {match && !selectedAllianceId && match.match_alliances.length > 0 && (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <div className="text-muted-foreground flex h-40 flex-col items-center justify-center gap-2">
                         <p>Select an alliance above to begin scoring</p>
                     </div>
                 )}
@@ -135,7 +158,7 @@ export default function RefereeScoring3() {
                                         : 'border-border bg-card hover:bg-accent',
                                 )}
                             >
-                                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Alliance</p>
+                                <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">Alliance</p>
                                 <p className={cn('mt-1 text-2xl font-black tabular-nums', colorClasses.text)}>
                                     {(match?.scores ?? [])
                                         .filter((s) => s.alliance_id === selectedAllianceId && !s.team_id)
@@ -155,7 +178,7 @@ export default function RefereeScoring3() {
                                             : 'border-border bg-card hover:bg-accent',
                                     )}
                                 >
-                                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground truncate">{ma.team.name}</p>
+                                    <p className="text-muted-foreground truncate text-xs font-semibold tracking-widest uppercase">{ma.team.name}</p>
                                     <p className={cn('mt-1 text-2xl font-black tabular-nums', colorClasses.text)}>{ma.score}</p>
                                 </button>
                             ))}
@@ -176,7 +199,7 @@ export default function RefereeScoring3() {
                                         />
                                     )}
                                     {allianceScoreTypes.length === 0 && allianceControls.length === 0 ? (
-                                        <div className="flex h-40 items-center justify-center text-muted-foreground">
+                                        <div className="text-muted-foreground flex h-40 items-center justify-center">
                                             No alliance-wide score types
                                         </div>
                                     ) : (
@@ -186,25 +209,43 @@ export default function RefereeScoring3() {
                                                 <Card key={scoreType.id}>
                                                     <CardContent className="flex items-center justify-between gap-4 p-5">
                                                         <div className="flex-1">
-                                                            <p className="flex items-center gap-1.5 font-semibold"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
-                                                            <p className="text-sm text-muted-foreground">{scoreType.points > 0 ? '+' : ''}{scoreType.points} pts each</p>
+                                                            <p className="flex items-center gap-1.5 font-semibold">
+                                                                <ScoreTypeIcon scoreType={scoreType} className="size-6" />
+                                                                {scoreType.name.replace(/_/g, ' ').toUpperCase()}
+                                                            </p>
+                                                            <p className="text-muted-foreground text-sm">
+                                                                {scoreType.points > 0 ? '+' : ''}
+                                                                {scoreType.points} pts each
+                                                            </p>
                                                         </div>
                                                         <div className="flex items-center gap-4">
-                                                            <Badge variant="outline" className={cn('px-4 py-2 text-2xl font-black tabular-nums', colorClasses.text)}>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={cn('px-4 py-2 text-2xl font-black tabular-nums', colorClasses.text)}
+                                                            >
                                                                 {count}
                                                             </Badge>
                                                             <div className="flex gap-2">
                                                                 <Button
-                                                                    onClick={() => handleRemoveScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })}
+                                                                    onClick={() =>
+                                                                        handleRemoveScore(scoreType.id, {
+                                                                            allianceId: selectedAllianceId ?? undefined,
+                                                                        })
+                                                                    }
                                                                     disabled={count === 0 || isPending}
-                                                                    size="lg" variant="outline" className="h-14 w-14"
+                                                                    size="lg"
+                                                                    variant="outline"
+                                                                    className="h-14 w-14"
                                                                 >
                                                                     <Minus className="h-6 w-6" />
                                                                 </Button>
                                                                 <Button
-                                                                    onClick={() => handleAddScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })}
+                                                                    onClick={() =>
+                                                                        handleAddScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })
+                                                                    }
                                                                     disabled={isPending}
-                                                                    size="lg" className={cn('h-14 w-14', getAddStyle(scoreType.points))}
+                                                                    size="lg"
+                                                                    className={cn('h-14 w-14', getAddStyle(scoreType.points))}
                                                                 >
                                                                     <Plus className="h-6 w-6" />
                                                                 </Button>
@@ -218,60 +259,71 @@ export default function RefereeScoring3() {
                                 </>
                             )}
 
-                            {activeTab !== 'alliance' && (() => {
-                                const ma = teamsInAlliance.find((m) => m.team.id === activeTab);
-                                if (!ma) return null;
-                                return teamScoreTypes.length === 0 && teamControls.length === 0 ? (
-                                    <div className="flex h-40 items-center justify-center text-muted-foreground">
-                                        No team score types
-                                    </div>
-                                ) : (
-                                    <>
-                                    <ScoreControlList
-                                        controls={teamControls}
-                                        countFor={(id) => getTeamScoreTypeCount(id, ma.team.id)}
-                                        onAdd={(id) => handleAddScore(id, { teamId: ma.team.id })}
-                                        onRemove={(id) => handleRemoveScore(id, { teamId: ma.team.id })}
-                                        disabled={isPending}
-                                        selectedClassName={selectedClassName}
-                                    />
-                                    {teamScoreTypes.map((scoreType) => {
-                                        const count = getTeamScoreTypeCount(scoreType.id, ma.team.id);
-                                        return (
-                                            <Card key={scoreType.id}>
-                                                <CardContent className="flex items-center justify-between gap-4 p-5">
-                                                    <div className="flex-1">
-                                                        <p className="flex items-center gap-1.5 font-semibold"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
-                                                        <p className="text-sm text-muted-foreground">{scoreType.points > 0 ? '+' : ''}{scoreType.points} pts each</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-4">
-                                                        <Badge variant="outline" className={cn('px-4 py-2 text-2xl font-black tabular-nums', colorClasses.text)}>
-                                                            {count}
-                                                        </Badge>
-                                                        <div className="flex gap-2">
-                                                            <Button
-                                                                onClick={() => handleRemoveScore(scoreType.id, { teamId: ma.team.id })}
-                                                                disabled={count === 0 || isPending}
-                                                                size="lg" variant="outline" className="h-14 w-14"
-                                                            >
-                                                                <Minus className="h-6 w-6" />
-                                                            </Button>
-                                                            <Button
-                                                                onClick={() => handleAddScore(scoreType.id, { teamId: ma.team.id })}
-                                                                disabled={isPending}
-                                                                size="lg" className={cn('h-14 w-14', getAddStyle(scoreType.points))}
-                                                            >
-                                                                <Plus className="h-6 w-6" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        );
-                                    })}
-                                    </>
-                                );
-                            })()}
+                            {activeTab !== 'alliance' &&
+                                (() => {
+                                    const ma = teamsInAlliance.find((m) => m.team.id === activeTab);
+                                    if (!ma) return null;
+                                    return teamScoreTypes.length === 0 && teamControls.length === 0 ? (
+                                        <div className="text-muted-foreground flex h-40 items-center justify-center">No team score types</div>
+                                    ) : (
+                                        <>
+                                            <ScoreControlList
+                                                controls={teamControls}
+                                                countFor={(id) => getTeamScoreTypeCount(id, ma.team.id)}
+                                                onAdd={(id) => handleAddScore(id, { teamId: ma.team.id })}
+                                                onRemove={(id) => handleRemoveScore(id, { teamId: ma.team.id })}
+                                                disabled={isPending}
+                                                selectedClassName={selectedClassName}
+                                            />
+                                            {teamScoreTypes.map((scoreType) => {
+                                                const count = getTeamScoreTypeCount(scoreType.id, ma.team.id);
+                                                return (
+                                                    <Card key={scoreType.id}>
+                                                        <CardContent className="flex items-center justify-between gap-4 p-5">
+                                                            <div className="flex-1">
+                                                                <p className="flex items-center gap-1.5 font-semibold">
+                                                                    <ScoreTypeIcon scoreType={scoreType} className="size-6" />
+                                                                    {scoreType.name.replace(/_/g, ' ').toUpperCase()}
+                                                                </p>
+                                                                <p className="text-muted-foreground text-sm">
+                                                                    {scoreType.points > 0 ? '+' : ''}
+                                                                    {scoreType.points} pts each
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex items-center gap-4">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={cn('px-4 py-2 text-2xl font-black tabular-nums', colorClasses.text)}
+                                                                >
+                                                                    {count}
+                                                                </Badge>
+                                                                <div className="flex gap-2">
+                                                                    <Button
+                                                                        onClick={() => handleRemoveScore(scoreType.id, { teamId: ma.team.id })}
+                                                                        disabled={count === 0 || isPending}
+                                                                        size="lg"
+                                                                        variant="outline"
+                                                                        className="h-14 w-14"
+                                                                    >
+                                                                        <Minus className="h-6 w-6" />
+                                                                    </Button>
+                                                                    <Button
+                                                                        onClick={() => handleAddScore(scoreType.id, { teamId: ma.team.id })}
+                                                                        disabled={isPending}
+                                                                        size="lg"
+                                                                        className={cn('h-14 w-14', getAddStyle(scoreType.points))}
+                                                                    >
+                                                                        <Plus className="h-6 w-6" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })}
+                                        </>
+                                    );
+                                })()}
                         </div>
                     </div>
                 )}

@@ -21,18 +21,18 @@ function EventCard({ event, typeLabel }: { event: CompetitionEvent; typeLabel: s
     return (
         <Link
             href={`/event/${event.code}`}
-            className="group flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm transition hover:border-primary/50 hover:shadow-md"
+            className="group bg-card hover:border-primary/50 flex flex-col gap-3 rounded-xl border p-5 shadow-sm transition hover:shadow-md"
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <div className="font-mono text-xs text-muted-foreground">{event.code}</div>
-                    <h3 className="truncate text-lg font-semibold group-hover:text-primary">{event.name}</h3>
+                    <div className="text-muted-foreground font-mono text-xs">{event.code}</div>
+                    <h3 className="group-hover:text-primary truncate text-lg font-semibold">{event.name}</h3>
                 </div>
                 <Badge variant="secondary" className="shrink-0">
                     {typeLabel}
                 </Badge>
             </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 <span className="inline-flex items-center gap-1">
                     <CalendarDays className="size-4" /> {formatDates(event)}
                 </span>
@@ -44,10 +44,10 @@ function EventCard({ event, typeLabel }: { event: CompetitionEvent; typeLabel: s
             </div>
             <div className="flex gap-4 text-sm">
                 <span className="inline-flex items-center gap-1">
-                    <Users className="size-4 text-muted-foreground" /> {event.teams_count ?? 0} teams
+                    <Users className="text-muted-foreground size-4" /> {event.teams_count ?? 0} teams
                 </span>
                 <span className="inline-flex items-center gap-1">
-                    <Trophy className="size-4 text-muted-foreground" /> {event.matches_count ?? 0} matches
+                    <Trophy className="text-muted-foreground size-4" /> {event.matches_count ?? 0} matches
                 </span>
             </div>
         </Link>
@@ -68,12 +68,14 @@ export default function EventsIndex() {
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold">Events</h1>
-                    <p className="text-muted-foreground">Every competition hosted on this server. Pick one to see its schedule, rankings and displays.</p>
+                    <p className="text-muted-foreground">
+                        Every competition hosted on this server. Pick one to see its schedule, rankings and displays.
+                    </p>
                 </div>
                 {canCreate && (
                     <Link
                         href="/events/create"
-                        className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90"
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex items-center gap-2 rounded-md px-4 py-2 font-medium"
                     >
                         <Plus className="size-4" /> New event
                     </Link>
@@ -82,7 +84,7 @@ export default function EventsIndex() {
 
             {activeEvents.length === 0 ? (
                 <div className="rounded-xl border border-dashed p-10 text-center">
-                    <CalendarDays className="mx-auto mb-3 size-10 text-muted-foreground" />
+                    <CalendarDays className="text-muted-foreground mx-auto mb-3 size-10" />
                     <h2 className="text-lg font-semibold">No events yet</h2>
                     <p className="text-muted-foreground">
                         {canCreate ? 'Create your first event to start adding teams and matches.' : 'Ask an admin to create an event.'}
@@ -98,7 +100,7 @@ export default function EventsIndex() {
 
             {archivedEvents.length > 0 && (
                 <section className="mt-10">
-                    <h2 className="mb-3 inline-flex items-center gap-2 text-lg font-semibold text-muted-foreground">
+                    <h2 className="text-muted-foreground mb-3 inline-flex items-center gap-2 text-lg font-semibold">
                         <Archive className="size-5" /> Archived
                     </h2>
                     <div className="grid gap-4 opacity-75 sm:grid-cols-2 lg:grid-cols-3">

@@ -1,8 +1,8 @@
+import { eventChannel } from '@/lib/event';
 import { AllianceGroup, AllianceSelectionStatus, AllianceSelectionUpdatedEvent, Team, TeamDisplay } from '@/types';
 import { useEchoPublic } from '@laravel/echo-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
-import { eventChannel } from '@/lib/event';
 
 const ALLIANCE_SELECTION_KEYS = [
     ['alliance-groups'],

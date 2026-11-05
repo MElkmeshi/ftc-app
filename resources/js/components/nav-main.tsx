@@ -1,6 +1,6 @@
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type NavItem } from '@/types';
 import { resolveEventHref } from '@/lib/event';
+import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 
 export function NavMain({ items = [], label = 'Platform' }: { items: NavItem[]; label?: string }) {

@@ -1,9 +1,9 @@
-import { resolveEventHref } from '@/lib/event';
 import AppLayout from '@/layouts/app-layout';
+import { resolveEventHref } from '@/lib/event';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
-import { Grid3x3, Layers, Monitor, Star, AlertTriangle, SplitSquareHorizontal, ArrowRight } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Grid3x3, Layers, Monitor, SplitSquareHorizontal, Star } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Referee Scoring', href: '/referee/scoring' }];
 
@@ -21,29 +21,22 @@ function VariantCard({ href, icon, title, subtitle, description, accent, preview
     return (
         <Link
             href={href}
-            className={cn(
-                'group flex flex-col overflow-hidden rounded-2xl border-2 transition-all hover:shadow-xl hover:-translate-y-0.5',
-                accent,
-            )}
+            className={cn('group flex flex-col overflow-hidden rounded-2xl border-2 transition-all hover:-translate-y-0.5 hover:shadow-xl', accent)}
         >
             {/* Preview area */}
-            <div className="h-48 bg-muted/50 p-4 flex items-center justify-center overflow-hidden">
-                {preview}
-            </div>
+            <div className="bg-muted/50 flex h-48 items-center justify-center overflow-hidden p-4">{preview}</div>
 
             {/* Info */}
             <div className="flex flex-1 flex-col gap-2 p-5">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        {icon}
-                    </div>
+                    <div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-xl">{icon}</div>
                     <div>
-                        <p className="font-bold text-lg leading-tight">{title}</p>
-                        <p className="text-xs text-muted-foreground">{subtitle}</p>
+                        <p className="text-lg leading-tight font-bold">{title}</p>
+                        <p className="text-muted-foreground text-xs">{subtitle}</p>
                     </div>
                 </div>
-                <p className="text-sm text-muted-foreground">{description}</p>
-                <div className="mt-auto flex items-center gap-1 text-sm font-semibold text-primary group-hover:gap-2 transition-all">
+                <p className="text-muted-foreground text-sm">{description}</p>
+                <div className="text-primary mt-auto flex items-center gap-1 text-sm font-semibold transition-all group-hover:gap-2">
                     Use this layout <ArrowRight className="h-4 w-4" />
                 </div>
             </div>
@@ -54,22 +47,22 @@ function VariantCard({ href, icon, title, subtitle, description, accent, preview
 // Mini preview components — purely decorative
 function PreviewActionGrid() {
     return (
-        <div className="w-full space-y-2 scale-90">
-            <div className="flex gap-2 items-center rounded bg-primary/10 p-2">
-                <div className="h-4 w-24 rounded bg-primary/30" />
-                <div className="flex gap-1 ml-auto">
+        <div className="w-full scale-90 space-y-2">
+            <div className="bg-primary/10 flex items-center gap-2 rounded p-2">
+                <div className="bg-primary/30 h-4 w-24 rounded" />
+                <div className="ml-auto flex gap-1">
                     <div className="h-4 w-12 rounded bg-blue-500/40" />
                     <div className="h-4 w-12 rounded bg-red-500/40" />
                 </div>
-                <div className="h-6 w-10 rounded bg-primary/40 font-black text-center text-xs leading-6" />
+                <div className="bg-primary/40 h-6 w-10 rounded text-center text-xs leading-6 font-black" />
             </div>
             <div className="grid grid-cols-3 gap-1.5">
                 {[...Array(6)].map((_, i) => (
-                    <div key={i} className="rounded-lg border bg-card p-2 flex flex-col gap-1">
-                        <div className="h-2 w-full rounded bg-muted-foreground/30" />
-                        <div className="h-5 rounded bg-muted-foreground/20 text-center text-xs font-black leading-5 text-muted-foreground">{i}</div>
+                    <div key={i} className="bg-card flex flex-col gap-1 rounded-lg border p-2">
+                        <div className="bg-muted-foreground/30 h-2 w-full rounded" />
+                        <div className="bg-muted-foreground/20 text-muted-foreground h-5 rounded text-center text-xs leading-5 font-black">{i}</div>
                         <div className="flex gap-1">
-                            <div className="h-4 flex-1 rounded bg-muted/60" />
+                            <div className="bg-muted/60 h-4 flex-1 rounded" />
                             <div className="h-4 flex-1 rounded bg-emerald-500/40" />
                         </div>
                     </div>
@@ -81,23 +74,23 @@ function PreviewActionGrid() {
 
 function PreviewTeamTabs() {
     return (
-        <div className="flex w-full gap-2 scale-90">
+        <div className="flex w-full scale-90 gap-2">
             <div className="flex w-20 flex-col gap-1.5">
-                <div className="rounded-lg border-2 border-blue-400 bg-blue-50 dark:bg-blue-950 p-2">
-                    <div className="h-2 w-full rounded bg-muted-foreground/30 mb-1" />
+                <div className="rounded-lg border-2 border-blue-400 bg-blue-50 p-2 dark:bg-blue-950">
+                    <div className="bg-muted-foreground/30 mb-1 h-2 w-full rounded" />
                     <div className="text-center text-sm font-black text-blue-600">12</div>
                 </div>
                 {['T1', 'T2'].map((t) => (
-                    <div key={t} className="rounded-lg border bg-card p-2">
-                        <div className="h-2 w-full rounded bg-muted-foreground/20 mb-1" />
-                        <div className="text-center text-sm font-black text-muted-foreground">4</div>
+                    <div key={t} className="bg-card rounded-lg border p-2">
+                        <div className="bg-muted-foreground/20 mb-1 h-2 w-full rounded" />
+                        <div className="text-muted-foreground text-center text-sm font-black">4</div>
                     </div>
                 ))}
             </div>
             <div className="flex-1 space-y-1.5">
                 {[...Array(4)].map((_, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
-                        <div className="h-2 w-20 rounded bg-muted-foreground/30" />
+                    <div key={i} className="bg-card flex items-center justify-between rounded-lg border px-3 py-2">
+                        <div className="bg-muted-foreground/30 h-2 w-20 rounded" />
                         <div className="flex gap-1">
                             <div className="h-7 w-7 rounded border" />
                             <div className="h-7 w-7 rounded bg-emerald-500/40" />
@@ -111,18 +104,18 @@ function PreviewTeamTabs() {
 
 function PreviewScoringOnly() {
     return (
-        <div className="w-full space-y-2 scale-90">
-            <div className="flex items-center gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40 p-2">
+        <div className="w-full scale-90 space-y-2">
+            <div className="flex items-center gap-2 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-2 dark:border-emerald-800 dark:bg-emerald-950/40">
                 <div className="h-3 w-3 rounded-full bg-emerald-500" />
                 <div className="h-2 w-20 rounded bg-emerald-400/40" />
             </div>
             <div className="grid grid-cols-3 gap-1.5">
                 {[...Array(6)].map((_, i) => (
-                    <div key={i} className="rounded-lg border border-emerald-100 dark:border-emerald-900 bg-card p-2 flex flex-col gap-1">
-                        <div className="h-2 w-full rounded bg-muted-foreground/30" />
+                    <div key={i} className="bg-card flex flex-col gap-1 rounded-lg border border-emerald-100 p-2 dark:border-emerald-900">
+                        <div className="bg-muted-foreground/30 h-2 w-full rounded" />
                         <div className="text-xs font-black text-emerald-600">+{(i + 1) * 5}</div>
                         <div className="flex gap-1">
-                            <div className="h-4 flex-1 rounded bg-muted/60" />
+                            <div className="bg-muted/60 h-4 flex-1 rounded" />
                             <div className="h-4 flex-1 rounded bg-emerald-500/50" />
                         </div>
                     </div>
@@ -134,19 +127,19 @@ function PreviewScoringOnly() {
 
 function PreviewFoulsOnly() {
     return (
-        <div className="w-full space-y-2 scale-90">
-            <div className="flex items-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 p-2">
+        <div className="w-full scale-90 space-y-2">
+            <div className="flex items-center gap-2 rounded-xl border-2 border-rose-200 bg-rose-50 p-2 dark:border-rose-800 dark:bg-rose-950/40">
                 <div className="h-3 w-3 rounded-full bg-rose-500" />
                 <div className="h-2 w-24 rounded bg-rose-400/40" />
                 <div className="ml-auto text-xs font-black text-rose-600">−10</div>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
                 {[...Array(4)].map((_, i) => (
-                    <div key={i} className="rounded-lg border border-rose-100 dark:border-rose-900 bg-card p-2 flex flex-col gap-1">
-                        <div className="h-2 w-full rounded bg-muted-foreground/30" />
+                    <div key={i} className="bg-card flex flex-col gap-1 rounded-lg border border-rose-100 p-2 dark:border-rose-900">
+                        <div className="bg-muted-foreground/30 h-2 w-full rounded" />
                         <div className="text-xs font-black text-rose-600">−{(i + 1) * 5}</div>
                         <div className="flex gap-1">
-                            <div className="h-4 flex-1 rounded bg-muted/60" />
+                            <div className="bg-muted/60 h-4 flex-1 rounded" />
                             <div className="h-4 flex-1 rounded bg-rose-500/50" />
                         </div>
                     </div>
@@ -158,7 +151,7 @@ function PreviewFoulsOnly() {
 
 function PreviewFoulsBoth() {
     return (
-        <div className="flex w-full gap-2 scale-90">
+        <div className="flex w-full scale-90 gap-2">
             {(['red', 'blue'] as const).map((color) => {
                 const border = color === 'red' ? 'border-red-400' : 'border-blue-400';
                 const bg = color === 'red' ? 'bg-red-50 dark:bg-red-950/40' : 'bg-blue-50 dark:bg-blue-950/40';
@@ -171,10 +164,10 @@ function PreviewFoulsBoth() {
                             <span className="text-xs font-black text-rose-600">−10</span>
                         </div>
                         {[...Array(3)].map((_, i) => (
-                            <div key={i} className="rounded border bg-card p-1.5 space-y-1">
-                                <div className="h-2 w-full rounded bg-muted-foreground/30" />
+                            <div key={i} className="bg-card space-y-1 rounded border p-1.5">
+                                <div className="bg-muted-foreground/30 h-2 w-full rounded" />
                                 <div className="flex gap-1">
-                                    <div className="h-4 flex-1 rounded bg-muted/60" />
+                                    <div className="bg-muted/60 h-4 flex-1 rounded" />
                                     <div className={cn('h-4 flex-1 rounded', addCls)} />
                                 </div>
                             </div>
@@ -188,7 +181,7 @@ function PreviewFoulsBoth() {
 
 function PreviewStadium() {
     return (
-        <div className="w-full rounded-xl bg-slate-900 p-3 space-y-2 scale-90">
+        <div className="w-full scale-90 space-y-2 rounded-xl bg-slate-900 p-3">
             <div className="flex items-center justify-between">
                 <div className="h-3 w-20 rounded bg-white/20" />
                 <div className="text-2xl font-black text-red-400">42</div>
@@ -220,12 +213,14 @@ export default function RefereeScoring() {
             <div className="space-y-8">
                 <div>
                     <h1 className="text-3xl font-bold">Choose a Scoring Layout</h1>
-                    <p className="mt-1 text-muted-foreground">Pick the layout that works best for you. All layouts use live data and are fully functional.</p>
+                    <p className="text-muted-foreground mt-1">
+                        Pick the layout that works best for you. All layouts use live data and are fully functional.
+                    </p>
                 </div>
 
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     <VariantCard
-                        href={resolveEventHref("/referee/scoring2")}
+                        href={resolveEventHref('/referee/scoring2')}
                         icon={<Grid3x3 className="h-5 w-5" />}
                         title="Action Grid"
                         subtitle="Layout 2 · Compact"
@@ -235,7 +230,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href={resolveEventHref("/referee/scoring3")}
+                        href={resolveEventHref('/referee/scoring3')}
                         icon={<Layers className="h-5 w-5" />}
                         title="Team Tabs"
                         subtitle="Layout 3 · Per-team"
@@ -245,7 +240,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href={resolveEventHref("/referee/scoring4")}
+                        href={resolveEventHref('/referee/scoring4')}
                         icon={<Monitor className="h-5 w-5" />}
                         title="Stadium Dark"
                         subtitle="Layout 4 · Dark UI"
@@ -255,7 +250,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href={resolveEventHref("/referee/scoring5")}
+                        href={resolveEventHref('/referee/scoring5')}
                         icon={<Star className="h-5 w-5" />}
                         title="Scoring Only"
                         subtitle="Layout 5 · Positive points"
@@ -265,7 +260,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href={resolveEventHref("/referee/scoring6")}
+                        href={resolveEventHref('/referee/scoring6')}
                         icon={<AlertTriangle className="h-5 w-5" />}
                         title="Fouls Only"
                         subtitle="Layout 6 · Negative points"
@@ -275,7 +270,7 @@ export default function RefereeScoring() {
                     />
 
                     <VariantCard
-                        href={resolveEventHref("/referee/scoring7")}
+                        href={resolveEventHref('/referee/scoring7')}
                         icon={<SplitSquareHorizontal className="h-5 w-5" />}
                         title="Fouls — Both Alliances"
                         subtitle="Layout 7 · Red &amp; Blue side by side"

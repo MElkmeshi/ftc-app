@@ -7,6 +7,7 @@ use App\Services\CurrentGame;
 use App\Services\MatchTimingService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -23,6 +24,8 @@ class HandleInertiaRequests extends Middleware
      */
     protected $rootView = 'app';
 
+    public const RELOAD_STAMP_KEY = 'screens.reload-stamp';
+
     /**
      * Determines the current asset version.
      *
@@ -30,7 +33,9 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
-        return parent::version($request);
+        $stamp = Cache::get(self::RELOAD_STAMP_KEY);
+
+        return $stamp === null ? parent::version($request) : parent::version($request).'-'.$stamp;
     }
 
     /**

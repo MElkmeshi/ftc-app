@@ -1,15 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     useAcceptPick,
@@ -23,7 +15,13 @@ import {
     useResetAllianceSelection,
     useStartAllianceSelection,
 } from '@/hooks/use-alliance-selection';
-import { useCheckSeriesWinner, useEliminationBracket, useGenerateElimination, useGenerateTiebreaker, useResetElimination } from '@/hooks/use-elimination';
+import {
+    useCheckSeriesWinner,
+    useEliminationBracket,
+    useGenerateElimination,
+    useGenerateTiebreaker,
+    useResetElimination,
+} from '@/hooks/use-elimination';
 import AppLayout from '@/layouts/app-layout';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { type AllianceGroup, type BreadcrumbItem, type CompetitionMatch, type EliminationSeries } from '@/types';
@@ -44,7 +42,7 @@ function ApiError({ error }: { error: unknown }) {
     }
 
     return (
-        <div className="flex items-start gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="border-destructive/50 bg-destructive/10 text-destructive flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{message}</span>
         </div>
@@ -190,15 +188,15 @@ function SeriesCard({ series }: { series: EliminationSeries }) {
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
-                            Alliance #{series.alliance_group1.seed}: #{series.alliance_group1.captain_team.number} &{' '}
-                            #{series.alliance_group1.picked_team?.number}
+                            Alliance #{series.alliance_group1.seed}: #{series.alliance_group1.captain_team.number} & #
+                            {series.alliance_group1.picked_team?.number}
                         </span>
                         <Badge variant="outline">{result?.group_1_wins ?? 0} wins</Badge>
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
-                            Alliance #{series.alliance_group2.seed}: #{series.alliance_group2.captain_team.number} &{' '}
-                            #{series.alliance_group2.picked_team?.number}
+                            Alliance #{series.alliance_group2.seed}: #{series.alliance_group2.captain_team.number} & #
+                            {series.alliance_group2.picked_team?.number}
                         </span>
                         <Badge variant="outline">{result?.group_2_wins ?? 0} wins</Badge>
                     </div>
@@ -230,11 +228,7 @@ function SeriesCard({ series }: { series: EliminationSeries }) {
                     {/* Actions */}
                     {series.status !== 'completed' && allMatchesComplete && (
                         <div className="flex gap-2 border-t pt-2">
-                            <Button
-                                size="sm"
-                                onClick={() => checkWinner.mutate(series.id)}
-                                disabled={checkWinner.isPending}
-                            >
+                            <Button size="sm" onClick={() => checkWinner.mutate(series.id)} disabled={checkWinner.isPending}>
                                 {checkWinner.isPending ? 'Checking...' : 'Check Winner'}
                             </Button>
                             {isTied && (
@@ -254,8 +248,7 @@ function SeriesCard({ series }: { series: EliminationSeries }) {
                         <div className="flex items-center gap-2 border-t pt-2">
                             <Trophy className="h-4 w-4 text-yellow-500" />
                             <span className="text-sm font-medium">
-                                Winner: Alliance #{series.winner.seed} (#{series.winner.captain_team.number} &{' '}
-                                #{series.winner.picked_team?.number})
+                                Winner: Alliance #{series.winner.seed} (#{series.winner.captain_team.number} & #{series.winner.picked_team?.number})
                             </span>
                         </div>
                     )}
@@ -357,10 +350,7 @@ export default function AllianceSelectionPage() {
                                                 ))}
                                         </SelectContent>
                                     </Select>
-                                    <Button
-                                        onClick={() => startSelection.mutate(parseInt(numberOfAlliances))}
-                                        disabled={startSelection.isPending}
-                                    >
+                                    <Button onClick={() => startSelection.mutate(parseInt(numberOfAlliances))} disabled={startSelection.isPending}>
                                         {startSelection.isPending ? 'Starting...' : 'Start Selection'}
                                     </Button>
                                 </div>
@@ -370,7 +360,10 @@ export default function AllianceSelectionPage() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => {
-                                        if (hasBracket && !confirm('Resetting alliance selection also deletes the elimination bracket and its matches. Continue?')) {
+                                        if (
+                                            hasBracket &&
+                                            !confirm('Resetting alliance selection also deletes the elimination bracket and its matches. Continue?')
+                                        ) {
                                             return;
                                         }
                                         resetSelection.mutate();
@@ -389,16 +382,11 @@ export default function AllianceSelectionPage() {
                                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-r-transparent" />
                             </div>
                         ) : !hasGroups ? (
-                            <p className="text-muted-foreground py-4 text-center">
-                                Start alliance selection to assign captains and pick teams.
-                            </p>
+                            <p className="text-muted-foreground py-4 text-center">Start alliance selection to assign captains and pick teams.</p>
                         ) : (
                             <div className="space-y-4">
                                 {groups.map((group) => (
-                                    <div
-                                        key={group.id}
-                                        className="flex items-center justify-between rounded-lg border p-4"
-                                    >
+                                    <div key={group.id} className="flex items-center justify-between rounded-lg border p-4">
                                         <div className="flex items-center gap-4">
                                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400 font-bold text-slate-900">
                                                 {group.seed}
@@ -432,8 +420,8 @@ export default function AllianceSelectionPage() {
                                 ))}
 
                                 {declinedTeams.length > 0 && (
-                                    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
-                                        <div className="mb-2 flex items-center gap-2 text-sm font-medium text-destructive">
+                                    <div className="border-destructive/40 bg-destructive/5 rounded-lg border p-4">
+                                        <div className="text-destructive mb-2 flex items-center gap-2 text-sm font-medium">
                                             <Ban className="h-4 w-4" />
                                             Declined — out of selection
                                         </div>
@@ -467,10 +455,7 @@ export default function AllianceSelectionPage() {
                             </CardTitle>
                             <div className="flex items-center gap-2">
                                 {!hasBracket ? (
-                                    <Button
-                                        onClick={() => generateElimination.mutate()}
-                                        disabled={generateElimination.isPending}
-                                    >
+                                    <Button onClick={() => generateElimination.mutate()} disabled={generateElimination.isPending}>
                                         {generateElimination.isPending ? 'Generating...' : 'Generate Bracket'}
                                     </Button>
                                 ) : null}

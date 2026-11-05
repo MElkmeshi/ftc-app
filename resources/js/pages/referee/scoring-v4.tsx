@@ -1,12 +1,12 @@
-import { SeatWarning, SubmitScoresPanel } from '@/components/scoring/submit-scores-panel';
-import { GroupScoreControls } from '@/components/scoring/score-controls';
 import { ScoreTypeIcon } from '@/components/game-look';
-import { resolveEventHref } from '@/lib/event';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MatchTimerBanner } from '@/components/match-timer-banner';
+import { GroupScoreControls } from '@/components/scoring/score-controls';
+import { SeatWarning, SubmitScoresPanel } from '@/components/scoring/submit-scores-panel';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useScoringPage } from '@/hooks/use-scoring-page';
-import { getAllianceColorClasses } from '@/lib/match-utils';
 import AppLayout from '@/layouts/app-layout';
+import { resolveEventHref } from '@/lib/event';
+import { getAllianceColorClasses } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type ScoreType } from '@/types';
 import { Head, Link } from '@inertiajs/react';
@@ -27,11 +27,13 @@ function SplitTile({ scoreType, count, isPending, accentColor, onAdd, onRemove }
     return (
         <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold uppercase tracking-widest text-white/50 flex items-center gap-1.5">
-                    <ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ')}
+                <span className="flex items-center gap-1.5 text-xs font-bold tracking-widest text-white/50 uppercase">
+                    <ScoreTypeIcon scoreType={scoreType} className="size-6" />
+                    {scoreType.name.replace(/_/g, ' ')}
                 </span>
                 <span className="text-xs font-bold text-white/40">
-                    {scoreType.points > 0 ? '+' : ''}{scoreType.points} pts
+                    {scoreType.points > 0 ? '+' : ''}
+                    {scoreType.points} pts
                 </span>
             </div>
             <div className="flex h-20 overflow-hidden rounded-xl">
@@ -42,8 +44,8 @@ function SplitTile({ scoreType, count, isPending, accentColor, onAdd, onRemove }
                     className={cn(
                         'flex flex-1 items-center justify-center transition-all select-none',
                         count === 0 || isPending
-                            ? 'bg-white/5 text-white/20 cursor-not-allowed'
-                            : 'bg-rose-900/60 hover:bg-rose-800 active:bg-rose-700 text-rose-300',
+                            ? 'cursor-not-allowed bg-white/5 text-white/20'
+                            : 'bg-rose-900/60 text-rose-300 hover:bg-rose-800 active:bg-rose-700',
                     )}
                 >
                     <span className="text-3xl font-black">−</span>
@@ -64,12 +66,12 @@ function SplitTile({ scoreType, count, isPending, accentColor, onAdd, onRemove }
                     className={cn(
                         'flex flex-1 items-center justify-center transition-all select-none',
                         isPending
-                            ? 'bg-white/5 text-white/20 cursor-not-allowed'
+                            ? 'cursor-not-allowed bg-white/5 text-white/20'
                             : scoreType.points > 0
-                                ? 'bg-emerald-900/60 hover:bg-emerald-800 active:bg-emerald-700 text-emerald-300'
-                                : scoreType.points < 0
-                                    ? 'bg-rose-900/60 hover:bg-rose-800 active:bg-rose-700 text-rose-300'
-                                    : 'bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-slate-300',
+                              ? 'bg-emerald-900/60 text-emerald-300 hover:bg-emerald-800 active:bg-emerald-700'
+                              : scoreType.points < 0
+                                ? 'bg-rose-900/60 text-rose-300 hover:bg-rose-800 active:bg-rose-700'
+                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600 active:bg-slate-500',
                     )}
                 >
                     <span className="text-3xl font-black">+</span>
@@ -81,12 +83,30 @@ function SplitTile({ scoreType, count, isPending, accentColor, onAdd, onRemove }
 
 export default function RefereeScoring4() {
     const {
-        selectedAllianceId, setSelectedAllianceId,
-        selectedMatchId, setSelectedMatchId,
-        match, isLoading, ongoingMatches, alliances,
-        colorClasses, sortedGroups, teamsInAlliance,
-        getTotalAllianceScore, getAllianceScoreTypeCount, getTeamScoreTypeCount,
-        handleAddScore, handleRemoveScore, isPending, seatLabel, submission, setSubmitted, isSubmitPending, submitError, sharingSeatWith, unsyncedCount,
+        selectedAllianceId,
+        setSelectedAllianceId,
+        selectedMatchId,
+        setSelectedMatchId,
+        match,
+        isLoading,
+        ongoingMatches,
+        alliances,
+        colorClasses,
+        sortedGroups,
+        teamsInAlliance,
+        getTotalAllianceScore,
+        getAllianceScoreTypeCount,
+        getTeamScoreTypeCount,
+        handleAddScore,
+        handleRemoveScore,
+        isPending,
+        seatLabel,
+        submission,
+        setSubmitted,
+        isSubmitPending,
+        submitError,
+        sharingSeatWith,
+        unsyncedCount,
     } = useScoringPage();
 
     const allianceColorName = alliances.find((a) => a?.id === selectedAllianceId)?.color ?? 'gray';
@@ -105,7 +125,9 @@ export default function RefereeScoring4() {
                         </SelectTrigger>
                         <SelectContent>
                             {ongoingMatches.map((m) => (
-                                <SelectItem key={m.id} value={m.id.toString()}>Match #{m.number}</SelectItem>
+                                <SelectItem key={m.id} value={m.id.toString()}>
+                                    Match #{m.number}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
@@ -134,12 +156,12 @@ export default function RefereeScoring4() {
 
                     {selectedAllianceId && (
                         <div className="ml-auto text-right">
-                            <p className="text-xs text-white/40 uppercase tracking-widest">Score</p>
+                            <p className="text-xs tracking-widest text-white/40 uppercase">Score</p>
                             <p className={cn('text-5xl font-black tabular-nums', colorClasses.text)}>{getTotalAllianceScore()}</p>
                         </div>
                     )}
 
-                    <Link href={resolveEventHref("/referee/scoring")} className="text-xs text-white/40 hover:text-white/70">
+                    <Link href={resolveEventHref('/referee/scoring')} className="text-xs text-white/40 hover:text-white/70">
                         ← Layouts
                     </Link>
                 </div>
@@ -180,7 +202,7 @@ export default function RefereeScoring4() {
                             return (
                                 <div key={groupName}>
                                     {groupName !== 'ungrouped' && (
-                                        <p className="mb-4 text-sm font-black uppercase tracking-[0.25em]" style={{ color: accentHex }}>
+                                        <p className="mb-4 text-sm font-black tracking-[0.25em] uppercase" style={{ color: accentHex }}>
                                             {groupName}
                                         </p>
                                     )}
@@ -201,8 +223,8 @@ export default function RefereeScoring4() {
 
                                     {alliance.length > 0 && (
                                         <div className="mb-6">
-                                            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-white/30">Alliance-wide</p>
-                                            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                                            <p className="mb-3 text-xs font-semibold tracking-widest text-white/30 uppercase">Alliance-wide</p>
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                                 {alliance.map((scoreType) => (
                                                     <SplitTile
                                                         key={scoreType.id}
@@ -211,34 +233,39 @@ export default function RefereeScoring4() {
                                                         isPending={isPending}
                                                         accentColor={accentHex}
                                                         onAdd={() => handleAddScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })}
-                                                        onRemove={() => handleRemoveScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })}
+                                                        onRemove={() =>
+                                                            handleRemoveScore(scoreType.id, { allianceId: selectedAllianceId ?? undefined })
+                                                        }
                                                     />
                                                 ))}
                                             </div>
                                         </div>
                                     )}
 
-                                    {team.length > 0 && teamsInAlliance.map((ma) => (
-                                        <div key={ma.id} className="mb-6">
-                                            <div className="mb-3 flex items-baseline gap-3">
-                                                <p className="text-xs font-semibold uppercase tracking-widest text-white/30">{ma.team.name}</p>
-                                                <span className="text-sm font-black tabular-nums" style={{ color: accentHex }}>{ma.score} pts</span>
+                                    {team.length > 0 &&
+                                        teamsInAlliance.map((ma) => (
+                                            <div key={ma.id} className="mb-6">
+                                                <div className="mb-3 flex items-baseline gap-3">
+                                                    <p className="text-xs font-semibold tracking-widest text-white/30 uppercase">{ma.team.name}</p>
+                                                    <span className="text-sm font-black tabular-nums" style={{ color: accentHex }}>
+                                                        {ma.score} pts
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                                    {team.map((scoreType) => (
+                                                        <SplitTile
+                                                            key={scoreType.id}
+                                                            scoreType={scoreType}
+                                                            count={getTeamScoreTypeCount(scoreType.id, ma.team.id)}
+                                                            isPending={isPending}
+                                                            accentColor={accentHex}
+                                                            onAdd={() => handleAddScore(scoreType.id, { teamId: ma.team.id })}
+                                                            onRemove={() => handleRemoveScore(scoreType.id, { teamId: ma.team.id })}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
-                                            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                                                {team.map((scoreType) => (
-                                                    <SplitTile
-                                                        key={scoreType.id}
-                                                        scoreType={scoreType}
-                                                        count={getTeamScoreTypeCount(scoreType.id, ma.team.id)}
-                                                        isPending={isPending}
-                                                        accentColor={accentHex}
-                                                        onAdd={() => handleAddScore(scoreType.id, { teamId: ma.team.id })}
-                                                        onRemove={() => handleRemoveScore(scoreType.id, { teamId: ma.team.id })}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        ))}
                                 </div>
                             );
                         })}

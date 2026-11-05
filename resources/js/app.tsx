@@ -61,6 +61,9 @@ createInertiaApp({
         // After a server update the page reloads itself, once no scoring tap is still being sent.
         versionWatch = createVersionWatch({ loadedVersion: props.initialPage.version, isBusy: () => queryClient.isMutating() > 0 });
         versionWatch.start();
+        echoInstance()
+            .channel('screens')
+            .listen('ScreensReloadRequested', () => void versionWatch?.check());
 
         const root = createRoot(el);
 

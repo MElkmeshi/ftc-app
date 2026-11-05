@@ -1,14 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateTeam, useDeleteTeam, useTeams, useUpdateTeam } from '@/hooks/use-teams';
@@ -23,15 +15,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Teams', href: '/admin/teams' },
 ];
 
-function TeamFormDialog({
-    team,
-    trigger,
-    onClose,
-}: {
-    team?: Team;
-    trigger: React.ReactNode;
-    onClose?: () => void;
-}) {
+function TeamFormDialog({ team, trigger, onClose }: { team?: Team; trigger: React.ReactNode; onClose?: () => void }) {
     const [open, setOpen] = useState(false);
     const [number, setNumber] = useState(team?.number ?? '');
     const [name, setName] = useState(team?.name ?? '');

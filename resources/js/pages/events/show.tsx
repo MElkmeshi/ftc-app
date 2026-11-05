@@ -123,6 +123,8 @@ export default function EventShow() {
                             { label: 'Event dashboard', href: `${base}/dashboard`, description: 'setup checklist' },
                             { label: 'Match control', href: `${base}/match-control`, description: 'load, start, post results' },
                             { label: 'Teams', href: `${base}/admin/teams` },
+                            { label: 'Connect devices', href: `${base}/connect`, description: 'QR codes for phones, tablets and displays' },
+                            { label: 'Reports', href: `${base}/reports`, description: 'cycle times and printouts' },
                         ]}
                     />
                 </LinkSection>

@@ -52,24 +52,18 @@ export default function AllianceSelectionDisplay() {
                             </p>
                         )}
                         {hasGroups && pendingIndex === -1 && currentPickIndex >= 0 && (
-                            <p className="text-3xl text-yellow-400">
-                                Alliance #{groups[currentPickIndex].seed} is picking...
-                            </p>
+                            <p className="text-3xl text-yellow-400">Alliance #{groups[currentPickIndex].seed} is picking...</p>
                         )}
                         {hasGroups && currentPickIndex === -1 && pendingIndex === -1 && (
                             <p className="text-3xl text-green-400">All alliances formed!</p>
                         )}
-                        {!hasGroups && (
-                            <p className="text-2xl text-white/70">Waiting for alliance selection to begin...</p>
-                        )}
+                        {!hasGroups && <p className="text-2xl text-white/70">Waiting for alliance selection to begin...</p>}
                     </div>
 
                     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
                         {/* Alliance Groups */}
                         <div>
-                            <h2 className="mb-4 text-3xl font-bold text-white">
-                                {hasGroups ? 'Alliances' : 'Waiting...'}
-                            </h2>
+                            <h2 className="mb-4 text-3xl font-bold text-white">{hasGroups ? 'Alliances' : 'Waiting...'}</h2>
                             {hasGroups ? (
                                 <div className="space-y-4">
                                     {groups.map((group, index) => {
@@ -83,10 +77,10 @@ export default function AllianceSelectionDisplay() {
                                                     isPending
                                                         ? 'animate-pulse border-amber-400 bg-amber-400/10'
                                                         : isCurrentPick
-                                                            ? 'animate-pulse border-yellow-400 bg-yellow-400/10'
-                                                            : group.picked_team
-                                                                ? 'border-green-500/50 bg-green-500/10'
-                                                                : 'border-white/20 bg-white/5',
+                                                          ? 'animate-pulse border-yellow-400 bg-yellow-400/10'
+                                                          : group.picked_team
+                                                            ? 'border-green-500/50 bg-green-500/10'
+                                                            : 'border-white/20 bg-white/5',
                                                 )}
                                             >
                                                 <div className="flex items-center gap-4">
@@ -96,18 +90,16 @@ export default function AllianceSelectionDisplay() {
                                                             isPending
                                                                 ? 'bg-amber-400 text-slate-900'
                                                                 : isCurrentPick
-                                                                    ? 'bg-yellow-400 text-slate-900'
-                                                                    : group.picked_team
-                                                                        ? 'bg-green-500 text-white'
-                                                                        : 'bg-white/20 text-white',
+                                                                  ? 'bg-yellow-400 text-slate-900'
+                                                                  : group.picked_team
+                                                                    ? 'bg-green-500 text-white'
+                                                                    : 'bg-white/20 text-white',
                                                         )}
                                                     >
                                                         {group.seed}
                                                     </div>
                                                     <div className="flex-1">
-                                                        <div className="text-2xl font-bold text-white">
-                                                            Captain: #{group.captain_team.number}
-                                                        </div>
+                                                        <div className="text-2xl font-bold text-white">Captain: #{group.captain_team.number}</div>
                                                         <div className="text-lg text-white/70">{group.captain_team.name}</div>
                                                         {group.picked_team ? (
                                                             <div className="mt-2 text-xl font-semibold text-green-400">
@@ -144,10 +136,7 @@ export default function AllianceSelectionDisplay() {
                                     </h3>
                                     <div className="flex flex-wrap gap-2">
                                         {declinedTeams.map((team) => (
-                                            <span
-                                                key={team.id}
-                                                className="rounded-lg bg-rose-500/20 px-3 py-1 text-lg font-semibold text-rose-200"
-                                            >
+                                            <span key={team.id} className="rounded-lg bg-rose-500/20 px-3 py-1 text-lg font-semibold text-rose-200">
                                                 #{team.number}
                                             </span>
                                         ))}
@@ -192,9 +181,7 @@ export default function AllianceSelectionDisplay() {
                                                         <div
                                                             className={cn(
                                                                 'flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold',
-                                                                index < groups.length
-                                                                    ? 'bg-yellow-400 text-slate-900'
-                                                                    : 'bg-white/20 text-white',
+                                                                index < groups.length ? 'bg-yellow-400 text-slate-900' : 'bg-white/20 text-white',
                                                             )}
                                                         >
                                                             {index + 1}
@@ -224,9 +211,7 @@ export default function AllianceSelectionDisplay() {
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-3 text-right text-xl font-semibold text-white/80">
-                                                        {team.total_score}
-                                                    </td>
+                                                    <td className="px-6 py-3 text-right text-xl font-semibold text-white/80">{team.total_score}</td>
                                                 </tr>
                                             );
                                         })}

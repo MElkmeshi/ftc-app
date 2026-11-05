@@ -1,13 +1,16 @@
 import InputError from '@/components/input-error';
+import { ServerAddressField } from '@/components/server-address-field';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useServerAddress } from '@/hooks/use-server-address';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Copy, KeyRound, Printer, Trash2, UserPlus, Wand2 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { type FormEventHandler, useState } from 'react';
 
 type RoleValue = 'admin' | 'head_referee' | 'referee' | 'viewer';
@@ -30,11 +33,13 @@ interface Credential {
     email: string;
     role: string;
     password: string;
+    sign_in_link: string;
 }
 
 interface AccountsProps extends SharedData {
     accounts: Account[];
     roles: RoleOption[];
+    signInLinkDays: number;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Accounts', href: '/accounts' }];
@@ -42,8 +47,13 @@ const breadcrumbs: BreadcrumbItem[] = [{ title: 'Accounts', href: '/accounts' }]
 const selectClassName =
     'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm';
 
-/** Shows passwords that were just generated. They are never shown again, so offer copy and print. */
-function NewCredentials({ credentials }: { credentials: Credential[] }) {
+/**
+ * Shows passwords that were just generated, each with a QR code that signs
+ * the official in when scanned. They are never shown again, so offer copy and
+ * print.
+ */
+function NewCredentials({ credentials, validForDays }: { credentials: Credential[]; validForDays: number }) {
+    const { address, setAddress, reset } = useServerAddress();
     const copyAll = () => {
         void navigator.clipboard?.writeText(credentials.map((c) => `${c.name}\t${c.email}\t${c.password}`).join('\n'));
     };
@@ -53,7 +63,13 @@ function NewCredentials({ credentials }: { credentials: Credential[] }) {
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
                 <div>
                     <CardTitle>New sign-in details</CardTitle>
-                    <p className="text-muted-foreground text-sm print:hidden">Write these down or print them now. Passwords are only shown once.</p>
+                    <p className="text-muted-foreground text-sm print:hidden">
+                        Print these now: passwords are only shown once. Officials can scan their code to sign in. Each code works for {validForDays}{' '}
+                        days, or until that password is changed.
+                    </p>
+                    <p className="hidden text-sm print:block">
+                        Scan your code with a phone or tablet camera to sign in, or go to {address} and type the password.
+                    </p>
                 </div>
                 <div className="flex gap-2 print:hidden">
                     <Button variant="outline" size="sm" onClick={copyAll}>
@@ -64,7 +80,10 @@ function NewCredentials({ credentials }: { credentials: Credential[] }) {
                     </Button>
                 </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+                <div className="print:hidden">
+                    <ServerAddressField address={address} onChange={setAddress} onReset={reset} />
+                </div>
                 <table className="w-full text-sm">
                     <thead className="text-muted-foreground text-left">
                         <tr>
@@ -72,6 +91,7 @@ function NewCredentials({ credentials }: { credentials: Credential[] }) {
                             <th className="py-1 font-medium">Role</th>
                             <th className="py-1 font-medium">Email</th>
                             <th className="py-1 font-medium">Password</th>
+                            <th className="py-1 text-right font-medium">Sign-in code</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -81,6 +101,14 @@ function NewCredentials({ credentials }: { credentials: Credential[] }) {
                                 <td className="py-1.5">{credential.role}</td>
                                 <td className="py-1.5 font-mono">{credential.email}</td>
                                 <td className="py-1.5 font-mono font-semibold">{credential.password}</td>
+                                <td className="py-1.5">
+                                    <QRCodeSVG
+                                        value={`${address}${credential.sign_in_link}`}
+                                        size={88}
+                                        marginSize={1}
+                                        className="ml-auto break-inside-avoid"
+                                    />
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -270,7 +298,7 @@ function AccountRow({ account, roles, isSelf }: { account: Account; roles: RoleO
 
 export default function Accounts() {
     const page = usePage<AccountsProps>();
-    const { accounts, roles, auth } = page.props;
+    const { accounts, roles, auth, signInLinkDays } = page.props;
     const credentials = (page.flash as { credentials?: Credential[] }).credentials ?? [];
 
     return (
@@ -283,7 +311,7 @@ export default function Accounts() {
                     <p className="text-muted-foreground">Sign-in accounts are shared by every event on this server.</p>
                 </div>
 
-                {credentials.length > 0 && <NewCredentials credentials={credentials} />}
+                {credentials.length > 0 && <NewCredentials credentials={credentials} validForDays={signInLinkDays} />}
 
                 <div className="grid gap-6 lg:grid-cols-2 print:hidden">
                     <GenerateOfficials />

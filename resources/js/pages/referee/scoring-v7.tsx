@@ -1,16 +1,16 @@
 import { ScoreTypeIcon } from '@/components/game-look';
-import { resolveEventHref } from '@/lib/event';
+import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MatchTimerBanner } from '@/components/match-timer-banner';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
-import { useRefereeField } from '@/hooks/use-referee-field';
 import { useEndMatch, useMatch, useMatches, useScoreTypes, useSetScoreCount } from '@/hooks/use-match';
-import { getApiErrorMessage } from '@/lib/api-error';
-import { countScores } from '@/lib/score-count';
+import { useRefereeField } from '@/hooks/use-referee-field';
 import AppLayout from '@/layouts/app-layout';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { resolveEventHref } from '@/lib/event';
+import { countScores } from '@/lib/score-count';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type CompetitionMatch, type ScoreTarget, type ScoreType } from '@/types';
 import { Head, Link } from '@inertiajs/react';
@@ -55,9 +55,7 @@ function foulAllianceId(match: CompetitionMatch, scoreType: ScoreType, allianceI
 }
 
 function getAllianceScoreTypeCount(match: CompetitionMatch, scoreTypeId: number, allianceId: number): number {
-    return (match.scores ?? []).filter(
-        (s) => s.score_type_id === scoreTypeId && s.alliance_id === allianceId && !s.team_id,
-    ).length;
+    return (match.scores ?? []).filter((s) => s.score_type_id === scoreTypeId && s.alliance_id === allianceId && !s.team_id).length;
 }
 
 function getTeamScoreTypeCount(match: CompetitionMatch, scoreTypeId: number, teamId: number): number {
@@ -91,18 +89,18 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
         : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
 
     return (
-        <div className="flex-1 min-w-0 space-y-4">
+        <div className="min-w-0 flex-1 space-y-4">
             {/* Alliance header */}
             <div className={cn('flex items-center justify-between rounded-xl border-2 p-4', borderColor, bgLight)}>
                 <span className={cn('text-lg font-black uppercase', textColor)}>{color} alliance</span>
                 <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Fouls</p>
-                    <p className={cn('text-3xl font-black tabular-nums text-rose-600')}>{foulTotal}</p>
+                    <p className="text-muted-foreground text-xs">Fouls</p>
+                    <p className={cn('text-3xl font-black text-rose-600 tabular-nums')}>{foulTotal}</p>
                 </div>
             </div>
 
             {foulGroups.length === 0 && (
-                <div className="flex h-32 flex-col items-center justify-center gap-2 text-muted-foreground">
+                <div className="text-muted-foreground flex h-32 flex-col items-center justify-center gap-2">
                     <AlertTriangle className="h-8 w-8" />
                     <p className="text-sm">No foul types configured</p>
                 </div>
@@ -112,14 +110,14 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
                 <div key={groupName} className="space-y-3">
                     {groupName !== 'ungrouped' && (
                         <div className={cn('border-l-4 pl-3', borderColor)}>
-                            <h2 className="text-sm font-bold uppercase tracking-widest">{groupName}</h2>
+                            <h2 className="text-sm font-bold tracking-widest uppercase">{groupName}</h2>
                         </div>
                     )}
 
                     {/* Alliance-wide fouls */}
                     {alliance.length > 0 && allianceId && (
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Alliance-wide</p>
+                            <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">Alliance-wide</p>
                             {alliance.map((scoreType) => {
                                 const count = getAllianceScoreTypeCount(match, scoreType.id, foulAllianceId(match, scoreType, allianceId));
                                 return (
@@ -127,25 +125,29 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
                                         <CardContent className="p-3">
                                             <div className="mb-2 flex items-start justify-between">
                                                 <div>
-                                                    <p className="flex items-center gap-1.5 text-sm font-medium leading-tight"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
+                                                    <p className="flex items-center gap-1.5 text-sm leading-tight font-medium">
+                                                        <ScoreTypeIcon scoreType={scoreType} className="size-6" />
+                                                        {scoreType.name.replace(/_/g, ' ').toUpperCase()}
+                                                    </p>
                                                     <p className="text-base font-black text-rose-600">{scoreType.points} pts</p>
                                                 </div>
-                                                {count > 0 && (
-                                                    <Badge className={cn('px-2 py-0.5 text-sm', badgeCls)}>{count}</Badge>
-                                                )}
+                                                {count > 0 && <Badge className={cn('px-2 py-0.5 text-sm', badgeCls)}>{count}</Badge>}
                                             </div>
                                             <div className="flex gap-2">
                                                 <Button
                                                     onClick={() => onRemove(scoreType.id, { allianceId })}
                                                     disabled={count === 0 || isPending}
-                                                    size="sm" variant="outline" className="flex-1"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="flex-1"
                                                 >
                                                     <Minus className="h-4 w-4" />
                                                 </Button>
                                                 <Button
                                                     onClick={() => onAdd(scoreType.id, { allianceId })}
                                                     disabled={isPending}
-                                                    size="sm" className={cn('flex-1', addBtn)}
+                                                    size="sm"
+                                                    className={cn('flex-1', addBtn)}
                                                 >
                                                     <Plus className="h-4 w-4" />
                                                 </Button>
@@ -158,45 +160,50 @@ function FoulColumn({ match, color, foulGroups, isPending, onAdd, onRemove }: Fo
                     )}
 
                     {/* Per-team fouls */}
-                    {team.length > 0 && teams.map((ma) => (
-                        <div key={ma.id} className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{ma.team.name}</p>
-                            {team.map((scoreType) => {
-                                const count = getTeamScoreTypeCount(match, scoreType.id, ma.team.id);
-                                return (
-                                    <Card key={scoreType.id} className={cn('overflow-hidden', cardBorder)}>
-                                        <CardContent className="p-3">
-                                            <div className="mb-2 flex items-start justify-between">
-                                                <div>
-                                                    <p className="flex items-center gap-1.5 text-sm font-medium leading-tight"><ScoreTypeIcon scoreType={scoreType} className="size-6" />{scoreType.name.replace(/_/g, ' ').toUpperCase()}</p>
-                                                    <p className="text-base font-black text-rose-600">{scoreType.points} pts</p>
+                    {team.length > 0 &&
+                        teams.map((ma) => (
+                            <div key={ma.id} className="space-y-2">
+                                <p className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">{ma.team.name}</p>
+                                {team.map((scoreType) => {
+                                    const count = getTeamScoreTypeCount(match, scoreType.id, ma.team.id);
+                                    return (
+                                        <Card key={scoreType.id} className={cn('overflow-hidden', cardBorder)}>
+                                            <CardContent className="p-3">
+                                                <div className="mb-2 flex items-start justify-between">
+                                                    <div>
+                                                        <p className="flex items-center gap-1.5 text-sm leading-tight font-medium">
+                                                            <ScoreTypeIcon scoreType={scoreType} className="size-6" />
+                                                            {scoreType.name.replace(/_/g, ' ').toUpperCase()}
+                                                        </p>
+                                                        <p className="text-base font-black text-rose-600">{scoreType.points} pts</p>
+                                                    </div>
+                                                    {count > 0 && <Badge className={cn('px-2 py-0.5 text-sm', badgeCls)}>{count}</Badge>}
                                                 </div>
-                                                {count > 0 && (
-                                                    <Badge className={cn('px-2 py-0.5 text-sm', badgeCls)}>{count}</Badge>
-                                                )}
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    onClick={() => onRemove(scoreType.id, { teamId: ma.team.id })}
-                                                    disabled={count === 0 || isPending}
-                                                    size="sm" variant="outline" className="flex-1"
-                                                >
-                                                    <Minus className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    onClick={() => onAdd(scoreType.id, { teamId: ma.team.id })}
-                                                    disabled={isPending}
-                                                    size="sm" className={cn('flex-1', addBtn)}
-                                                >
-                                                    <Plus className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })}
-                        </div>
-                    ))}
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        onClick={() => onRemove(scoreType.id, { teamId: ma.team.id })}
+                                                        disabled={count === 0 || isPending}
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="flex-1"
+                                                    >
+                                                        <Minus className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        onClick={() => onAdd(scoreType.id, { teamId: ma.team.id })}
+                                                        disabled={isPending}
+                                                        size="sm"
+                                                        className={cn('flex-1', addBtn)}
+                                                    >
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        ))}
                 </div>
             ))}
         </div>
@@ -273,7 +280,14 @@ export default function RefereeFoulsBoth() {
 
     const handleAddScore = (scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, 1);
     const handleRemoveScore = (scoreTypeId: number, target: ScoreTarget) => changeCount(scoreTypeId, target, -1);
-    const waitingFor = match ? match.match_alliances.map((ma) => ma.alliance).filter((alliance, index, all) => all.findIndex((a) => a.id === alliance.id) === index && !match.submissions?.some((entry) => entry.alliance_id === alliance.id)) : [];
+    const waitingFor = match
+        ? match.match_alliances
+              .map((ma) => ma.alliance)
+              .filter(
+                  (alliance, index, all) =>
+                      all.findIndex((a) => a.id === alliance.id) === index && !match.submissions?.some((entry) => entry.alliance_id === alliance.id),
+              )
+        : [];
 
     const isPending = false;
 
@@ -293,12 +307,14 @@ export default function RefereeFoulsBoth() {
                         </SelectTrigger>
                         <SelectContent>
                             {ongoingMatches.map((m) => (
-                                <SelectItem key={m.id} value={m.id.toString()}>Match #{m.number}</SelectItem>
+                                <SelectItem key={m.id} value={m.id.toString()}>
+                                    Match #{m.number}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
 
-                    <Link href={resolveEventHref("/referee/scoring")} className="ml-auto text-xs text-muted-foreground hover:underline">
+                    <Link href={resolveEventHref('/referee/scoring')} className="text-muted-foreground ml-auto text-xs hover:underline">
                         ← Layouts
                     </Link>
                 </div>
@@ -312,14 +328,14 @@ export default function RefereeFoulsBoth() {
                 )}
 
                 {!isLoading && !match && (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <div className="text-muted-foreground flex h-40 flex-col items-center justify-center gap-2">
                         <Trophy className="h-10 w-10" />
                         <p>Select an ongoing match above</p>
                     </div>
                 )}
 
                 {match && match.match_alliances.length === 0 && (
-                    <div className="flex h-40 flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <div className="text-muted-foreground flex h-40 flex-col items-center justify-center gap-2">
                         <Users className="h-10 w-10" />
                         <p>No teams assigned to Match #{match.number}</p>
                     </div>
@@ -337,7 +353,7 @@ export default function RefereeFoulsBoth() {
                             onRemove={handleRemoveScore}
                         />
 
-                        <div className="w-px shrink-0 bg-border" />
+                        <div className="bg-border w-px shrink-0" />
 
                         <FoulColumn
                             match={match}
@@ -355,7 +371,7 @@ export default function RefereeFoulsBoth() {
                         <CardContent className="flex items-center justify-between p-4">
                             <div>
                                 <p className="font-bold">Commit Match #{match.number}</p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-muted-foreground text-sm">
                                     {waitingFor.length === 0
                                         ? 'Every alliance has submitted. Committing ends the match.'
                                         : `Waiting for ${waitingFor.map((alliance) => alliance.color).join(' and ')} to submit.`}
@@ -365,7 +381,7 @@ export default function RefereeFoulsBoth() {
                             <Button
                                 onClick={() => endMatch.mutate(match.id, { onSuccess: () => setSelectedMatchId(null) })}
                                 disabled={endMatch.isPending || waitingFor.length > 0}
-                                className="bg-amber-600 hover:bg-amber-500 text-white"
+                                className="bg-amber-600 text-white hover:bg-amber-500"
                             >
                                 <CheckCircle className="mr-2 h-4 w-4" />
                                 {endMatch.isPending ? 'Committing…' : 'Commit'}

@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\MatchSheetController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ScreenReloadController;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
@@ -37,6 +39,8 @@ Route::get('server-time', fn (Request $request) => response()->json([
     'now' => now()->getTimestampMs(),
     'version' => app(HandleInertiaRequests::class)->version($request),
 ])->header('Cache-Control', 'no-store'))->withoutMiddleware('stateful')->name('server-time');
+
+Route::post('screens/reload', ScreenReloadController::class)->middleware(['auth', 'verified', 'can:control-matches'])->name('screens.reload');
 
 Route::middleware(['auth', 'verified', 'can:manage-competition'])->group(function () {
     Route::get('events/create', [EventController::class, 'create'])->name('events.create');
@@ -111,10 +115,12 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('matches/{match}', [MatchSheetController::class, 'show'])->whereNumber('match')->name('matches.sheet');
     });
 
-    Route::get('matches/{match}/history', [MatchSheetController::class, 'history'])
-        ->whereNumber('match')
-        ->middleware(['auth', 'can:control-matches'])
-        ->name('matches.history');
+    Route::middleware(['auth', 'can:control-matches'])->group(function () {
+        Route::get('matches/{match}/history', [MatchSheetController::class, 'history'])->whereNumber('match')->name('matches.history');
+        Route::get('connect', fn () => Inertia::render('events/connect'))->name('events.connect');
+        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/cycle', [ReportController::class, 'cycle'])->name('reports.cycle');
+    });
 
     Route::get('match-control', function (EventLiveProps $live) {
         return Inertia::render('match-control/index', [

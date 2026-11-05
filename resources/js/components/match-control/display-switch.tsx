@@ -7,8 +7,9 @@ import { useApi } from '@/hooks/use-api';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { type DisplayConfig, displayTypeOption } from '@/lib/display-config';
 import { type AudienceDisplayState, type ConnectedDisplay, type DisplayModeValue } from '@/types';
+import { router } from '@inertiajs/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { MonitorOff } from 'lucide-react';
+import { MonitorOff, RotateCw } from 'lucide-react';
 import { useState } from 'react';
 
 const SHOW_GROUPS: { title: string; buttons: { mode: DisplayModeValue; label: string }[] }[] = [
@@ -90,6 +91,39 @@ function describeField(config: DisplayConfig): string {
     return config.field ? `Field ${config.field}` : 'All';
 }
 
+function ReloadScreensButton() {
+    const [confirming, setConfirming] = useState(false);
+    const [sending, setSending] = useState(false);
+
+    if (!confirming) {
+        return (
+            <Button size="sm" variant="outline" onClick={() => setConfirming(true)}>
+                <RotateCw className="mr-1 size-4" /> Reload all screens
+            </Button>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs">Every display and tablet reloads; tablets wait for unsaved taps.</span>
+            <Button
+                size="sm"
+                variant="destructive"
+                disabled={sending}
+                onClick={() => {
+                    setSending(true);
+                    router.post('/screens/reload', {}, { preserveScroll: true, onFinish: () => setSending(false) });
+                }}
+            >
+                Reload now
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
+                Cancel
+            </Button>
+        </div>
+    );
+}
+
 function ConnectedDisplays() {
     const api = useApi();
     const queryClient = useQueryClient();
@@ -117,9 +151,12 @@ function ConnectedDisplays() {
 
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>Connected displays</CardTitle>
-                <CardDescription>Every display screen that is open right now. Change one here and it switches straight away.</CardDescription>
+            <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
+                <div className="space-y-1.5">
+                    <CardTitle>Connected displays</CardTitle>
+                    <CardDescription>Every display screen that is open right now. Change one here and it switches straight away.</CardDescription>
+                </div>
+                <ReloadScreensButton />
             </CardHeader>
             <CardContent className="space-y-3">
                 {displays.length === 0 ? (
