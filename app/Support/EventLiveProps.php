@@ -2,12 +2,14 @@
 
 namespace App\Support;
 
+use App\Enums\MatchStatus;
 use App\Events\AllianceSelectionUpdated;
 use App\Events\AudienceDisplayChanged;
 use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
 use App\Events\ScoreUpdated;
 use App\Models\CompetitionMatch;
+use App\Models\Team;
 use App\Services\AllianceSelectionService;
 use App\Services\AudienceDisplay;
 use App\Services\CurrentEvent;
@@ -44,6 +46,22 @@ class EventLiveProps
     public function audienceDisplay(): LiveProp
     {
         return Inertia::live(fn () => app(AudienceDisplay::class)->state(), on: AudienceDisplayChanged::class, channel: $this->currentEvent->channel('display'));
+    }
+
+    /**
+     * How far the qualification schedule has got, for the rankings page.
+     */
+    public function qualificationProgress(): LiveProp
+    {
+        return Inertia::live(
+            fn () => [
+                'teams' => Team::query()->count(),
+                'played' => CompetitionMatch::query()->qualification()->where('status', MatchStatus::COMPLETED)->count(),
+                'remaining' => CompetitionMatch::query()->qualification()->whereIn('status', [MatchStatus::UPCOMING, MatchStatus::ONGOING])->count(),
+            ],
+            on: MatchStatusChanged::class,
+            channel: $this->currentEvent->channel('match-control'),
+        );
     }
 
     /**

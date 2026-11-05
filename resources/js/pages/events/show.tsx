@@ -83,8 +83,8 @@ export default function EventShow() {
                 <LinkSection title="Event Info" icon={ListOrdered}>
                     <LinkList
                         links={[
-                            { label: 'Schedule & results', href: `${base}/competition-matches` },
-                            { label: 'Rankings', href: `${base}/referee/display` },
+                            { label: 'Schedule & results', href: `${base}/schedule`, description: 'for phones; pick your team' },
+                            { label: 'Rankings', href: `${base}/rankings` },
                             { label: 'Elimination bracket', href: `${base}/elimination/bracket` },
                         ]}
                     />

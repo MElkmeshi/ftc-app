@@ -11,6 +11,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GameController;
+use App\Http\Controllers\MatchSheetController;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
@@ -98,7 +99,22 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('referee/display', function (EventLiveProps $live) {
             return Inertia::render('referee/display', ['rankings' => $live->rankings(), 'rankingMethod' => RankingMethod::current()->value]);
         })->name('referee.display');
+
+        Route::get('schedule', fn (EventLiveProps $live) => Inertia::render('public/schedule', ['matches' => $live->matches()]))->name('schedule');
+
+        Route::get('rankings', fn (EventLiveProps $live) => Inertia::render('public/rankings', [
+            'rankings' => $live->rankings(),
+            'rankingMethod' => RankingMethod::current()->value,
+            'progress' => $live->qualificationProgress(),
+        ]))->name('rankings');
+
+        Route::get('matches/{match}', [MatchSheetController::class, 'show'])->whereNumber('match')->name('matches.sheet');
     });
+
+    Route::get('matches/{match}/history', [MatchSheetController::class, 'history'])
+        ->whereNumber('match')
+        ->middleware(['auth', 'can:control-matches'])
+        ->name('matches.history');
 
     Route::get('match-control', function (EventLiveProps $live) {
         return Inertia::render('match-control/index', [
