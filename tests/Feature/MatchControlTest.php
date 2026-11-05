@@ -103,6 +103,15 @@ it('ends an ongoing match', function () {
     });
 });
 
+it('keeps the action but drops the match from a status broadcast too big for one Reverb message', function () {
+    config(['reverb.servers.reverb.max_request_size' => 2_100]);
+    $match = CompetitionMatch::factory()->create();
+
+    $payload = (new MatchStatusChanged($match, 'ended'))->broadcastWith();
+
+    expect($payload)->toBe(['match_id' => $match->id, 'action' => 'ended']);
+});
+
 it('cancels an ongoing match and resets to upcoming', function () {
     Event::fake();
 

@@ -1,6 +1,6 @@
 import { apiScope, eventChannel } from '@/lib/event';
 import { applyScoreCount } from '@/lib/score-count';
-import { CompetitionMatch, MatchStatusChangedEvent, RefereeRole, ScoreTarget, ScoreType, ScoreUpdatedEvent } from '@/types';
+import { CompetitionMatch, MatchBroadcast, MatchStatusChangedEvent, RefereeRole, ScoreTarget, ScoreType, ScoreUpdatedEvent } from '@/types';
 import { useEchoPublic } from '@laravel/echo-react';
 import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
@@ -22,16 +22,23 @@ async function cacheMatch(queryClient: QueryClient, match: CompetitionMatch) {
     });
 }
 
+/** The broadcast match itself, or the match fetched by id when it was too big to broadcast. */
+export function matchFromBroadcast(event: MatchBroadcast, getMatch: (id: number) => Promise<CompetitionMatch>): Promise<CompetitionMatch> {
+    return event.match ? Promise.resolve(event.match) : getMatch(event.match_id);
+}
+
 export function useMatches(refetchInterval?: number) {
     const api = useApi();
     const queryClient = useQueryClient();
-    useEchoPublic<MatchStatusChangedEvent>(eventChannel('match-control'), 'MatchStatusChanged', ({ match, action }) => {
-        cacheMatch(queryClient, match);
-        if (action === 'loaded') {
-            queryClient.setQueryData(['loaded-match'], match);
-        } else if (action === 'started') {
-            queryClient.setQueryData(['loaded-match'], null);
-        }
+    useEchoPublic<MatchStatusChangedEvent>(eventChannel('match-control'), 'MatchStatusChanged', (event) => {
+        void matchFromBroadcast(event, api.getMatch).then((match) => {
+            cacheMatch(queryClient, match);
+            if (event.action === 'loaded') {
+                queryClient.setQueryData(['loaded-match'], match);
+            } else if (event.action === 'started') {
+                queryClient.setQueryData(['loaded-match'], null);
+            }
+        });
     });
     return useQuery<CompetitionMatch[]>({
         queryKey: ['matches'],
@@ -44,12 +51,11 @@ export function useMatches(refetchInterval?: number) {
 export function useMatch(id: number | null, refetchInterval?: number) {
     const api = useApi();
     const queryClient = useQueryClient();
-    useEchoPublic<ScoreUpdatedEvent>(id ? eventChannel(`matches.${id}`) : '', 'ScoreUpdated', ({ match }) => {
-        if (match.id === id) cacheMatch(queryClient, match);
-    });
-    useEchoPublic<MatchStatusChangedEvent>(id ? eventChannel(`matches.${id}`) : '', 'MatchStatusChanged', ({ match }) => {
-        if (match.id === id) cacheMatch(queryClient, match);
-    });
+    const applyBroadcast = (event: MatchBroadcast) => {
+        if (event.match_id === id) void matchFromBroadcast(event, api.getMatch).then((match) => cacheMatch(queryClient, match));
+    };
+    useEchoPublic<ScoreUpdatedEvent>(id ? eventChannel(`matches.${id}`) : '', 'ScoreUpdated', applyBroadcast);
+    useEchoPublic<MatchStatusChangedEvent>(id ? eventChannel(`matches.${id}`) : '', 'MatchStatusChanged', applyBroadcast);
     return useQuery<CompetitionMatch>({
         queryKey: ['matches', id],
         queryFn: () => (id ? api.getMatch(id) : Promise.reject()),

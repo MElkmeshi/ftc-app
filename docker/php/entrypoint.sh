@@ -16,8 +16,13 @@ php artisan package:discover --ansi
 # starting concurrently don't race each other to migrate the same database.
 if [ "${CONTAINER_ROLE:-app}" = "app" ]; then
     php artisan migrate --force
-    php artisan config:cache
     php artisan route:cache
+    php artisan view:cache
 fi
+
+# Each container has its own bootstrap/cache, so every role caches its own
+# config and event listeners (the queue worker and Reverb read them too).
+php artisan config:cache
+php artisan event:cache
 
 exec "$@"

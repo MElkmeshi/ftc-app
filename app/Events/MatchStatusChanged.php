@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\CompetitionMatch;
+use App\Support\MatchBroadcastPayload;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
@@ -36,13 +37,10 @@ class MatchStatusChanged implements ShouldBroadcastNow
     }
 
     /**
-     * @return array{match: CompetitionMatch, action: string}
+     * @return array{match_id: int, action: string, match?: CompetitionMatch}
      */
     public function broadcastWith(): array
     {
-        return [
-            'match' => $this->match,
-            'action' => $this->action,
-        ];
+        return MatchBroadcastPayload::for($this->match, ['action' => $this->action]);
     }
 }

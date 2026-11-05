@@ -3,13 +3,14 @@
 namespace App\Events;
 
 use App\Models\CompetitionMatch;
+use App\Support\MatchBroadcastPayload;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Events\ShouldDispatchAfterCommit;
 use Illuminate\Queue\SerializesModels;
 
-class ScoreUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
+class ScoreUpdated implements ShouldBroadcastNow, ShouldDispatchAfterCommit
 {
     use InteractsWithSockets, SerializesModels;
 
@@ -37,10 +38,11 @@ class ScoreUpdated implements ShouldBroadcast, ShouldDispatchAfterCommit
         ];
     }
 
+    /**
+     * @return array{match_id: int, match?: CompetitionMatch}
+     */
     public function broadcastWith(): array
     {
-        return [
-            'match' => $this->match,
-        ];
+        return MatchBroadcastPayload::for($this->match);
     }
 }

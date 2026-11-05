@@ -38,7 +38,7 @@ export function StreamOverlayScreen({ playSound }: { playSound?: (name: SoundNam
         queryClient.invalidateQueries({ queryKey: ['matches'] });
         queryClient.invalidateQueries({ queryKey: ['active-match'] });
 
-        if (event.action === 'loaded') {
+        if (event.action === 'loaded' && event.match) {
             queryClient.setQueryData(['loaded-match'], event.match);
         } else {
             queryClient.invalidateQueries({ queryKey: ['loaded-match'] });

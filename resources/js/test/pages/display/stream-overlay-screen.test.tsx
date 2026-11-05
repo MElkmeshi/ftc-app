@@ -95,7 +95,7 @@ describe('MatchOverlay', () => {
         const loaded = makeMatch({ id: 5, number: 7, status: 'upcoming' });
 
         act(() => {
-            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match: loaded, action: 'loaded' } satisfies MatchStatusChangedEvent);
+            echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: loaded.id, match: loaded, action: 'loaded' } satisfies MatchStatusChangedEvent);
         });
 
         expect(await screen.findByText('Ready')).toBeInTheDocument();

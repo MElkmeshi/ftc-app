@@ -219,14 +219,17 @@ export interface ScoreTarget {
 
 export type MatchPhase = 'pre-match' | 'autonomous' | 'transition' | 'teleop' | 'endgame' | 'post-match';
 
-export interface MatchStatusChangedEvent {
-    match: CompetitionMatch;
+/** `match` is left out when the whole match would not fit in one Reverb message; refetch it by `match_id`. */
+export interface MatchBroadcast {
+    match_id: number;
+    match?: CompetitionMatch;
+}
+
+export interface MatchStatusChangedEvent extends MatchBroadcast {
     action: 'started' | 'ended' | 'cancelled' | 'loaded' | 'scheduled';
 }
 
-export interface ScoreUpdatedEvent {
-    match: CompetitionMatch;
-}
+export type ScoreUpdatedEvent = MatchBroadcast;
 
 export interface TeamDisplay {
     team_id: number;

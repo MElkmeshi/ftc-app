@@ -47,7 +47,7 @@ describe('match synchronization', () => {
         const { result } = renderHook(() => useMatch(1, 15000), { wrapper: Wrapper });
         await waitFor(() => expect(result.current.data?.id).toBe(1));
         const updated = makeMatch(10);
-        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match: updated }));
+        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match_id: updated.id, match: updated }));
         await waitFor(() => expect(result.current.data?.match_alliances[0].score).toBe(10));
         expect(client.getQueryData(['matches', 1])).toEqual(updated);
         expect(api.getMatch).toHaveBeenCalledTimes(1);
@@ -65,17 +65,30 @@ describe('match synchronization', () => {
         );
         const { result } = renderHook(() => useMatch(1, 15000), { wrapper: Wrapper });
         await waitFor(() => expect(result.current.data?.id).toBe(1));
-        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match: makeMatch(10) }));
+        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match_id: 1, match: makeMatch(10) }));
         await waitFor(() => expect(result.current.data?.match_alliances[0].score).toBe(10));
         await act(async () => finish(makeMatch()));
         expect(client.getQueryData<CompetitionMatch>(['matches', 1])?.match_alliances[0].score).toBe(10);
+    });
+
+    it('fetches the match when the score event was too big to carry it', async () => {
+        const { client, Wrapper } = renderWithQueryClient(() => null);
+        const { result } = renderHook(() => useMatch(1, 15000), { wrapper: Wrapper });
+        await waitFor(() => expect(result.current.data?.id).toBe(1));
+        api.getMatch.mockResolvedValue(makeMatch(10));
+
+        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match_id: 1 }));
+
+        await waitFor(() => expect(result.current.data?.match_alliances[0].score).toBe(10));
+        expect(client.getQueryData(['matches', 1])).toEqual(makeMatch(10));
+        expect(api.getMatch).toHaveBeenCalledTimes(2);
     });
 
     it('ignores a score payload for a different selected match', async () => {
         const { Wrapper } = renderWithQueryClient(() => null);
         const { result } = renderHook(() => useMatch(1), { wrapper: Wrapper });
         await waitFor(() => expect(result.current.data?.id).toBe(1));
-        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match: { ...makeMatch(99), id: 2 } }));
+        act(() => echo.emit('event.testevent.matches.1', 'ScoreUpdated', { match_id: 2, match: { ...makeMatch(99), id: 2 } }));
         expect(result.current.data?.id).toBe(1);
         expect(result.current.data?.match_alliances[0].score).toBe(0);
     });
@@ -85,7 +98,7 @@ describe('match synchronization', () => {
         client.setQueryData(['active-match'], makeMatch());
         const { result } = renderHook(() => useMatches(), { wrapper: Wrapper });
         await waitFor(() => expect(result.current.data?.[0].id).toBe(1));
-        act(() => echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match: { ...makeMatch(), status: 'completed' }, action: 'ended' }));
+        act(() => echo.emit('event.testevent.match-control', 'MatchStatusChanged', { match_id: 1, match: { ...makeMatch(), status: 'completed' }, action: 'ended' }));
         await waitFor(() => expect(result.current.data?.[0].status).toBe('completed'));
         expect(client.getQueryData(['active-match'])).toBeNull();
         expect(api.getMatches).toHaveBeenCalledTimes(1);

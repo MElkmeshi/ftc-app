@@ -243,6 +243,16 @@ it('broadcasts the complete score history and score types', function () {
     });
 });
 
+it('broadcasts only the match id once the match no longer fits in one Reverb message', function () {
+    Event::fake([ScoreUpdated::class]);
+
+    $this->putJson('/api/scores/count', [
+        'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id, 'count' => 40,
+    ])->assertOk()->assertJsonCount(40, 'match.scores');
+
+    Event::assertDispatched(ScoreUpdated::class, fn (ScoreUpdated $event): bool => $event->broadcastWith() === ['match_id' => $this->match->id]);
+});
+
 it('rolls back the total when deleting a score fails', function () {
     $scoreId = $this->postJson('/api/scores', [
         'match_id' => $this->match->id, 'team_id' => $this->team->id, 'score_type_id' => $this->scoreType->id,

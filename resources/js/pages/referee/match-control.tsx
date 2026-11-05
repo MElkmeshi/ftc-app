@@ -2,7 +2,7 @@ import { AudioUnlockPrompt } from '@/components/audio-unlock-prompt';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useApi } from '@/hooks/use-api';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
-import { useLoadedMatch, useMatch } from '@/hooks/use-match';
+import { matchFromBroadcast, useLoadedMatch, useMatch } from '@/hooks/use-match';
 import { determineWinner, formatTime, getAllianceMembers, getAllianceScore, getPhaseColors, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type MatchStatusChangedEvent } from '@/types';
@@ -80,24 +80,28 @@ export default function MatchControl() {
     }, [loadedMatch, activeMatch, winnerState]);
 
     // Primary sync path: the server broadcasts every match-control action as it
-    // happens, carrying the full match (final scores included on 'ended'), so the
-    // client never needs to poll or guess at state — it just applies the event.
+    // happens, carrying the full match (final scores included on 'ended') unless
+    // it is too big for one message, in which case the client fetches it by id.
     useEchoPublic<MatchStatusChangedEvent>(eventChannel('match-control'), 'MatchStatusChanged', (event) => {
         queryClient.invalidateQueries({ queryKey: ['matches'] });
         queryClient.invalidateQueries({ queryKey: ['active-match'] });
 
         switch (event.action) {
             case 'loaded':
-                queryClient.setQueryData(['loaded-match'], event.match);
+                if (event.match) {
+                    queryClient.setQueryData(['loaded-match'], event.match);
+                } else {
+                    queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
+                }
                 break;
             case 'started':
                 queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
                 setWinnerState(null);
                 break;
             case 'ended':
-                if (lastEndedMatchRef.current !== event.match.id) {
-                    lastEndedMatchRef.current = event.match.id;
-                    setWinnerState(winnerStateFrom(event.match));
+                if (lastEndedMatchRef.current !== event.match_id) {
+                    lastEndedMatchRef.current = event.match_id;
+                    matchFromBroadcast(event, api.getMatch).then((match) => setWinnerState(winnerStateFrom(match)));
                 }
                 break;
             case 'cancelled':
