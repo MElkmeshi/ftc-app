@@ -41,6 +41,8 @@ class EventArchive
         'groups' => [],
         'score_types' => ['group_id' => 'groups'],
         'teams' => [],
+        'awards' => [],
+        'award_winners' => ['award_id' => 'awards', 'team_id' => 'teams'],
         'alliance_groups' => ['captain_team_id' => 'teams', 'picked_team_id' => 'teams', 'pending_team_id' => 'teams'],
         'elimination_series' => ['alliance_group_1_id' => 'alliance_groups', 'alliance_group_2_id' => 'alliance_groups', 'winner_alliance_group_id' => 'alliance_groups'],
         'matches' => ['elimination_series_id' => 'elimination_series'],

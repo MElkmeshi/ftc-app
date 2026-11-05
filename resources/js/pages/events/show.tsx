@@ -125,6 +125,7 @@ export default function EventShow() {
                             { label: 'Teams', href: `${base}/admin/teams` },
                             { label: 'Connect devices', href: `${base}/connect`, description: 'QR codes for phones, tablets and displays' },
                             { label: 'Reports', href: `${base}/reports`, description: 'cycle times and printouts' },
+                            { label: 'Awards', href: `${base}/admin/awards`, description: 'enter winners and present them' },
                         ]}
                     />
                 </LinkSection>

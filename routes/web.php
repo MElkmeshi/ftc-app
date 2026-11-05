@@ -9,6 +9,7 @@ use App\Events\EliminationBracketUpdated;
 use App\Events\MatchStatusChanged;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Api\EventArchiveController;
+use App\Http\Controllers\AwardController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\MatchSheetController;
@@ -131,7 +132,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         return Inertia::render('match-control/index', [
             'matches' => $live->matches(),
             'display' => $live->audienceDisplay(),
-            'displayModes' => array_map(fn (DisplayMode $mode): array => ['value' => $mode->value, 'label' => $mode->label()], DisplayMode::cases()),
+            'displayModes' => array_map(fn (DisplayMode $mode): array => ['value' => $mode->value, 'label' => $mode->label()], DisplayMode::switchable()),
         ]);
     })->middleware(['auth', 'can:control-matches'])->name('match-control');
 
@@ -215,6 +216,16 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         })->middleware('can:manage-competition')->name('admin.alliance-selection');
 
         Route::get('admin/competition-settings', [GameController::class, 'settings'])->middleware('can:manage-competition')->name('admin.competition-settings');
+
+        Route::middleware('can:manage-competition')->group(function () {
+            Route::get('admin/awards', [AwardController::class, 'index'])->name('awards.index');
+            Route::post('awards', [AwardController::class, 'store'])->name('awards.store');
+            Route::put('awards/lock', [AwardController::class, 'lock'])->name('awards.lock');
+            Route::delete('awards/presenting', [AwardController::class, 'stopPresenting'])->name('awards.stop-presenting');
+            Route::put('awards/{award}', [AwardController::class, 'update'])->whereNumber('award')->name('awards.update');
+            Route::delete('awards/{award}', [AwardController::class, 'destroy'])->whereNumber('award')->name('awards.destroy');
+            Route::post('awards/{award}/present', [AwardController::class, 'present'])->whereNumber('award')->name('awards.present');
+        });
 
     });
 });

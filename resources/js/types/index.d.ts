@@ -71,7 +71,21 @@ export interface GameSummary extends GameLook {
 }
 
 /** A competition hosted on this server (named to avoid clashing with the DOM `Event`). */
-export type DisplayModeValue = 'blank' | 'preview' | 'match' | 'results' | 'rankings' | 'bracket' | 'alliance_selection' | 'message';
+export type DisplayModeValue = 'blank' | 'preview' | 'match' | 'results' | 'rankings' | 'bracket' | 'alliance_selection' | 'message' | 'award';
+
+export interface AwardRecipient {
+    team_number: string | null;
+    team_name: string | null;
+    recipient: string | null;
+}
+
+export interface PresentedAward {
+    id: number;
+    name: string;
+    description: string | null;
+    places: number;
+    revealed: { place: number; winners: AwardRecipient[] }[];
+}
 
 /** What every audience display is showing, as chosen in match control. */
 export interface AudienceDisplayState {
@@ -80,6 +94,7 @@ export interface AudienceDisplayState {
     /** The text for the message screen (kept after switching away, so it can be shown again). */
     message?: string | null;
     changed_at: string | null;
+    award?: PresentedAward | null;
 }
 
 /** A display screen that is open right now, as listed in match control. */

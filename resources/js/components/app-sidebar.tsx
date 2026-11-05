@@ -4,6 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    Award,
     BarChart3,
     CalendarRange,
     ClipboardCheck,
@@ -44,6 +45,7 @@ const setupNavItems: NavItem[] = [
     { title: 'Teams', href: '/admin/teams', icon: Users },
     { title: 'Score Types', href: '/admin/score-types', icon: ListChecks },
     { title: 'Alliance Selection', href: '/admin/alliance-selection', icon: Swords },
+    { title: 'Awards', href: '/admin/awards', icon: Award },
     { title: 'Match Timing', href: '/admin/competition-settings', icon: Settings },
 ];
 

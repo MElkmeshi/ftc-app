@@ -16,6 +16,7 @@ enum DisplayMode: string
     case Bracket = 'bracket';
     case AllianceSelection = 'alliance_selection';
     case Message = 'message';
+    case Award = 'award';
 
     public function label(): string
     {
@@ -28,7 +29,19 @@ enum DisplayMode: string
             self::Bracket => 'Playoff bracket',
             self::AllianceSelection => 'Alliance selection',
             self::Message => 'Message',
+            self::Award => 'Award',
         };
+    }
+
+    /**
+     * Modes match control can switch to directly. An award is presented from
+     * the awards page, one place at a time.
+     *
+     * @return list<self>
+     */
+    public static function switchable(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $mode): bool => $mode !== self::Award));
     }
 
     /**

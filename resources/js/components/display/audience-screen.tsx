@@ -1,4 +1,5 @@
 import { TeamChip } from '@/components/audience/team-chip';
+import { AwardScreen } from '@/components/display/award-screen';
 import { GameBackground, GameLogo, useGameLook } from '@/components/game-look';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { type SoundName } from '@/hooks/use-audio-engine';
@@ -256,6 +257,8 @@ export function AudienceScreen({ playSound }: { playSound?: (name: SoundName) =>
             return <AllianceSelectionDisplay />;
         case 'message':
             return display?.message ? <MessageScreen message={display.message} /> : <BlankScreen />;
+        case 'award':
+            return display?.award ? <AwardScreen award={display.award} /> : <BlankScreen />;
         default:
             return <BlankScreen />;
     }
