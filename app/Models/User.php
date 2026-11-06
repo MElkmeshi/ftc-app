@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -46,5 +47,20 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * FTC Live's passwordless default user for a role ("local" for the admin),
+     * created on first use and kept on that role.
+     */
+    public static function defaultFor(UserRole $role): self
+    {
+        $user = self::query()->firstOrCreate(
+            ['email' => "local-{$role->value}@localhost"],
+            ['name' => $role === UserRole::Admin ? 'local' : "local {$role->label()}", 'password' => Str::random(64)],
+        );
+        $user->forceFill(['role' => $role, 'email_verified_at' => $user->email_verified_at ?? now()])->save();
+
+        return $user;
     }
 }

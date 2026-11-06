@@ -29,6 +29,8 @@ export default function Login({ status, canResetPassword, localSignIn }: LoginPr
         remember: false,
     });
 
+    const isDefaultUser = localSignIn && data.email.trim().toLowerCase() === 'local';
+
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         post(route('login'), {
@@ -54,17 +56,17 @@ export default function Login({ status, canResetPassword, localSignIn }: LoginPr
             <form className="flex flex-col gap-4" onSubmit={submit}>
                 <div className="grid gap-3">
                     <div className="grid gap-2">
-                        <Label htmlFor="email">Email:</Label>
+                        <Label htmlFor="email">{localSignIn ? 'Username or Email:' : 'Email:'}</Label>
                         <Input
                             id="email"
-                            type="email"
+                            type={localSignIn ? 'text' : 'email'}
                             required
                             autoFocus
                             tabIndex={1}
-                            autoComplete="email"
+                            autoComplete="username"
                             value={data.email}
                             onChange={(e) => setData('email', e.target.value)}
-                            placeholder="Enter email"
+                            placeholder={localSignIn ? 'Enter username or email' : 'Enter email'}
                         />
                         <InputError message={errors.email} />
                     </div>
@@ -81,7 +83,7 @@ export default function Login({ status, canResetPassword, localSignIn }: LoginPr
                         <Input
                             id="password"
                             type="password"
-                            required
+                            required={!isDefaultUser}
                             tabIndex={2}
                             autoComplete="current-password"
                             value={data.password}

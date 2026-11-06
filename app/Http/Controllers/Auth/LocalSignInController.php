@@ -8,7 +8,6 @@ use App\Http\Requests\LocalSignInRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,12 +32,7 @@ class LocalSignInController extends Controller
     {
         abort_unless(config('competition.local_sign_in'), 404);
 
-        $role = UserRole::from($request->validated('role'));
-        $user = User::query()->firstOrCreate(
-            ['email' => "local-{$role->value}@localhost"],
-            ['name' => $role === UserRole::Admin ? 'local' : "local {$role->label()}", 'password' => Str::random(64)],
-        );
-        $user->forceFill(['role' => $role, 'email_verified_at' => $user->email_verified_at ?? now()])->save();
+        $user = User::defaultFor(UserRole::from($request->validated('role')));
 
         Auth::login($user);
         $request->session()->regenerate();

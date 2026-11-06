@@ -42,3 +42,20 @@ it('refuses an unknown or viewer default user', function () {
 
     $this->assertGuest();
 });
+
+it('signs in as the admin default user by typing local with no password', function () {
+    config(['competition.local_sign_in' => true]);
+
+    $this->post('/login', ['email' => 'local', 'password' => ''])->assertRedirect(route('home', absolute: false));
+
+    expect(auth()->user())->name->toBe('local')->role->toBe(UserRole::Admin);
+});
+
+it('treats local as a bad email when default users are off', function () {
+    config(['competition.local_sign_in' => false]);
+
+    $this->post('/login', ['email' => 'local', 'password' => ''])->assertSessionHasErrors(['email', 'password']);
+
+    $this->assertGuest();
+    expect(User::query()->count())->toBe(0);
+});
