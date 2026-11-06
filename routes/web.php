@@ -23,6 +23,7 @@ use App\Models\Alliance;
 use App\Models\CompetitionMatch;
 use App\Models\Game;
 use App\Models\MatchAlliance;
+use App\Models\Sponsor;
 use App\Models\Team;
 use App\Services\CurrentEvent;
 use App\Services\EventSetupChecklist;
@@ -88,6 +89,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
                 'rankingMethod' => RankingMethod::current()->value,
                 'bracket' => $live->bracket(),
                 'matches' => $live->matches(),
+                'sponsors' => fn () => Sponsor::query()->orderBy('position')->get(),
             ]);
         })->name('display');
 

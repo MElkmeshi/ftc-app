@@ -31,6 +31,7 @@ class ConnectedDisplayController extends Controller
             'flipped' => (bool) $config['flipped'],
             'field' => isset($config['field']) ? (int) $config['field'] : null,
             'name' => $config['name'] ?? null,
+            'color' => $config['color'] ?? null,
         ], (int) $request->validated('config_version', 0));
 
         return $pending !== null ? response()->json($pending) : response()->noContent();

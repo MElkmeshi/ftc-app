@@ -7,9 +7,9 @@ namespace App\Support;
  */
 class DisplayConfigRules
 {
-    public const TYPES = ['audience', 'field', 'pit', 'overlay'];
+    public const TYPES = ['audience', 'field', 'pit', 'overlay', 'sponsor'];
 
-    public const KEYS = ['type', 'mute', 'flipped', 'field', 'name'];
+    public const KEYS = ['type', 'mute', 'flipped', 'field', 'name', 'color'];
 
     /**
      * @return array<string, list<string>>
@@ -24,6 +24,7 @@ class DisplayConfigRules
             'flipped' => [$presence, 'boolean'],
             'field' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:8'],
             'name' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ];
     }
 }

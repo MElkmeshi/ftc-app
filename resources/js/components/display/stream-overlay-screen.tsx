@@ -25,7 +25,7 @@ const PHASE_STYLE: Record<MatchPhase, { icon: typeof Bot; accent: string; bar: s
     'post-match': { icon: Radio, accent: 'text-white/60', bar: 'bg-white/50', ring: 'ring-white/30', glow: 'shadow-white/10' },
 };
 
-export function StreamOverlayScreen({ playSound }: { playSound?: (name: SoundName) => void }) {
+export function StreamOverlayScreen({ playSound, chromaColor = '#00ff00' }: { playSound?: (name: SoundName) => void; chromaColor?: string }) {
     const queryClient = useQueryClient();
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound });
     // Safety-net poll — MatchStatusChanged (below) is the primary sync path; this only
@@ -93,7 +93,7 @@ export function StreamOverlayScreen({ playSound }: { playSound?: (name: SoundNam
             <Head title="Stream Overlay" />
 
             {/* Chroma key field — keep this region pure #00ff00, nothing opaque may sit inside it */}
-            <div className="relative h-[75vh] w-full bg-[#00ff00]">
+            <div className="relative h-[75vh] w-full" style={{ backgroundColor: chromaColor }}>
                 {/* Match tag straddles the seam so it reads as one HUD, not two stacked boxes */}
                 {displayMatch && (
                     <div className="absolute bottom-0 left-1/2 z-10 -translate-x-1/2 translate-y-1/2">

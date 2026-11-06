@@ -3,7 +3,7 @@
  * same /display page and picks its own type; the choice lives in the page
  * address so a bookmark or a reload keeps it.
  */
-export type DisplayType = 'audience' | 'field' | 'pit' | 'overlay';
+export type DisplayType = 'audience' | 'field' | 'pit' | 'overlay' | 'sponsor';
 
 export interface DisplayConfig {
     type: DisplayType;
@@ -14,6 +14,8 @@ export interface DisplayConfig {
     field: number | null;
     /** A label so the screen can be told apart in match control, e.g. "Pit TV 2". */
     name: string | null;
+    /** The chroma key colour behind a stream overlay. */
+    color: string | null;
 }
 
 export interface DisplayTypeOption {
@@ -54,9 +56,18 @@ export const DISPLAY_TYPES: DisplayTypeOption[] = [
         playsSound: true,
         canFlip: false,
     },
+    {
+        value: 'sponsor',
+        label: 'Sponsor',
+        description: "Cycles through the event's sponsors.",
+        playsSound: false,
+        canFlip: false,
+    },
 ];
 
-export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = { type: 'audience', mute: false, flipped: false, field: null, name: null };
+export const DEFAULT_OVERLAY_COLOR = '#00ff00';
+
+export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = { type: 'audience', mute: false, flipped: false, field: null, name: null, color: null };
 
 export function displayTypeOption(type: DisplayType): DisplayTypeOption {
     return DISPLAY_TYPES.find((option) => option.value === type) ?? DISPLAY_TYPES[0];
@@ -75,6 +86,7 @@ export function parseDisplayConfig(search: string): DisplayConfig {
     const params = new URLSearchParams(search);
     const type = params.get('type');
     const field = Number(params.get('field'));
+    const color = params.get('color');
 
     return {
         type: isDisplayType(type) ? type : DEFAULT_DISPLAY_CONFIG.type,
@@ -82,6 +94,7 @@ export function parseDisplayConfig(search: string): DisplayConfig {
         flipped: params.get('flipped') === '1',
         field: Number.isInteger(field) && field >= 1 ? field : null,
         name: params.get('name')?.trim().slice(0, 40) || null,
+        color: color && /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : null,
     };
 }
 
@@ -100,6 +113,10 @@ export function displayConfigQuery(config: DisplayConfig): string {
 
     if (config.field && option.canFlip) {
         params.set('field', String(config.field));
+    }
+
+    if (config.type === 'overlay' && config.color && config.color !== DEFAULT_OVERLAY_COLOR) {
+        params.set('color', config.color);
     }
 
     if (config.name?.trim()) {

@@ -7,6 +7,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 uses(RefreshDatabase::class);
 
 it('keeps the default users hidden unless the server turns them on', function () {
+    config(['competition.local_sign_in' => false]);
+
     $this->get('/login')->assertInertia(fn ($page) => $page->where('localSignIn', false));
     $this->get('/login/local')->assertNotFound();
     $this->post('/login/local', ['role' => 'admin'])->assertNotFound();

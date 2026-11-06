@@ -45,11 +45,12 @@ describe('Display', () => {
         inertia.url = '/event/main/display';
         render(<Display />);
 
-        expect(screen.getByText('Display settings')).toBeInTheDocument();
+        expect(screen.getByRole('dialog', { name: /Display Options/ })).toBeInTheDocument();
 
-        fireEvent.click(screen.getByRole('radio', { name: /Field/ }));
-        fireEvent.click(screen.getByLabelText('Swap sides (blue alliance on the left)'));
-        fireEvent.click(screen.getByRole('button', { name: 'Show on this screen' }));
+        fireEvent.change(screen.getByLabelText('Display Type'), { target: { value: 'field' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Advanced Settings' }));
+        fireEvent.change(screen.getByLabelText('Alliance Orientation'), { target: { value: 'flipped' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
         expect(inertia.get).toHaveBeenCalledWith(expect.stringMatching(/\?type=field&flipped=1$/), {}, expect.objectContaining({ replace: true }));
     });
@@ -59,7 +60,7 @@ describe('Display', () => {
         render(<Display />);
 
         expect(screen.getByText('field screen flipped')).toBeInTheDocument();
-        expect(screen.queryByText('Display settings')).not.toBeInTheDocument();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
     it('warns about blocked sound only on screens that play it', () => {
@@ -105,9 +106,9 @@ describe('Display', () => {
         inertia.url = '/event/main/display';
         const { unmount } = render(<Display />);
 
-        fireEvent.click(screen.getByRole('radio', { name: /Field.*drive teams/ }));
-        fireEvent.click(screen.getByRole('radio', { name: 'Field 2' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Show on this screen' }));
+        fireEvent.change(screen.getByLabelText('Display Type'), { target: { value: 'field' } });
+        fireEvent.change(screen.getByLabelText('Bind to Field'), { target: { value: '2' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
         expect(inertia.get).toHaveBeenCalledWith(expect.stringMatching(/\?type=field&field=2$/), {}, expect.anything());
         unmount();
@@ -121,9 +122,9 @@ describe('Display', () => {
         inertia.url = '/event/main/display';
         render(<Display />);
 
-        fireEvent.click(screen.getByRole('radio', { name: /Field.*drive teams/ }));
+        fireEvent.change(screen.getByLabelText('Display Type'), { target: { value: 'field' } });
 
-        expect(screen.queryByRole('radiogroup', { name: 'Field' })).not.toBeInTheDocument();
+        expect(screen.queryByLabelText('Bind to Field')).not.toBeInTheDocument();
     });
 
     it('switches when match control changes this screen remotely', () => {
@@ -133,5 +134,17 @@ describe('Display', () => {
         presence.onConfigured?.({ type: 'pit', mute: false, flipped: false, field: null, name: 'Pit TV' });
 
         expect(inertia.get).toHaveBeenCalledWith(expect.stringMatching(/\?type=pit&name=Pit\+TV$/), {}, expect.objectContaining({ replace: true }));
+    });
+
+    it('turns an audience screen into a stream overlay with its own chroma colour', () => {
+        inertia.url = '/event/testevent/display';
+        render(<Display />);
+
+        fireEvent.click(screen.getByLabelText('Use Overlay'));
+        fireEvent.click(screen.getByRole('button', { name: 'Overlay Settings' }));
+        fireEvent.change(screen.getByLabelText('Overlay colour picker'), { target: { value: '#0000ff' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(inertia.get).toHaveBeenCalledWith(expect.stringMatching(/\?type=overlay&color=%230000ff$/), {}, expect.anything());
     });
 });

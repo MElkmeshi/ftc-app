@@ -268,8 +268,7 @@ function ConnectedDisplays() {
                     open
                     onOpenChange={(open) => !open && setEditing(null)}
                     config={editing.config}
-                    description={`Changes apply to ${editing.config.name ?? 'this screen'} straight away.`}
-                    saveLabel="Update display"
+                    subtitle={editing.config.name ?? 'Unnamed display'}
                     onSave={(config) => configure([editing.id], config).then(() => setEditing(null))}
                 />
             )}

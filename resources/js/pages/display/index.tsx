@@ -3,12 +3,27 @@ import { AudienceScreen } from '@/components/display/audience-screen';
 import { DisplaySettings } from '@/components/display/display-settings';
 import { FieldScreen } from '@/components/display/field-screen';
 import { PitScreen } from '@/components/display/pit-screen';
+import { SponsorsScreen } from '@/components/display/sponsors-screen';
 import { StreamOverlayScreen } from '@/components/display/stream-overlay-screen';
 import { useAudioEngine } from '@/hooks/use-audio-engine';
 import { useDisplayPresence } from '@/hooks/use-display-presence';
-import { type DisplayConfig, displayConfigQuery, displayPlaysSound, isDisplayConfigured, parseDisplayConfig } from '@/lib/display-config';
-import { router, usePage } from '@inertiajs/react';
+import {
+    DEFAULT_OVERLAY_COLOR,
+    type DisplayConfig,
+    displayConfigQuery,
+    displayPlaysSound,
+    isDisplayConfigured,
+    parseDisplayConfig,
+} from '@/lib/display-config';
+import { type Sponsor } from '@/types';
+import { router, usePage, useProp } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
+
+function SponsorDisplay() {
+    const { value: sponsors = [] } = useProp<Sponsor[]>('sponsors');
+
+    return <SponsorsScreen sponsors={sponsors} />;
+}
 
 function DisplayScreen({ config, playSound }: { config: DisplayConfig; playSound?: ReturnType<typeof useAudioEngine>['playSound'] }) {
     switch (config.type) {
@@ -17,7 +32,9 @@ function DisplayScreen({ config, playSound }: { config: DisplayConfig; playSound
         case 'pit':
             return <PitScreen />;
         case 'overlay':
-            return <StreamOverlayScreen playSound={playSound} />;
+            return <StreamOverlayScreen playSound={playSound} chromaColor={config.color ?? DEFAULT_OVERLAY_COLOR} />;
+        case 'sponsor':
+            return <SponsorDisplay />;
         default:
             return <AudienceScreen playSound={playSound} />;
     }
@@ -56,7 +73,7 @@ export default function Display() {
             {/* Keyed by type and field so switching screens starts each one with fresh timers. */}
             <DisplayScreen key={`${config.type}-${config.field ?? 'all'}`} config={config} playSound={playsSound ? playSound : undefined} />
             {playsSound && !unlocked && <AudioUnlockPrompt />}
-            <DisplaySettings config={config} onChange={changeConfig} defaultOpen={!isDisplayConfigured(search)} />
+            <DisplaySettings config={config} onChange={changeConfig} defaultOpen={!isDisplayConfigured(search)} playSound={playSound} />
         </>
     );
 }

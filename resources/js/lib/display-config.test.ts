@@ -7,6 +7,7 @@ const config = (overrides: Partial<DisplayConfig>): DisplayConfig => ({
     flipped: false,
     field: null,
     name: null,
+    color: null,
     ...overrides,
 });
 
@@ -18,6 +19,7 @@ describe('display config', () => {
             flipped: true,
             field: 2,
             name: null,
+            color: null,
         });
     });
 
@@ -49,5 +51,13 @@ describe('display config', () => {
         expect(displayPlaysSound(config({}))).toBe(true);
         expect(displayPlaysSound(config({ mute: true }))).toBe(false);
         expect(displayPlaysSound(config({ type: 'pit' }))).toBe(false);
+    });
+
+    it('keeps a chosen chroma key colour only on a stream overlay', () => {
+        expect(displayConfigQuery(config({ type: 'overlay', color: '#0000ff' }))).toBe('?type=overlay&color=%230000ff');
+        expect(displayConfigQuery(config({ type: 'overlay', color: '#00ff00' }))).toBe('?type=overlay');
+        expect(displayConfigQuery(config({ type: 'audience', color: '#0000ff' }))).toBe('?type=audience');
+        expect(parseDisplayConfig('?type=overlay&color=%230000FF').color).toBe('#0000ff');
+        expect(parseDisplayConfig('?type=overlay&color=red').color).toBeNull();
     });
 });
