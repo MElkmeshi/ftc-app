@@ -122,6 +122,9 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
     Route::middleware(['auth', 'can:inspect-robots'])->group(function () {
         Route::get('inspection', [InspectionController::class, 'index'])->name('inspection.index');
         Route::put('inspection/checklist', [InspectionController::class, 'updateChecklist'])->middleware('can:manage-competition')->name('inspection.checklist');
+        Route::get('inspection/notes', [InspectionController::class, 'notes'])->name('inspection.notes');
+        Route::get('inspection/override', [InspectionController::class, 'override'])->middleware('can:manage-competition')->name('inspection.override');
+        Route::put('inspection/{team}/status', [InspectionController::class, 'overrideStatus'])->whereNumber('team')->middleware('can:manage-competition')->name('inspection.override-status');
         Route::get('inspection/{team}', [InspectionController::class, 'show'])->whereNumber('team')->name('inspection.show');
         Route::put('inspection/{team}', [InspectionController::class, 'update'])->whereNumber('team')->name('inspection.update');
     });

@@ -118,3 +118,45 @@ it('creates numbered inspector logins', function () {
     expect(User::query()->where('email', 'like', '%@officials.local')->pluck('email')->sort()->values()->all())
         ->toBe(['inspector1@officials.local', 'inspector2@officials.local']);
 });
+
+it('lets an admin set a team status without the checklist and keeps the notes', function () {
+    EventFacade::fake([InspectionUpdated::class]);
+    Inspection::factory()->create(['team_id' => $this->team->id, 'status' => InspectionStatus::Incomplete, 'notes' => 'Battery is loose']);
+    $admin = User::factory()->admin()->create();
+
+    $this->actingAs($admin)->put("/event/testevent/inspection/{$this->team->id}/status", ['status' => 'passed'])->assertSessionHasNoErrors();
+
+    $inspection = $this->team->inspection()->sole();
+    expect($inspection->status)->toBe(InspectionStatus::Passed)
+        ->and($inspection->notes)->toBe('Battery is loose')
+        ->and($inspection->updated_by)->toBe($admin->id);
+    EventFacade::assertDispatched(InspectionUpdated::class);
+});
+
+it('rejects an unknown override status', function () {
+    $this->actingAs(User::factory()->admin()->create())
+        ->put("/event/testevent/inspection/{$this->team->id}/status", ['status' => 'ready'])
+        ->assertSessionHasErrors('status');
+});
+
+it('keeps the override to admins', function () {
+    $this->actingAs($this->inspector)->get('/event/testevent/inspection/override')->assertForbidden();
+    $this->actingAs($this->inspector)->put("/event/testevent/inspection/{$this->team->id}/status", ['status' => 'passed'])->assertForbidden();
+
+    expect($this->team->inspection)->toBeNull();
+});
+
+it('lists every team with its inspection notes for inspectors', function () {
+    Inspection::factory()->create(['team_id' => $this->team->id, 'status' => InspectionStatus::Incomplete, 'notes' => 'Battery is loose']);
+    $notInspected = Team::factory()->create(['number' => 7]);
+
+    $this->actingAs($this->inspector)->get('/event/testevent/inspection/notes')->assertOk()->assertInertia(fn ($page) => $page
+        ->component('inspection/notes')
+        ->where('teams.0.id', $notInspected->id)
+        ->where('teams.0.notes', null)
+        ->where('teams.1.notes', 'Battery is loose')
+        ->where('teams.1.status', 'incomplete')
+    );
+
+    $this->actingAs(User::factory()->create(['role' => UserRole::HeadReferee]))->get('/event/testevent/inspection/notes')->assertForbidden();
+});

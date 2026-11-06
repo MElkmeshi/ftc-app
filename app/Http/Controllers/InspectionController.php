@@ -12,6 +12,7 @@ use App\Services\InspectionChecklist;
 use App\Support\LiveBroadcast;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\LiveProp;
 use Inertia\Response;
@@ -74,6 +75,47 @@ class InspectionController extends Controller
         $checklist->save(array_map(trim(...), $items));
 
         return back();
+    }
+
+    /**
+     * The lead inspector's page for setting any team's status directly,
+     * like FTC Live's inspection override.
+     */
+    public function override(): Response
+    {
+        return Inertia::render('inspection/override', ['teams' => $this->statuses()]);
+    }
+
+    public function overrideStatus(Request $request, Team $team): RedirectResponse
+    {
+        $status = $request->validate(['status' => ['required', Rule::enum(InspectionStatus::class)]])['status'];
+
+        Inspection::query()->updateOrCreate(['team_id' => $team->id], [
+            'status' => $status,
+            'updated_by' => $request->user()->id,
+        ]);
+
+        LiveBroadcast::send(new InspectionUpdated($this->currentEvent->require()->code, $team->id));
+
+        return back();
+    }
+
+    public function notes(): Response
+    {
+        return Inertia::render('inspection/notes', [
+            'teams' => Team::query()
+                ->with('inspection:id,team_id,status,notes')
+                ->get(['id', 'number', 'name'])
+                ->sortBy(fn (Team $team): int => (int) $team->number)
+                ->values()
+                ->map(fn (Team $team): array => [
+                    'id' => $team->id,
+                    'number' => $team->number,
+                    'name' => $team->name,
+                    'status' => ($team->inspection->status ?? InspectionStatus::NotStarted)->value,
+                    'notes' => $team->inspection?->notes,
+                ]),
+        ]);
     }
 
     /**

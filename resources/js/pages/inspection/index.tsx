@@ -80,11 +80,21 @@ export default function Inspection() {
                         <h1 className="text-2xl font-bold">Robot inspection</h1>
                         <p className="text-muted-foreground">{passedShare(teams)}% of teams have passed.</p>
                     </div>
-                    <Button variant="outline" asChild>
-                        <a href={`${base}/inspection/status`} target="_blank" rel="noreferrer">
-                            <Monitor className="mr-1 size-4" /> Status board
-                        </a>
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" asChild>
+                            <a href={`${base}/inspection/status`} target="_blank" rel="noreferrer">
+                                <Monitor className="mr-1 size-4" /> Status board
+                            </a>
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href={`${base}/inspection/notes`}>Notes report</Link>
+                        </Button>
+                        {auth.user?.role === 'admin' && (
+                            <Button variant="outline" asChild>
+                                <Link href={`${base}/inspection/override`}>Override</Link>
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 text-sm">
