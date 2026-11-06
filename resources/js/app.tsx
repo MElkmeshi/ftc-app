@@ -6,7 +6,6 @@ import { configureEcho, echo as echoInstance } from '@laravel/echo-react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
 import { route } from 'ziggy-js';
-import { initializeTheme } from './hooks/use-appearance';
 import { createVersionWatch } from './lib/app-version';
 import { clearCacheOnScopeChange } from './lib/event-scope-cache';
 import { watchReconnects } from './lib/realtime-recovery';
@@ -77,8 +76,5 @@ createInertiaApp({
         color: '#4B5563',
     },
 });
-
-// This will set light / dark mode on load...
-initializeTheme();
 
 startServerClockSync();

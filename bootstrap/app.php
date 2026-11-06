@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveEvent;
 use App\Http\Middleware\ResolveGame;
@@ -27,7 +26,6 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: env('TRUSTED_PROXIES'));
         $middleware->prepend(HandleCors::class);
-        $middleware->encryptCookies(except: ['appearance']);
 
         $middleware->alias(['event' => ResolveEvent::class, 'game' => ResolveGame::class]);
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: ResolveEvent::class);
@@ -35,7 +33,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             AuthenticateSession::class,
-            HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
