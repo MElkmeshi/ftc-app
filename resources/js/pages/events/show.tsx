@@ -93,7 +93,7 @@ function AccessNote() {
 
     if (!auth.user) {
         return (
-            <p className="mt-3 rounded-md border border-[#9eeaf9] bg-[#cff4fc] px-4 py-3 text-[#055160]">
+            <p className="mb-4 rounded-md border border-[#9eeaf9] bg-[#cff4fc] px-4 py-3 text-[#055160]">
                 You are viewing as a guest, so only public pages are listed.{' '}
                 <Link href="/login" className="underline">
                     Login
@@ -104,17 +104,17 @@ function AccessNote() {
     }
 
     return (
-        <p className="mt-3 rounded-md border border-[#a3cfbb] bg-[#d1e7dd] px-4 py-3 text-[#0a3622]">
+        <p className="mb-4 rounded-md border border-[#a3cfbb] bg-[#d1e7dd] px-4 py-3 text-[#0a3622]">
             Signed in as <strong>{auth.user.name}</strong> ({auth.role ?? 'User'}). The pages your account can open are listed below.
         </p>
     );
 }
 
-function MenuList({ entries }: { entries: MenuEntry[] }) {
+function MenuList({ entries, nested = false }: { entries: MenuEntry[]; nested?: boolean }) {
     return (
-        <ul className="list-disc pl-[7.5rem] max-sm:pl-10 [&_ul]:list-[circle] [&_ul]:pl-8">
+        <ul className={nested ? 'list-[circle] pl-8' : 'mb-4 ml-[calc(8.333%-10px)] list-disc px-3'}>
             {entries.map((entry) => (
-                <li key={entry.label} className="my-4">
+                <li key={entry.label} className="px-4 py-2">
                     {entry.href ? (
                         <Link href={entry.href} className="text-[#0d6efd] underline">
                             {entry.label}
@@ -122,7 +122,7 @@ function MenuList({ entries }: { entries: MenuEntry[] }) {
                     ) : (
                         entry.label
                     )}
-                    {entry.children && <MenuList entries={entry.children} />}
+                    {entry.children && <MenuList entries={entry.children} nested />}
                 </li>
             ))}
         </ul>
@@ -132,7 +132,7 @@ function MenuList({ entries }: { entries: MenuEntry[] }) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
     return (
         <section>
-            <h4 className="mt-6 text-2xl leading-tight font-medium">{title}</h4>
+            <h4 className="mb-2 text-2xl leading-[1.2] font-medium">{title}</h4>
             {children}
         </section>
     );
@@ -151,17 +151,18 @@ export default function EventShow() {
         <PublicLayout>
             <Head title={event.name} />
 
-            <h3 className="text-[1.75rem] leading-tight font-medium">
-                {event.code}: {event.name}
-            </h3>
-
-            <AccessNote />
-
-            {visibleSections(base, auth.can).map((section) => (
-                <Section key={section.title} title={section.title}>
-                    <MenuList entries={section.entries} />
-                </Section>
-            ))}
+            <div>
+                <h3 className="mb-2 text-[1.75rem] leading-[1.2] font-medium">
+                    {event.code}: {event.name}
+                </h3>
+                <br />
+                <AccessNote />
+                {visibleSections(base, auth.can).map((section) => (
+                    <Section key={section.title} title={section.title}>
+                        <MenuList entries={section.entries} />
+                    </Section>
+                ))}
+            </div>
         </PublicLayout>
     );
 }

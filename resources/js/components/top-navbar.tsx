@@ -59,11 +59,11 @@ export function TopNavbar() {
 
     return (
         <nav className="border-b-[5px] border-[#ff7761] bg-[#274555] px-4 pb-2 text-base print:hidden">
-            <div className="py-1.5 text-center text-white/90">
+            <div className="py-0.5 text-center text-[#ccc]">
                 <span className="italic">{name}</span> running at {host}
             </div>
             <div className="flex flex-wrap items-center gap-x-4">
-                <Link href={event ? `/event/${event.code}` : '/'} className="flex h-[60px] items-center gap-3 rounded-sm bg-white px-3 py-1">
+                <Link href={event ? `/event/${event.code}` : '/'} className="my-[5px] flex h-[60px] items-center gap-3 rounded-sm bg-white px-3 py-1">
                     <span className="flex size-10 items-center justify-center rounded-md bg-[#274555] text-white">
                         <AppLogoIcon className="size-6 fill-current" />
                     </span>
