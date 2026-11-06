@@ -2,50 +2,13 @@ import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { useMatch } from '@/hooks/use-match';
 import { useRefereeField } from '@/hooks/use-referee-field';
-import { useRefereeRole } from '@/hooks/use-referee-role';
 import { formatTime, getAllianceScore, getFieldLabel, getPhaseColors, getPhaseLabel } from '@/lib/match-utils';
 import { cn } from '@/lib/utils';
-import { type RefereeRole } from '@/types';
 
 interface MatchTimerBannerProps {
     showScores?: boolean;
     /** On a referee scoring page: offer the field picker and follow only that tablet's field. */
     forRefereeTablet?: boolean;
-    /** On an alliance scoring page: let the tablet choose between the scoring and the penalty referee. */
-    showRolePicker?: boolean;
-}
-
-const ROLE_CHOICES: { value: RefereeRole; label: string }[] = [
-    { value: 'scoring', label: 'Scoring' },
-    { value: 'penalty', label: 'Penalties' },
-];
-
-/** Each alliance can have two referees, like FTC Live: one scores, the other calls that alliance's fouls. */
-function RefereeRolePicker() {
-    const [role, setRole] = useRefereeRole();
-
-    return (
-        <div className="flex flex-wrap items-center gap-2">
-            <span className="text-muted-foreground text-sm font-medium">This tablet is the</span>
-            <div className="flex rounded-md border p-0.5" role="radiogroup" aria-label="Referee this tablet is">
-                {ROLE_CHOICES.map((choice) => (
-                    <button
-                        key={choice.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={role === choice.value}
-                        onClick={() => setRole(choice.value)}
-                        className={cn(
-                            'rounded px-3 py-1 text-sm font-medium',
-                            role === choice.value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-                        )}
-                    >
-                        {choice.label} referee
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
 }
 
 /**
@@ -86,7 +49,7 @@ function RefereeFieldPicker() {
     );
 }
 
-export function MatchTimerBanner({ showScores = true, forRefereeTablet = true, showRolePicker = false }: MatchTimerBannerProps) {
+export function MatchTimerBanner({ showScores = true, forRefereeTablet = true }: MatchTimerBannerProps) {
     const [tabletField] = useRefereeField();
     const refereeField = forRefereeTablet ? tabletField : null;
     const fieldCount = useFieldCount();
@@ -101,7 +64,6 @@ export function MatchTimerBanner({ showScores = true, forRefereeTablet = true, s
     return (
         <>
             {forRefereeTablet && <RefereeFieldPicker />}
-            {forRefereeTablet && showRolePicker && <RefereeRolePicker />}
             {isRunning && (
                 <TimerBar
                     timer={timer}

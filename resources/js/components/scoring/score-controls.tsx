@@ -1,36 +1,30 @@
-import { ScoreTypeIcon } from '@/components/game-look';
 import { type ScoreControl } from '@/lib/score-controls';
 import { cn } from '@/lib/utils';
-import { type ScoreType } from '@/types';
-import { Check } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
+import { type CSSProperties } from 'react';
 
-const formatName = (name: string) => name.replace(/_/g, ' ');
-const formatPoints = (points: number) => `${points > 0 ? '+' : ''}${points}`;
+export const formatScoreName = (name: string) => name.replace(/_/g, ' ');
 
 interface ControlProps {
     control: ScoreControl;
-    /** How many times a score type is recorded for this robot or alliance (0 or 1 for these controls). */
     countFor: (scoreTypeId: number) => number;
     onAdd: (scoreTypeId: number) => void;
     onRemove: (scoreTypeId: number) => void;
     disabled: boolean;
-    /** Classes for a chosen button, in the alliance's colour. */
-    selectedClassName: string;
+    color: string;
 }
 
-function OptionButton({
-    scoreType,
+function ToggleOption({
     label,
     selected,
     disabled,
-    selectedClassName,
+    color,
     onClick,
 }: {
-    scoreType?: ScoreType;
     label: string;
     selected: boolean;
     disabled: boolean;
-    selectedClassName: string;
+    color: string;
     onClick: () => void;
 }) {
     return (
@@ -39,63 +33,47 @@ function OptionButton({
             aria-pressed={selected}
             disabled={disabled}
             onClick={onClick}
+            style={{ '--toggle-color': color } as CSSProperties}
             className={cn(
-                'flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-md border-2 px-3 py-2 text-sm font-semibold transition disabled:opacity-60',
-                selected ? selectedClassName : 'border-border bg-background hover:bg-accent',
+                'min-h-[38px] flex-1 border border-(--toggle-color) px-3 py-1.5 capitalize transition-colors not-first:-ml-px first:rounded-l-md last:rounded-r-md disabled:opacity-65',
+                selected ? 'bg-(--toggle-color) text-white' : 'bg-white text-(--toggle-color) hover:bg-(--toggle-color) hover:text-white',
             )}
         >
-            {selected && <Check className="size-4 shrink-0" />}
-            {scoreType && <ScoreTypeIcon scoreType={scoreType} className="size-6" />}
-            <span className="leading-tight">{label}</span>
-            {scoreType && <span className="text-xs font-bold opacity-70">{formatPoints(scoreType.points)}</span>}
+            {label}
         </button>
     );
 }
 
 /**
- * A yes/no button, or a row of "one of" buttons with None first. Choosing an
- * option replaces the previous one on the server, so a robot can never be
- * scored for two options of the same choice.
+ * FTC Live's toggle: the score type's name, then a button group. A yes/no
+ * score type is No / Yes; a "one of" choice is None, then each option, and
+ * choosing one replaces the previous one on the server.
  */
-export function ScoreControlButtons({ control, countFor, onAdd, onRemove, disabled, selectedClassName }: ControlProps) {
-    if (control.kind === 'toggle') {
-        const scoreType = control.options[0];
-        const selected = countFor(scoreType.id) > 0;
-
-        return (
-            <OptionButton
-                scoreType={scoreType}
-                label={formatName(scoreType.name)}
-                selected={selected}
-                disabled={disabled}
-                selectedClassName={selectedClassName}
-                onClick={() => (selected ? onRemove(scoreType.id) : onAdd(scoreType.id))}
-            />
-        );
-    }
-
+export function ScoreControlButtons({ control, countFor, onAdd, onRemove, disabled, color }: ControlProps) {
+    const isToggle = control.kind === 'toggle';
     const chosen = control.options.find((option) => countFor(option.id) > 0);
+    const options = [
+        { key: 'none', label: isToggle ? 'No' : 'None', selected: !chosen, onClick: () => chosen && onRemove(chosen.id) },
+        ...control.options.map((option) => ({
+            key: String(option.id),
+            label: isToggle ? 'Yes' : formatScoreName(option.name),
+            selected: chosen?.id === option.id,
+            onClick: () => (chosen?.id === option.id ? onRemove(option.id) : onAdd(option.id)),
+        })),
+    ];
 
     return (
-        <div className="rounded-lg border p-2">
-            <p className="text-muted-foreground mb-2 px-1 text-xs font-semibold tracking-widest uppercase">{formatName(control.label)}</p>
-            <div className="flex flex-wrap gap-2">
-                <OptionButton
-                    label="None"
-                    selected={!chosen}
-                    disabled={disabled}
-                    selectedClassName={selectedClassName}
-                    onClick={() => chosen && onRemove(chosen.id)}
-                />
-                {control.options.map((option) => (
-                    <OptionButton
-                        key={option.id}
-                        scoreType={option}
-                        label={formatName(option.name)}
-                        selected={chosen?.id === option.id}
+        <div role="group" aria-label={formatScoreName(control.label)} className="mb-2 flex flex-wrap items-center gap-y-1">
+            <span className="w-1/3 pr-2 capitalize">{formatScoreName(control.label)}</span>
+            <div className="flex w-2/3 max-w-md">
+                {options.map((option) => (
+                    <ToggleOption
+                        key={option.key}
+                        label={option.label}
+                        selected={option.selected}
                         disabled={disabled}
-                        selectedClassName={selectedClassName}
-                        onClick={() => (chosen?.id === option.id ? onRemove(option.id) : onAdd(option.id))}
+                        color={color}
+                        onClick={option.onClick}
                     />
                 ))}
             </div>
@@ -103,84 +81,52 @@ export function ScoreControlButtons({ control, countFor, onAdd, onRemove, disabl
     );
 }
 
-export function ScoreControlList(props: Omit<ControlProps, 'control'> & { controls: ScoreControl[] }) {
-    const { controls, ...rest } = props;
-
-    if (controls.length === 0) {
-        return null;
-    }
-
-    return (
-        <div className="grid gap-2 sm:grid-cols-2">
-            {controls.map((control) => (
-                <div key={control.key} className={cn(control.kind === 'choice' && 'sm:col-span-2')}>
-                    <ScoreControlButtons control={control} {...rest} />
-                </div>
-            ))}
-        </div>
-    );
-}
-
-/**
- * Every yes/no and "one of" control of a score group: the alliance-wide
- * ones, then each robot's. Referee layouts drop this in under a group heading.
- */
-export function GroupScoreControls({
-    allianceControls,
-    teamControls,
-    allianceId,
-    teams,
-    getAllianceCount,
-    getTeamCount,
+/** FTC Live's counter: the label, then −, the count and + in the alliance colour. */
+export function ScoreCounter({
+    label,
+    value,
     onAdd,
     onRemove,
     disabled,
-    selectedClassName,
+    color,
 }: {
-    allianceControls: ScoreControl[];
-    teamControls: ScoreControl[];
-    allianceId: number;
-    teams: { id: number; name: string }[];
-    getAllianceCount: (scoreTypeId: number) => number;
-    getTeamCount: (scoreTypeId: number, teamId: number) => number;
-    onAdd: (scoreTypeId: number, target: { teamId?: number; allianceId?: number }) => void;
-    onRemove: (scoreTypeId: number, target: { teamId?: number; allianceId?: number }) => void;
+    label: string;
+    value: number;
+    onAdd: () => void;
+    onRemove: () => void;
     disabled: boolean;
-    selectedClassName: string;
+    color: string;
 }) {
-    if (allianceControls.length === 0 && teamControls.length === 0) {
-        return null;
-    }
-
     return (
-        <div className="mb-4 space-y-3">
-            {allianceControls.length > 0 && (
-                <div>
-                    <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">Alliance-wide</p>
-                    <ScoreControlList
-                        controls={allianceControls}
-                        countFor={getAllianceCount}
-                        onAdd={(id) => onAdd(id, { allianceId })}
-                        onRemove={(id) => onRemove(id, { allianceId })}
-                        disabled={disabled}
-                        selectedClassName={selectedClassName}
-                    />
-                </div>
-            )}
-            {teamControls.length > 0 &&
-                teams.map((team) => (
-                    <div key={team.id}>
-                        <p className="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">{team.name}</p>
-                        <ScoreControlList
-                            controls={teamControls}
-                            countFor={(id) => getTeamCount(id, team.id)}
-                            onAdd={(id) => onAdd(id, { teamId: team.id })}
-                            onRemove={(id) => onRemove(id, { teamId: team.id })}
-                            disabled={disabled}
-                            selectedClassName={selectedClassName}
-                        />
-                    </div>
-                ))}
+        <div className="mb-2 flex items-center gap-2">
+            <span className="flex-1 capitalize">{label}</span>
+            <div className="flex w-auto max-w-[275px]" role="group" aria-label={label}>
+                <button
+                    type="button"
+                    aria-label={`Remove ${label}`}
+                    disabled={disabled || value <= 0}
+                    onClick={onRemove}
+                    className="flex min-h-[46px] grow touch-manipulation items-center justify-center rounded-l-md bg-[#dddddd] px-3 text-2xl leading-none text-[#212529] active:brightness-85 disabled:opacity-65"
+                >
+                    <Minus className="size-6" strokeWidth={3} />
+                </button>
+                <input
+                    readOnly
+                    aria-label={`${label} count`}
+                    value={value}
+                    className="w-[3em] min-w-[3em] border-y border-[#dee2e6] bg-white text-center text-[125%] text-[#212529] tabular-nums"
+                />
+                <button
+                    type="button"
+                    aria-label={`Add ${label}`}
+                    disabled={disabled}
+                    onClick={onAdd}
+                    style={{ backgroundColor: color }}
+                    className="flex min-h-[46px] grow touch-manipulation items-center justify-center rounded-r-md px-3 text-white active:brightness-85 disabled:opacity-65"
+                >
+                    <Plus className="size-6" strokeWidth={3} />
+                </button>
+            </div>
         </div>
     );
 }

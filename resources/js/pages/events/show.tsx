@@ -95,7 +95,14 @@ export default function EventShow() {
             </Section>
 
             <Section title="Referee">
-                <MenuList entries={[{ label: 'Referee Scoring', href: `${base}/referee/scoring` }]} />
+                <MenuList
+                    entries={[
+                        { label: 'Red Alliance Wall Scorer', href: `${base}/referee/scoring?alliance=red&role=scoring` },
+                        { label: 'Blue Alliance Wall Scorer', href: `${base}/referee/scoring?alliance=blue&role=scoring` },
+                        { label: 'Red Referee (Fouls)', href: `${base}/referee/scoring?alliance=red&role=penalty` },
+                        { label: 'Blue Referee (Fouls)', href: `${base}/referee/scoring?alliance=blue&role=penalty` },
+                    ]}
+                />
             </Section>
 
             <Section title="FTA/CSA Tools">

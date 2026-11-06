@@ -31,7 +31,7 @@ describe('ScoreControlButtons', () => {
         const onAdd = vi.fn();
         const onRemove = vi.fn();
         const { rerender } = render(
-            <ScoreControlButtons control={ascent} countFor={() => 0} onAdd={onAdd} onRemove={onRemove} disabled={false} selectedClassName="chosen" />,
+            <ScoreControlButtons control={ascent} countFor={() => 0} onAdd={onAdd} onRemove={onRemove} disabled={false} color="#ed1c24" />,
         );
 
         expect(screen.getByRole('button', { name: /None/ })).toHaveAttribute('aria-pressed', 'true');
@@ -45,7 +45,7 @@ describe('ScoreControlButtons', () => {
                 onAdd={onAdd}
                 onRemove={onRemove}
                 disabled={false}
-                selectedClassName="chosen"
+                color="#ed1c24"
             />,
         );
         expect(screen.getByRole('button', { name: /level 3/ })).toHaveAttribute('aria-pressed', 'true');
@@ -53,21 +53,21 @@ describe('ScoreControlButtons', () => {
         expect(onRemove).toHaveBeenCalledWith(2);
     });
 
-    it('turns a yes/no score type on and off', () => {
+    it('turns a yes/no score type on with Yes and off with No', () => {
         const leave = splitScoreTypes([scoreType(3, 'leave', 3, 'toggle')]).controls[0];
         const onAdd = vi.fn();
         const onRemove = vi.fn();
         const { rerender } = render(
-            <ScoreControlButtons control={leave} countFor={() => 0} onAdd={onAdd} onRemove={onRemove} disabled={false} selectedClassName="chosen" />,
+            <ScoreControlButtons control={leave} countFor={() => 0} onAdd={onAdd} onRemove={onRemove} disabled={false} color="#ed1c24" />,
         );
 
-        fireEvent.click(screen.getByRole('button', { name: /leave/ }));
+        expect(screen.getByRole('group', { name: 'leave' })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
         expect(onAdd).toHaveBeenCalledWith(3);
 
-        rerender(
-            <ScoreControlButtons control={leave} countFor={() => 1} onAdd={onAdd} onRemove={onRemove} disabled={false} selectedClassName="chosen" />,
-        );
-        fireEvent.click(screen.getByRole('button', { name: /leave/ }));
+        rerender(<ScoreControlButtons control={leave} countFor={() => 1} onAdd={onAdd} onRemove={onRemove} disabled={false} color="#ed1c24" />);
+        expect(screen.getByRole('button', { name: 'Yes' })).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(screen.getByRole('button', { name: 'No' }));
         expect(onRemove).toHaveBeenCalledWith(3);
     });
 });

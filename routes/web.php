@@ -204,30 +204,6 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
             return Inertia::render('referee/scoring');
         })->middleware('can:score-matches')->name('referee.scoring');
 
-        Route::get('referee/scoring2', function () {
-            return Inertia::render('referee/scoring-v2');
-        })->middleware('can:score-matches')->name('referee.scoring2');
-
-        Route::get('referee/scoring3', function () {
-            return Inertia::render('referee/scoring-v3');
-        })->middleware('can:score-matches')->name('referee.scoring3');
-
-        Route::get('referee/scoring4', function () {
-            return Inertia::render('referee/scoring-v4');
-        })->middleware('can:score-matches')->name('referee.scoring4');
-
-        Route::get('referee/scoring5', function () {
-            return Inertia::render('referee/scoring-v5');
-        })->middleware('can:score-matches')->name('referee.scoring5');
-
-        Route::get('referee/scoring6', function () {
-            return Inertia::render('referee/scoring-v6');
-        })->middleware('can:score-matches')->name('referee.scoring6');
-
-        Route::get('referee/scoring7', function () {
-            return Inertia::render('referee/scoring-v7');
-        })->middleware('can:score-matches')->name('referee.scoring7');
-
         Route::get('admin/teams', function () {
             return Inertia::render('admin/teams');
         })->middleware('can:manage-competition')->name('admin.teams');

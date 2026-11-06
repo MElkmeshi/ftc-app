@@ -9,7 +9,6 @@ import {
     useUnsyncedCount,
 } from '@/hooks/use-match';
 import { useRefereeField } from '@/hooks/use-referee-field';
-import { useRefereeRole } from '@/hooks/use-referee-role';
 import { useRefereeSeat } from '@/hooks/use-referee-seat';
 import { getAllianceColorClasses } from '@/lib/match-utils';
 import { type ScoreControl, splitScoreTypes } from '@/lib/score-controls';
@@ -27,14 +26,11 @@ export interface ScoringGroup {
 }
 
 /**
- * State and actions shared by the referee scoring layouts. The tablet is one
- * alliance's scoring referee or penalty referee (`role` forces one, as on the
- * fouls layout); it only shows the score types that referee enters.
+ * State and actions of a referee tablet. The tablet sits in one seat, like
+ * FTC Live: an alliance colour and the scoring or penalty referee. It only
+ * shows the score types that referee enters, for that alliance.
  */
-export function useScoringPage(options: { role?: RefereeRole } = {}) {
-    const [storedRole] = useRefereeRole();
-    const role = options.role ?? storedRole;
-    const [selectedAllianceId, setSelectedAllianceId] = useState<number | null>(null);
+export function useScoringPage({ role, allianceColor: seatColor }: { role: RefereeRole; allianceColor: string | null }) {
     const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
 
     const setScoreCount = useSetScoreCount();
@@ -57,7 +53,6 @@ export function useScoringPage(options: { role?: RefereeRole } = {}) {
     if (scoringField !== refereeField) {
         setScoringField(refereeField);
         setSelectedMatchId(null);
-        setSelectedAllianceId(null);
     }
 
     useEffect(() => {
@@ -70,20 +65,11 @@ export function useScoringPage(options: { role?: RefereeRole } = {}) {
     useEffect(() => {
         if (selectedMatchFinished && activeMatch?.id !== selectedMatchId) {
             setSelectedMatchId(activeMatch?.id ?? null);
-            setSelectedAllianceId(null);
         }
     }, [selectedMatchFinished, activeMatch, selectedMatchId]);
 
-    useEffect(() => {
-        if (match && !selectedAllianceId && ongoingMatches.length === 1) {
-            const firstAlliance = match.match_alliances[0]?.alliance;
-            if (firstAlliance) {
-                setSelectedAllianceId(firstAlliance.id);
-            }
-        }
-    }, [match, selectedAllianceId, ongoingMatches.length]);
-
-    const selectedAlliance = match?.match_alliances.find((ma) => ma.alliance.id === selectedAllianceId);
+    const selectedAlliance = match?.match_alliances.find((ma) => ma.alliance.color === seatColor);
+    const selectedAllianceId = selectedAlliance?.alliance.id ?? null;
     const teamsInAlliance = useMemo(
         () => match?.match_alliances.filter((ma) => ma.alliance.id === selectedAllianceId) ?? [],
         [match, selectedAllianceId],
@@ -215,7 +201,6 @@ export function useScoringPage(options: { role?: RefereeRole } = {}) {
 
     return {
         selectedAllianceId,
-        setSelectedAllianceId,
         selectedMatchId,
         setSelectedMatchId,
         match,
