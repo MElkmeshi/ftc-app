@@ -59,22 +59,75 @@ function MatchOutcome({ match, colors }: { match: CompetitionMatch; colors: stri
     );
 }
 
-function AllianceTeams({ match, color, highlight, align }: { match: CompetitionMatch; color: string; highlight: string; align: 'left' | 'right' }) {
+function TeamCell({ match, color, slot, highlight }: { match: CompetitionMatch; color: string; slot: number; highlight: string }) {
+    const member = getAllianceMembers(match, color)[slot];
+
+    if (!member) {
+        return <td className="p-2" />;
+    }
+
     return (
-        <div className={cn('flex flex-col gap-0.5', align === 'right' && 'items-end')}>
-            {getAllianceMembers(match, color).map((matchAlliance) => (
-                <span
-                    key={matchAlliance.id}
-                    className={cn(
-                        'font-mono text-sm',
-                        getAllianceColorClasses(color).text,
-                        matchAlliance.team?.number === highlight && 'rounded bg-yellow-200 px-1 font-bold text-slate-900',
-                    )}
-                >
-                    {matchAlliance.team?.number}
-                    <TeamCardBadge card={matchAlliance.card} className="ml-1 font-sans" />
-                </span>
-            ))}
+        <td className="p-2 text-center tabular-nums">
+            <span className={cn(member.team?.number === highlight && 'rounded bg-yellow-200 px-1 font-bold text-slate-900')}>
+                {member.team?.number}
+            </span>
+            <TeamCardBadge card={member.card} className="ml-1" />
+        </td>
+    );
+}
+
+function ScheduleTable({ matches, highlight, base }: { matches: CompetitionMatch[]; highlight: string; base: string }) {
+    const { event } = usePage<SharedData>().props;
+    const colors = allianceColorsOf(matches[0]);
+    const slots = Array.from(
+        { length: Math.max(1, ...matches.map((match) => getAllianceMembers(match, colors[0] ?? 'red').length)) },
+        (_, index) => index,
+    );
+    const showField = (event?.field_count ?? 1) > 1;
+    const showScore = matches.some((match) => match.status !== 'upcoming');
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-center">
+                <thead>
+                    <tr className="border-b-2 border-black/80">
+                        <th className="p-2">Start</th>
+                        <th className="p-2">Match</th>
+                        {showField && <th className="p-2">Field</th>}
+                        {colors.flatMap((color) =>
+                            slots.map((slot) => (
+                                <th key={`${color}-${slot}`} className="p-2 capitalize">
+                                    {color} {slot + 1}
+                                </th>
+                            )),
+                        )}
+                        {showScore && <th className="p-2">Score</th>}
+                    </tr>
+                </thead>
+                <tbody>
+                    {matches.map((match) => (
+                        <tr key={match.id} className="border-b odd:bg-black/[0.05] dark:odd:bg-white/[0.05]">
+                            <td className="p-2 whitespace-nowrap tabular-nums">{formatMatchTime(match.start_time, event?.timezone)}</td>
+                            <td className="p-2 whitespace-nowrap">
+                                <Link href={`${base}/matches/${match.id}`} className="text-[#0d6efd] underline">
+                                    {getMatchTitle(match)}
+                                </Link>
+                            </td>
+                            {showField && <td className="p-2">{getFieldLabel(match, event?.field_count ?? 1)?.replace(/^Field /, '')}</td>}
+                            {colors.flatMap((color) =>
+                                slots.map((slot) => (
+                                    <TeamCell key={`${color}-${slot}`} match={match} color={color} slot={slot} highlight={highlight} />
+                                )),
+                            )}
+                            {showScore && (
+                                <td className="p-2 whitespace-nowrap">
+                                    <MatchOutcome match={match} colors={allianceColorsOf(match)} />
+                                </td>
+                            )}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         </div>
     );
 }
@@ -110,11 +163,11 @@ export default function PublicSchedule() {
     const base = `/event/${event?.code}`;
 
     return (
-        <EventPageLayout title="Schedule & results" updatedAt={updatedAt}>
+        <EventPageLayout title="Match Schedule" updatedAt={updatedAt}>
             <Head title="Schedule" />
 
             <label className="mb-4 flex items-center gap-2 text-sm print:hidden">
-                <span className="text-muted-foreground">My team</span>
+                <span>My team</span>
                 <select
                     className="bg-background rounded-md border px-2 py-1.5"
                     value={team}
@@ -135,35 +188,9 @@ export default function PublicSchedule() {
             {sections.length === 0 && <p className="text-muted-foreground py-12 text-center">The schedule has not been created yet.</p>}
 
             {sections.map((section) => (
-                <section key={section.title} className="mb-6">
-                    <h2 className="text-muted-foreground mb-2 text-sm font-semibold tracking-wide uppercase">{section.title}</h2>
-                    <ul className="divide-y rounded-lg border">
-                        {section.matches.map((match) => {
-                            const colors = allianceColorsOf(match);
-                            const field = getFieldLabel(match, event?.field_count ?? 1);
-
-                            return (
-                                <li key={match.id} className="break-inside-avoid">
-                                    <Link
-                                        href={`${base}/matches/${match.id}`}
-                                        className="hover:bg-accent grid grid-cols-[7rem_1fr_auto_1fr] items-center gap-3 px-3 py-2"
-                                    >
-                                        <div>
-                                            <div className="text-sm font-medium">{getMatchTitle(match)}</div>
-                                            <div className="text-muted-foreground text-xs tabular-nums">
-                                                {[formatMatchTime(match.start_time, event?.timezone), field].filter(Boolean).join(' · ')}
-                                            </div>
-                                        </div>
-                                        {colors.at(0) && <AllianceTeams match={match} color={colors.at(0) ?? ''} highlight={team} align="right" />}
-                                        <div className="min-w-16 text-center">
-                                            <MatchOutcome match={match} colors={colors} />
-                                        </div>
-                                        {colors.at(1) && <AllianceTeams match={match} color={colors.at(1) ?? ''} highlight={team} align="left" />}
-                                    </Link>
-                                </li>
-                            );
-                        })}
-                    </ul>
+                <section key={section.title} className="mb-6 break-inside-avoid">
+                    <h2 className="mb-2 text-center text-[1.75rem] leading-tight font-medium">{section.title}</h2>
+                    <ScheduleTable matches={section.matches} highlight={team} base={base} />
                 </section>
             ))}
         </EventPageLayout>

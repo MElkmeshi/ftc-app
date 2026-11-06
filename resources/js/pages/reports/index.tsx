@@ -42,19 +42,18 @@ export default function Reports() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Reports" />
 
-            <div className="space-y-4 p-4">
-                <h1 className="text-2xl font-bold">Reports</h1>
-                <ul className="divide-y rounded-lg border">
-                    {REPORTS.map((report) => (
-                        <li key={report.path}>
-                            <Link href={`/event/${event?.code}/${report.path}`} className="hover:bg-accent block px-4 py-3">
-                                <div className="text-primary font-medium">{report.title}</div>
-                                <div className="text-muted-foreground text-sm">{report.description}</div>
+            <h1 className="text-center text-[2rem] leading-tight font-medium">{event?.name} Reports</h1>
+            <ul className="list-disc pl-[6.5rem] max-sm:pl-8">
+                {[...REPORTS]
+                    .sort((first, second) => first.title.localeCompare(second.title))
+                    .map((report) => (
+                        <li key={report.path} className="my-1">
+                            <Link href={`/event/${event?.code}/${report.path}`} title={report.description} className="text-[#0d6efd] underline">
+                                {report.title}
                             </Link>
                         </li>
                     ))}
-                </ul>
-            </div>
+            </ul>
         </AppLayout>
     );
 }
