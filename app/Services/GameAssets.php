@@ -51,6 +51,23 @@ class GameAssets
     }
 
     /**
+     * Stores a picture that belongs to an event rather than a game, such as a
+     * sponsor logo, replacing the old file.
+     */
+    public function storeEventImage(string $directory, string $name, UploadedFile $file, ?string $oldPath): string
+    {
+        $path = $this->put($directory, $name, $file);
+        $this->delete($oldPath);
+
+        return $path;
+    }
+
+    public function deleteImage(?string $path): void
+    {
+        $this->delete($path);
+    }
+
+    /**
      * Copies every picture of one game onto another, for duplicated games.
      *
      * @param  array<int, int>  $scoreTypeIdMap  old score type id => new score type id

@@ -70,7 +70,17 @@ export interface GameSummary extends GameLook {
 }
 
 /** A competition hosted on this server (named to avoid clashing with the DOM `Event`). */
-export type DisplayModeValue = 'blank' | 'preview' | 'match' | 'results' | 'rankings' | 'bracket' | 'alliance_selection' | 'message' | 'award';
+export type DisplayModeValue =
+    | 'blank'
+    | 'preview'
+    | 'match'
+    | 'results'
+    | 'rankings'
+    | 'bracket'
+    | 'alliance_selection'
+    | 'message'
+    | 'award'
+    | 'sponsors';
 
 export interface AwardRecipient {
     team_number: string | null;
@@ -94,6 +104,15 @@ export interface AudienceDisplayState {
     message?: string | null;
     changed_at: string | null;
     award?: PresentedAward | null;
+    sponsors?: Sponsor[] | null;
+}
+
+export interface Sponsor {
+    id: number;
+    name: string;
+    level: string | null;
+    logo_url: string | null;
+    position?: number;
 }
 
 /** A display screen that is open right now, as listed in match control. */

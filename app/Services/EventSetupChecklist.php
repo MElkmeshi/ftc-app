@@ -9,6 +9,7 @@ use App\Models\AllianceGroup;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
 use App\Models\ScoreType;
+use App\Models\Sponsor;
 use App\Models\Team;
 use App\Models\User;
 
@@ -42,6 +43,7 @@ class EventSetupChecklist
         $finalWinner = EliminationSeries::query()->where('round', EliminationRound::FINAL->value)->whereNotNull('winner_alliance_group_id')->exists();
         $playoffSeries = EliminationSeries::query()->count();
         $timingCustomised = ($this->currentGame->get()?->timing ?? []) !== [];
+        $sponsorCount = Sponsor::query()->count();
         $officials = User::query()->whereIn('role', [UserRole::Admin, UserRole::HeadReferee, UserRole::Referee])->count();
 
         return [
@@ -77,6 +79,14 @@ class EventSetupChecklist
                 $teamCount >= 2 ? self::DONE : ($teamCount > 0 ? self::IN_PROGRESS : self::TODO),
                 "{$teamCount} team".($teamCount === 1 ? '' : 's'),
                 '/admin/teams',
+            ),
+            $this->step(
+                'sponsors',
+                'Sponsors',
+                'Sponsor names and logos for the audience display.',
+                $sponsorCount > 0 ? self::DONE : self::OPTIONAL,
+                "{$sponsorCount} sponsor".($sponsorCount === 1 ? '' : 's').' added',
+                '/admin/sponsors',
             ),
             $this->step(
                 'schedule',

@@ -1,5 +1,6 @@
 import { TeamChip } from '@/components/audience/team-chip';
 import { AwardScreen } from '@/components/display/award-screen';
+import { SponsorsScreen } from '@/components/display/sponsors-screen';
 import { GameBackground, GameLogo, useGameLook } from '@/components/game-look';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { type SoundName } from '@/hooks/use-audio-engine';
@@ -259,6 +260,8 @@ export function AudienceScreen({ playSound }: { playSound?: (name: SoundName) =>
             return display?.message ? <MessageScreen message={display.message} /> : <BlankScreen />;
         case 'award':
             return display?.award ? <AwardScreen award={display.award} /> : <BlankScreen />;
+        case 'sponsors':
+            return display?.sponsors?.length ? <SponsorsScreen sponsors={display.sponsors} /> : <BlankScreen />;
         default:
             return <BlankScreen />;
     }

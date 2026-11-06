@@ -17,6 +17,7 @@ enum DisplayMode: string
     case AllianceSelection = 'alliance_selection';
     case Message = 'message';
     case Award = 'award';
+    case Sponsors = 'sponsors';
 
     public function label(): string
     {
@@ -30,6 +31,7 @@ enum DisplayMode: string
             self::AllianceSelection => 'Alliance selection',
             self::Message => 'Message',
             self::Award => 'Award',
+            self::Sponsors => 'Sponsors',
         };
     }
 

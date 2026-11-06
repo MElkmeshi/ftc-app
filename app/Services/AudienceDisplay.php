@@ -7,6 +7,7 @@ use App\Events\AudienceDisplayChanged;
 use App\Models\Award;
 use App\Models\AwardWinner;
 use App\Models\Setting;
+use App\Models\Sponsor;
 use App\Support\LiveBroadcast;
 
 /**
@@ -27,7 +28,7 @@ class AudienceDisplay
      * revealed so far: displays are public pages, so a winner must not reach
      * them before it is announced.
      *
-     * @return array{mode: string, match_id: int|null, message: string|null, changed_at: string|null, award: array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, recipient: string|null}>}>}|null}
+     * @return array{mode: string, match_id: int|null, message: string|null, changed_at: string|null, award: array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, recipient: string|null}>}>}|null, sponsors: list<array{id: int, name: string, level: string|null, logo_url: string|null}>|null}
      */
     public function state(): array
     {
@@ -40,6 +41,7 @@ class AudienceDisplay
             'message' => $stored['message'] ?? null,
             'changed_at' => $stored['changed_at'] ?? null,
             'award' => $mode === DisplayMode::Award ? $this->presentedAward($stored['award_id'] ?? null, $stored['award_revealed'] ?? 0) : null,
+            'sponsors' => $mode === DisplayMode::Sponsors ? $this->sponsors() : null,
         ];
     }
 
@@ -95,6 +97,16 @@ class AudienceDisplay
     /**
      * @return array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, recipient: string|null}>}>}|null
      */
+    /**
+     * @return list<array{id: int, name: string, level: string|null, logo_url: string|null}>
+     */
+    private function sponsors(): array
+    {
+        return Sponsor::query()->orderBy('position')->orderBy('id')->get()
+            ->map(fn (Sponsor $sponsor): array => $sponsor->only(['id', 'name', 'level', 'logo_url']))
+            ->all();
+    }
+
     private function presentedAward(?int $awardId, int $revealed): ?array
     {
         $award = $awardId === null ? null : Award::query()->with('winners.team:id,number,name')->find($awardId);

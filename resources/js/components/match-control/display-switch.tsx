@@ -14,7 +14,13 @@ import { MonitorOff, RotateCw } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 const SHOW_GROUPS: { title: string; buttons: { mode: DisplayModeValue; label: string }[] }[] = [
-    { title: 'General Information', buttons: [{ mode: 'blank', label: 'Show Event Name' }] },
+    {
+        title: 'General Information',
+        buttons: [
+            { mode: 'blank', label: 'Show Event Name' },
+            { mode: 'sponsors', label: 'Show Sponsors' },
+        ],
+    },
     {
         title: 'Playoff',
         buttons: [

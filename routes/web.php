@@ -16,6 +16,7 @@ use App\Http\Controllers\MatchSheetController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScreenReloadController;
 use App\Http\Controllers\ScriptController;
+use App\Http\Controllers\SponsorController;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Alliance;
 use App\Models\CompetitionMatch;
@@ -237,6 +238,11 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('admin/competition-settings', [GameController::class, 'settings'])->middleware('can:manage-competition')->name('admin.competition-settings');
 
         Route::middleware('can:manage-competition')->group(function () {
+            Route::get('admin/sponsors', [SponsorController::class, 'index'])->name('sponsors.index');
+            Route::post('sponsors', [SponsorController::class, 'store'])->name('sponsors.store');
+            Route::post('sponsors/{sponsor}', [SponsorController::class, 'update'])->whereNumber('sponsor')->name('sponsors.update');
+            Route::put('sponsors/{sponsor}/move', [SponsorController::class, 'move'])->whereNumber('sponsor')->name('sponsors.move');
+            Route::delete('sponsors/{sponsor}', [SponsorController::class, 'destroy'])->whereNumber('sponsor')->name('sponsors.destroy');
             Route::get('admin/awards', [AwardController::class, 'index'])->name('awards.index');
             Route::post('awards', [AwardController::class, 'store'])->name('awards.store');
             Route::put('awards/lock', [AwardController::class, 'lock'])->name('awards.lock');

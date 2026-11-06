@@ -35,6 +35,7 @@ export const EVENT_ADMIN_MENU: EventMenuGroup[] = [
         title: 'Setup',
         links: [
             { title: 'Add/Edit Teams', href: '/admin/teams' },
+            { title: 'Add/Edit Sponsors', href: '/admin/sponsors' },
             { title: 'Score Types', href: '/admin/score-types' },
             { title: 'Alliance Selection', href: '/admin/alliance-selection' },
             { title: 'Manage Awards', href: '/admin/awards' },
