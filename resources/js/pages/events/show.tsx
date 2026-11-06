@@ -1,12 +1,9 @@
 import PublicLayout from '@/layouts/public-layout';
-import { type Ability, type EventTypeOption, type SharedData } from '@/types';
+import { type Ability, type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { type ReactNode } from 'react';
 
-interface EventShowProps extends SharedData {
-    summary: { teams: number; matches: number; completed_matches: number };
-    eventTypes: EventTypeOption[];
-}
+type EventShowProps = SharedData;
 
 interface MenuEntry {
     label: string;
@@ -135,38 +132,28 @@ function MenuList({ entries }: { entries: MenuEntry[] }) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
     return (
         <section>
-            <h3 className="mt-1 text-[1.75rem] leading-tight font-medium">{title}</h3>
+            <h4 className="mt-6 text-2xl leading-tight font-medium">{title}</h4>
             {children}
         </section>
     );
 }
 
 export default function EventShow() {
-    const { event, summary, eventTypes, auth } = usePage<EventShowProps>().props;
+    const { event, auth } = usePage<EventShowProps>().props;
 
     if (!event) {
         return null;
     }
 
     const base = `/event/${event.code}`;
-    const typeLabel = eventTypes.find((type) => type.value === event.type)?.label ?? event.type;
 
     return (
         <PublicLayout>
             <Head title={event.name} />
 
-            <div>
-                <h2 className="text-[2rem] leading-tight font-medium">
-                    {event.code}: {event.name}
-                </h2>
-                <p className="text-muted-foreground mt-1">
-                    {typeLabel}
-                    {event.venue && ` · ${event.venue}`}
-                    {event.start_date && ` · ${event.start_date}`}
-                    {event.end_date && event.end_date !== event.start_date && ` – ${event.end_date}`}
-                    {` · ${summary.teams} teams · ${summary.completed_matches} of ${summary.matches} matches played`}
-                </p>
-            </div>
+            <h3 className="text-[1.75rem] leading-tight font-medium">
+                {event.code}: {event.name}
+            </h3>
 
             <AccessNote />
 
