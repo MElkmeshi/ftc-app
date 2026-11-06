@@ -79,7 +79,6 @@ it('shows match control to head referees with every match', function () {
     $this->get('/match-control')->assertOk()->assertInertia(fn ($page) => $page
         ->component('match-control/index')
         ->has('matches', 2)
-        ->has('displayModes', 8)
     );
 });
 

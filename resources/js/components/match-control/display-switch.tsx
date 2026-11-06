@@ -6,80 +6,87 @@ import { Label } from '@/components/ui/label';
 import { useApi } from '@/hooks/use-api';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { type DisplayConfig, displayTypeOption } from '@/lib/display-config';
+import { cn } from '@/lib/utils';
 import { type AudienceDisplayState, type ConnectedDisplay, type DisplayModeValue } from '@/types';
 import { router } from '@inertiajs/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MonitorOff, RotateCw } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 const SHOW_GROUPS: { title: string; buttons: { mode: DisplayModeValue; label: string }[] }[] = [
-    { title: 'General', buttons: [{ mode: 'blank', label: 'Show event name' }] },
+    { title: 'General Information', buttons: [{ mode: 'blank', label: 'Show Event Name' }] },
     {
         title: 'Playoff',
         buttons: [
-            { mode: 'bracket', label: 'Show bracket' },
-            { mode: 'alliance_selection', label: 'Show alliance selection' },
+            { mode: 'bracket', label: 'Show Bracket' },
+            { mode: 'alliance_selection', label: 'Show Alliance Selection' },
         ],
     },
-    { title: 'Other displays', buttons: [{ mode: 'rankings', label: 'Show rankings' }] },
+    { title: 'Other Displays', buttons: [{ mode: 'rankings', label: 'Show Ranks' }] },
 ];
 
-function ShowButtons({ display, onShow }: { display: AudienceDisplayState | undefined; onShow: (mode: DisplayModeValue, message?: string) => void }) {
+const greenButtonClass = 'rounded-md border border-[#198754] bg-[#198754] px-3 py-1.5 text-white hover:bg-[#157347] disabled:opacity-65';
+
+function Group({ title, children }: { title: string; children: ReactNode }) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Show on audience displays</CardTitle>
-                <CardDescription>Every screen set to Audience switches at once.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-3">
-                {SHOW_GROUPS.map((group) => (
-                    <fieldset key={group.title} className="space-y-2">
-                        <legend className="text-muted-foreground mb-2 text-xs font-medium uppercase">{group.title}</legend>
-                        {group.buttons.map((button) => (
-                            <Button
-                                key={button.mode}
-                                className="w-full justify-start"
-                                variant={display?.mode === button.mode ? 'default' : 'outline'}
-                                onClick={() => onShow(button.mode)}
-                            >
-                                {button.label}
-                            </Button>
-                        ))}
-                    </fieldset>
-                ))}
-            </CardContent>
-        </Card>
+        <fieldset className="mx-0.5 mb-2 border border-white/60 px-3 pt-1 pb-3">
+            <legend className="px-0.5">{title}</legend>
+            {children}
+        </fieldset>
     );
 }
 
-function MessageCard({ display, onShow }: { display: AudienceDisplayState | undefined; onShow: (mode: DisplayModeValue, message?: string) => void }) {
+function ShowButtons({ display, onShow }: { display: AudienceDisplayState | undefined; onShow: (mode: DisplayModeValue, message?: string) => void }) {
+    return (
+        <>
+            {SHOW_GROUPS.map((group) => (
+                <Group key={group.title} title={group.title}>
+                    <div className="flex flex-wrap gap-2">
+                        {group.buttons.map((button) => (
+                            <button
+                                key={button.mode}
+                                type="button"
+                                className={cn(greenButtonClass, display?.mode === button.mode && 'ring-2 ring-white')}
+                                onClick={() => onShow(button.mode)}
+                            >
+                                {button.label}
+                            </button>
+                        ))}
+                    </div>
+                </Group>
+            ))}
+        </>
+    );
+}
+
+function MessageGroup({
+    display,
+    onShow,
+}: {
+    display: AudienceDisplayState | undefined;
+    onShow: (mode: DisplayModeValue, message?: string) => void;
+}) {
     const [message, setMessage] = useState(display?.message ?? '');
     const showing = display?.mode === 'message';
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Message</CardTitle>
-                <CardDescription>Put an announcement on the audience displays, e.g. a break or a schedule change.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <textarea
-                    aria-label="Message"
-                    value={message}
-                    maxLength={2000}
-                    rows={4}
-                    onChange={(event) => setMessage(event.target.value)}
-                    placeholder={'Lunch break\nMatches resume at 1:00 PM'}
-                    className="border-input bg-background focus-visible:ring-ring/50 w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-                />
-                <div className="flex items-center gap-3">
-                    <Button disabled={message.trim() === ''} onClick={() => onShow('message', message.trim())}>
-                        {showing ? 'Update message' : 'Show message'}
-                    </Button>
-                    {showing && <span className="text-sm text-emerald-600">Showing on the audience displays.</span>}
-                </div>
-            </CardContent>
-        </Card>
+        <Group title="Message">
+            <textarea
+                aria-label="Message"
+                value={message}
+                maxLength={2000}
+                rows={5}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder={'Lunch break\nMatches resume at 1:00 PM'}
+                className="mb-2 w-full border border-[#ccc] bg-white px-3 py-2 text-black outline-none placeholder:text-gray-500"
+            />
+            <div className="flex items-center gap-3">
+                <button type="button" className={greenButtonClass} disabled={message.trim() === ''} onClick={() => onShow('message', message.trim())}>
+                    {showing ? 'Update Message' : 'Show Message'}
+                </button>
+                {showing && <span>Showing on the audience displays.</span>}
+            </div>
+        </Group>
     );
 }
 
@@ -277,12 +284,14 @@ export function DisplaySwitch({
     onShow: (mode: DisplayModeValue, message?: string) => void;
 }) {
     return (
-        <div className="grid gap-4 xl:grid-cols-2">
-            <div className="space-y-4">
-                <ShowButtons display={display} onShow={onShow} />
-                <MessageCard display={display} onShow={onShow} />
-            </div>
-            <ConnectedDisplays />
+        <div>
+            <ShowButtons display={display} onShow={onShow} />
+            <MessageGroup display={display} onShow={onShow} />
+            <Group title="Displays">
+                <div className="text-foreground">
+                    <ConnectedDisplays />
+                </div>
+            </Group>
         </div>
     );
 }

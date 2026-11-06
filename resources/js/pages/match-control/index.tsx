@@ -1,64 +1,52 @@
 import { DisplaySwitch } from '@/components/match-control/display-switch';
 import { TeamCards } from '@/components/match-control/team-cards';
 import { TeamCardBadge } from '@/components/team-card-badge';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useApi } from '@/hooks/use-api';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useStartMatch } from '@/hooks/use-match';
-import AppLayout from '@/layouts/app-layout';
 import { eventUrl } from '@/lib/event';
-import {
-    formatMatchTime,
-    formatTime,
-    getAllianceMembers,
-    getAllianceScore,
-    getFieldLabel,
-    getMatchTitle,
-    getPhaseColors,
-    getPhaseLabel,
-    scheduleDriftMinutes,
-} from '@/lib/match-utils';
+import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, getPhaseLabel, scheduleDriftMinutes } from '@/lib/match-utils';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
-import {
-    type AudienceDisplayState,
-    type BreadcrumbItem,
-    type CompetitionMatch,
-    type DisplayModeValue,
-    type RefereeRole,
-    type SharedData,
-} from '@/types';
-import { Head, router, usePage, useProp } from '@inertiajs/react';
+import { type AudienceDisplayState, type CompetitionMatch, type DisplayModeValue, type RefereeRole, type SharedData } from '@/types';
+import { Head, Link, router, usePage, useProp } from '@inertiajs/react';
+import { useConnectionStatus } from '@laravel/echo-react';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle, ChevronRight, Clock, ExternalLink, Flag, Megaphone, Octagon, Play, Square, Tablet, TriangleAlert, Upload } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
-interface DisplayModeOption {
-    value: DisplayModeValue;
-    label: string;
-}
+type MatchPhase = CompetitionMatch['type'];
 
-type MatchFilter = CompetitionMatch['type'];
-
-const MATCH_FILTERS: { value: MatchFilter; label: string }[] = [
+const MATCH_PHASES: { value: MatchPhase; label: string }[] = [
     { value: 'practice', label: 'Practice' },
     { value: 'qualification', label: 'Qualification' },
     { value: 'elimination', label: 'Playoffs' },
 ];
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'Match Control', href: '/match-control' }];
-
-const STATUS_BADGES: Record<string, { label: string; className: string }> = {
-    upcoming: { label: 'Upcoming', className: 'bg-muted text-muted-foreground' },
-    ongoing: { label: 'Running', className: 'bg-emerald-500 text-white' },
-    completed: { label: 'Played', className: 'bg-sky-500/15 text-sky-700 dark:text-sky-300' },
-    cancelled: { label: 'Cancelled', className: 'bg-orange-500/15 text-orange-700' },
+const STATE_LABELS: Record<CompetitionMatch['status'], string> = {
+    upcoming: 'UNPLAYED',
+    ongoing: 'RUNNING',
+    completed: 'COMMITTED',
+    cancelled: 'CANCELLED',
 };
 
-/** Reads the server's message out of a failed API call. */
+type ConsoleTab = 'schedule' | 'incomplete' | 'active' | 'video';
+
+const CONSOLE_TABS: { value: ConsoleTab; label: string }[] = [
+    { value: 'schedule', label: 'Schedule' },
+    { value: 'incomplete', label: 'Incomplete Matches' },
+    { value: 'active', label: 'Active Match' },
+    { value: 'video', label: 'Video Switch' },
+];
+
+const ROLE_LABELS: Record<RefereeRole, string> = { scoring: 'Scoring', penalty: 'Penalties' };
+
+const headerButtonClass =
+    'rounded-md border px-3.5 py-2 leading-tight whitespace-pre-line disabled:pointer-events-none disabled:opacity-65 border-[#f8f9fa] bg-[#f8f9fa] text-black hover:bg-[#d3d4d5]';
+const nextActionClass = 'border-[#198754] bg-[#198754] text-white hover:bg-[#157347]';
+const rowButtonClass =
+    'rounded-[3px] border border-[#f8f9fa] bg-[#f8f9fa] px-1.5 text-sm leading-[20px] text-black hover:bg-[#d3d4d5] disabled:opacity-65';
+
 function errorMessage(error: unknown): string | null {
     if (!error) {
         return null;
@@ -77,18 +65,9 @@ function errorMessage(error: unknown): string | null {
     return error instanceof Error ? error.message : 'Something went wrong.';
 }
 
-function TeamNumbers({ match, color }: { match: CompetitionMatch; color: 'red' | 'blue' }) {
-    return (
-        <span className={cn('font-mono tabular-nums', color === 'red' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400')}>
-            {getAllianceMembers(match, color)
-                .map((member) => member.team.number)
-                .join(' · ') || '—'}
-        </span>
-    );
-}
-
-function currentPhase(matches: CompetitionMatch[], phases: { value: MatchFilter }[]): MatchFilter {
-    const ofPhase = (phase: MatchFilter) => matches.filter((match) => match.type === phase);
+function currentPhase(matches: CompetitionMatch[]): MatchPhase {
+    const phases = MATCH_PHASES.filter((option) => matches.some((match) => match.type === option.value));
+    const ofPhase = (phase: MatchPhase) => matches.filter((match) => match.type === phase);
     const startedIndex = phases.findLastIndex((phase) =>
         ofPhase(phase.value).some((match) => match.status === 'ongoing' || match.status === 'completed'),
     );
@@ -102,107 +81,28 @@ function currentPhase(matches: CompetitionMatch[], phases: { value: MatchFilter 
     return finished && phases[startedIndex + 1] ? phases[startedIndex + 1].value : phases[startedIndex].value;
 }
 
-function MatchList({
-    matches,
-    selectedId,
-    onSelect,
-}: {
-    matches: CompetitionMatch[];
-    selectedId: number | null;
-    onSelect: (match: CompetitionMatch) => void;
-}) {
-    const eventTimezone = usePage<SharedData>().props.event?.timezone;
-    const fieldCount = useFieldCount();
-    const filters = MATCH_FILTERS.filter((option) => matches.some((match) => match.type === option.value));
-    const [filter, setFilter] = useState<MatchFilter>(() => currentPhase(matches, filters));
-    const visible = matches.filter((match) => match.type === filter);
+const isSubmitted = (match: CompetitionMatch, allianceId: number, role: RefereeRole) =>
+    match.submissions?.find((entry) => entry.alliance_id === allianceId && (entry.role ?? 'scoring') === role);
 
-    return (
-        <Card className="min-w-0">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-                <div className="flex items-center gap-3">
-                    <CardTitle>Matches</CardTitle>
-                    <ScheduleDrift matches={matches} />
-                </div>
-                {filters.length > 1 && (
-                    <div className="flex rounded-md border p-0.5 text-sm">
-                        {filters.map((option) => (
-                            <button
-                                key={option.value}
-                                type="button"
-                                onClick={() => setFilter(option.value)}
-                                className={cn(
-                                    'rounded px-3 py-1',
-                                    filter === option.value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
-                                )}
-                            >
-                                {option.label}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </CardHeader>
-            <CardContent className="max-h-[calc(100vh-14rem)] overflow-auto p-0">
-                {visible.length === 0 ? (
-                    <p className="text-muted-foreground px-6 pb-6 text-sm">No matches yet. Generate a schedule from Schedule &amp; Results.</p>
-                ) : (
-                    <table className="w-full text-sm">
-                        <thead className="bg-card text-muted-foreground sticky top-0 text-left text-xs uppercase">
-                            <tr>
-                                <th className="px-4 py-2 font-medium">Match</th>
-                                <th className="px-2 py-2 font-medium">Time</th>
-                                {fieldCount > 1 && <th className="px-2 py-2 font-medium">Field</th>}
-                                <th className="px-2 py-2 font-medium">Red</th>
-                                <th className="px-2 py-2 font-medium">Blue</th>
-                                <th className="px-2 py-2 text-center font-medium">Score</th>
-                                <th className="px-4 py-2 text-right font-medium">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {visible.map((match) => {
-                                const badge = STATUS_BADGES[match.status] ?? STATUS_BADGES.upcoming;
+const seatsOf = (match: CompetitionMatch, allianceId: number): RefereeRole[] =>
+    match.referee_seats?.some((seat) => seat.alliance_id === allianceId && seat.role === 'penalty') ? ['scoring', 'penalty'] : ['scoring'];
 
-                                return (
-                                    <tr
-                                        key={match.id}
-                                        onClick={() => onSelect(match)}
-                                        className={cn(
-                                            'hover:bg-muted/50 cursor-pointer border-t transition',
-                                            match.id === selectedId && 'bg-primary/10 hover:bg-primary/15',
-                                            match.status === 'ongoing' && 'font-semibold',
-                                        )}
-                                    >
-                                        <td className="px-4 py-2 whitespace-nowrap">{getMatchTitle(match)}</td>
-                                        <td className="text-muted-foreground px-2 py-2 whitespace-nowrap tabular-nums">
-                                            {formatMatchTime(match.start_time, eventTimezone)}
-                                        </td>
-                                        {fieldCount > 1 && <td className="px-2 py-2 tabular-nums">{match.field}</td>}
-                                        <td className="px-2 py-2">
-                                            <TeamNumbers match={match} color="red" />
-                                        </td>
-                                        <td className="px-2 py-2">
-                                            <TeamNumbers match={match} color="blue" />
-                                        </td>
-                                        <td className="px-2 py-2 text-center font-mono whitespace-nowrap tabular-nums">
-                                            {match.status === 'upcoming'
-                                                ? ''
-                                                : `${getAllianceScore(match, 'red')} – ${getAllianceScore(match, 'blue')}`}
-                                        </td>
-                                        <td className="px-4 py-2 text-right">
-                                            <span className={cn('rounded-full px-2 py-0.5 text-xs', badge.className)}>{badge.label}</span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                )}
-            </CardContent>
-        </Card>
-    );
+function awaitingSubmissions(match: CompetitionMatch | null): string[] {
+    if (match?.status !== 'ongoing') {
+        return [];
+    }
+
+    return (['red', 'blue'] as const).flatMap((color) => {
+        const allianceId = getAllianceMembers(match, color)[0]?.alliance.id;
+
+        return allianceId === undefined
+            ? []
+            : seatsOf(match, allianceId)
+                  .filter((role) => !isSubmitted(match, allianceId, role))
+                  .map((role) => `${color} ${role === 'penalty' ? 'penalties' : 'scoring'}`);
+    });
 }
 
-/** Updates every 15 seconds on the server's clock, for the ahead/behind badge. */
 function useServerNow(): number {
     const [now, setNow] = useState(() => serverNow());
 
@@ -215,205 +115,350 @@ function useServerNow(): number {
     return now;
 }
 
-/** FTC Live's "x minutes behind" indicator. */
-function ScheduleDrift({ matches }: { matches: CompetitionMatch[] }) {
-    const drift = scheduleDriftMinutes(matches, useServerNow());
+function useConsoleTab(): [ConsoleTab, (tab: ConsoleTab) => void] {
+    const [tab, setTab] = useState<ConsoleTab>(() => {
+        const requested = window.location.hash.slice(1);
 
-    if (drift === null) {
-        return null;
+        return CONSOLE_TABS.some((option) => option.value === requested) ? (requested as ConsoleTab) : 'schedule';
+    });
+
+    const changeTab = (next: ConsoleTab) => {
+        setTab(next);
+        window.history.replaceState(window.history.state, '', next === 'schedule' ? window.location.pathname : `#${next}`);
+    };
+
+    return [tab, changeTab];
+}
+
+function ScheduleTable({
+    matches,
+    display,
+    busy,
+    hasRunningMatch,
+    onPlay,
+    onPost,
+}: {
+    matches: CompetitionMatch[];
+    display: AudienceDisplayState | undefined;
+    busy: boolean;
+    hasRunningMatch: boolean;
+    onPlay: (match: CompetitionMatch) => void;
+    onPost: (match: CompetitionMatch) => void;
+}) {
+    const fieldCount = useFieldCount();
+    const teamsPerAlliance = Math.max(1, ...matches.map((match) => getAllianceMembers(match, 'red').length));
+    const slots = Array.from({ length: teamsPerAlliance }, (_, index) => index);
+
+    if (matches.length === 0) {
+        return <p className="p-3">No matches. Create the schedule from Schedule &amp; Results.</p>;
     }
 
-    const [label, className] =
-        Math.abs(drift) <= 1
-            ? ['On schedule', 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300']
-            : drift > 0
-              ? [
-                    `${drift} min behind`,
-                    drift > 10 ? 'bg-red-500/15 text-red-700 dark:text-red-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-                ]
-              : [`${-drift} min ahead`, 'bg-sky-500/15 text-sky-700 dark:text-sky-300'];
-
     return (
-        <span className={cn('inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium', className)}>
-            <Clock className="size-3.5" /> {label}
-        </span>
+        <table className="text-center text-sm">
+            <thead className="sticky top-0 bg-[#375d6b] text-base">
+                <tr>
+                    <th className="px-1">Match</th>
+                    {fieldCount > 1 && <th className="px-1">Field</th>}
+                    <th className="px-1">State</th>
+                    <th className="px-1">Red Score</th>
+                    {slots.map((slot) => (
+                        <th key={`red-${slot}`} className="px-1">
+                            Red {slot + 1}
+                        </th>
+                    ))}
+                    {slots.map((slot) => (
+                        <th key={`blue-${slot}`} className="px-1">
+                            Blue {slot + 1}
+                        </th>
+                    ))}
+                    <th className="px-1">Blue Score</th>
+                    <th colSpan={2} />
+                </tr>
+            </thead>
+            <tbody>
+                {matches.map((match) => {
+                    const red = getAllianceMembers(match, 'red');
+                    const blue = getAllianceMembers(match, 'blue');
+                    const posted = display?.mode === 'results' && display.match_id === match.id;
+
+                    return (
+                        <tr key={match.id} className={cn('odd:bg-[#375d6b]', match.status === 'ongoing' && 'font-bold')}>
+                            <td className="px-1 py-px whitespace-nowrap">{getMatchTitle(match)}</td>
+                            {fieldCount > 1 && <td className="px-1">{match.field}</td>}
+                            <td className="px-1">{STATE_LABELS[match.status]}</td>
+                            <td className="px-1 tabular-nums">{getAllianceScore(match, 'red')}</td>
+                            {slots.map((slot) => (
+                                <td key={`red-${slot}`} className="px-1 tabular-nums">
+                                    {red[slot]?.team.number} <TeamCardBadge card={red[slot]?.card} />
+                                </td>
+                            ))}
+                            {slots.map((slot) => (
+                                <td key={`blue-${slot}`} className="px-1 tabular-nums">
+                                    {blue[slot]?.team.number} <TeamCardBadge card={blue[slot]?.card} />
+                                </td>
+                            ))}
+                            <td className="px-1 tabular-nums">{getAllianceScore(match, 'blue')}</td>
+                            <td className="px-1 py-px">
+                                {match.status === 'upcoming' && (
+                                    <button type="button" className={rowButtonClass} disabled={busy || hasRunningMatch} onClick={() => onPlay(match)}>
+                                        Play
+                                    </button>
+                                )}
+                                {match.status === 'completed' && (
+                                    <button type="button" className={rowButtonClass} disabled={posted} onClick={() => onPost(match)}>
+                                        {posted ? 'Posted' : 'Post'}
+                                    </button>
+                                )}
+                            </td>
+                            <td className="px-1 py-px">
+                                {match.status === 'completed' && (
+                                    <a href={eventUrl('/referee/scoring')} className={cn(rowButtonClass, 'inline-block')}>
+                                        Edit
+                                    </a>
+                                )}
+                                {match.status !== 'upcoming' && (
+                                    <a href={eventUrl(`/matches/${match.id}/history`)} className={cn(rowButtonClass, 'ml-2 inline-block')}>
+                                        History
+                                    </a>
+                                )}
+                            </td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
     );
 }
 
-const ROLE_LABELS: Record<RefereeRole, string> = { scoring: 'Scoring', penalty: 'Penalties' };
-
-const isSubmitted = (match: CompetitionMatch, allianceId: number, role: RefereeRole) =>
-    match.submissions?.find((entry) => entry.alliance_id === allianceId && (entry.role ?? 'scoring') === role);
-
-/** The referee seats of an alliance: always its scoring referee, and its penalty referee once one joined. */
-const seatsOf = (match: CompetitionMatch, allianceId: number): RefereeRole[] =>
-    match.referee_seats?.some((seat) => seat.alliance_id === allianceId && seat.role === 'penalty') ? ['scoring', 'penalty'] : ['scoring'];
-
-/**
- * Where one referee seat is during a running match: submitted, entering on a
- * tablet (two tablets in one seat is a warning), or no tablet connected.
- */
 function RefereeStatus({ match, allianceId, role, tablets }: { match: CompetitionMatch; allianceId: number; role: RefereeRole; tablets: string[] }) {
     const submission = isSubmitted(match, allianceId, role);
     const label = ROLE_LABELS[role];
 
     if (submission) {
         return (
-            <p className="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <CheckCircle className="size-3.5" /> {label}: submitted by {submission.by}
+            <p className="font-bold">
+                ✓ {label}: submitted by {submission.by}
             </p>
         );
     }
 
     if (tablets.length > 1) {
         return (
-            <p className="text-destructive flex items-center gap-1 text-xs font-semibold">
-                <TriangleAlert className="size-3.5" /> {label}: {tablets.length} tablets ({tablets.join(', ')})
+            <p className="bg-[#ffc107] px-1 font-bold text-black">
+                {label}: {tablets.length} tablets ({tablets.join(', ')})
             </p>
         );
     }
 
     return (
-        <p className="text-muted-foreground flex items-center gap-1 text-xs">
-            <Tablet className="size-3.5" /> {label}: {tablets.length === 1 ? tablets[0] : 'no tablet'}
+        <p>
+            {label}: {tablets.length === 1 ? tablets[0] : 'no tablet'}
         </p>
     );
 }
 
-function AllianceSummary({
+function AllianceHalf({
     match,
     color,
     tablets,
 }: {
     match: CompetitionMatch;
     color: 'red' | 'blue';
-    tablets?: Partial<Record<RefereeRole, string[]>>;
+    tablets: Partial<Record<RefereeRole, string[]>>;
 }) {
-    const allianceId = getAllianceMembers(match, color)[0]?.alliance.id;
+    const members = getAllianceMembers(match, color);
+    const allianceId = members[0]?.alliance.id;
+    const roles: RefereeRole[] = tablets.penalty?.length ? ['scoring', 'penalty'] : allianceId === undefined ? [] : seatsOf(match, allianceId);
 
     return (
-        <div
-            className={cn(
-                'min-w-0 flex-1 rounded-lg border-2 p-3',
-                color === 'red' ? 'border-red-500/60 bg-red-500/5' : 'border-blue-500/60 bg-blue-500/5',
-            )}
-        >
-            <div className="flex items-baseline justify-between">
-                <span
-                    className={cn(
-                        'text-xs font-semibold uppercase',
-                        color === 'red' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400',
-                    )}
-                >
-                    {color}
-                </span>
-                <span className="text-3xl font-black tabular-nums">{getAllianceScore(match, color)}</span>
+        <div className={cn('flex flex-1 flex-col items-center gap-3 p-4 text-black', color === 'blue' ? 'bg-[#62a8fb]' : 'bg-[#fd5f5f]')}>
+            <div className="w-full max-w-sm border border-white/70 bg-white text-center">
+                <div className={cn('py-1 text-lg font-bold text-white', color === 'blue' ? 'bg-[#0d6efd]' : 'bg-[#dc3545]')}>
+                    {color === 'blue' ? 'Blue' : 'Red'} Alliance
+                </div>
+                <div className="py-2 text-6xl tabular-nums">{getAllianceScore(match, color)}</div>
             </div>
-            <ul className="mt-2 space-y-0.5 text-sm">
-                {getAllianceMembers(match, color).map((member) => (
-                    <li key={member.id} className="truncate">
-                        <span className="font-mono font-semibold">{member.team.number}</span> <TeamCardBadge card={member.card} /> {member.team.name}
+            <ul className="w-full max-w-sm space-y-1">
+                {members.map((member) => (
+                    <li key={member.id} className="truncate text-lg">
+                        <span className="font-bold tabular-nums">{member.team.number}</span> <TeamCardBadge card={member.card} /> {member.team.name}
                     </li>
                 ))}
             </ul>
-            {match.status === 'ongoing' && tablets && allianceId !== undefined && (
-                <div className="mt-2 space-y-0.5">
-                    {(tablets.penalty?.length ? (['scoring', 'penalty'] as RefereeRole[]) : seatsOf(match, allianceId)).map((role) => (
+            {match.status === 'ongoing' && allianceId !== undefined && (
+                <fieldset className="w-full max-w-sm border border-black/40 px-2 pb-1">
+                    <legend className="px-1">Referees</legend>
+                    {roles.map((role) => (
                         <RefereeStatus key={role} match={match} allianceId={allianceId} role={role} tablets={tablets[role] ?? []} />
                     ))}
-                </div>
+                </fieldset>
             )}
         </div>
     );
 }
 
-type ConsoleTab = 'matches' | 'displays';
+function ActiveMatchPanel({
+    match,
+    matches,
+    busy,
+    onAbort,
+    onForceCommit,
+}: {
+    match: CompetitionMatch | null;
+    matches: CompetitionMatch[];
+    busy: boolean;
+    onAbort: (match: CompetitionMatch) => void;
+    onForceCommit: (match: CompetitionMatch) => void;
+}) {
+    const api = useApi();
+    const [confirming, setConfirming] = useState<'abort' | 'force' | null>(null);
+    const { data: seats } = useQuery({
+        queryKey: ['referee-seats', match?.id],
+        queryFn: () => api.getRefereeSeats(match!.id),
+        enabled: match?.status === 'ongoing',
+        refetchInterval: 5000,
+        refetchIntervalInBackground: true,
+    });
 
-const CONSOLE_TABS: { value: ConsoleTab; label: string }[] = [
-    { value: 'matches', label: 'Matches' },
-    { value: 'displays', label: 'Displays' },
-];
+    if (!match) {
+        return <p className="p-3 text-center text-lg">No Active Match</p>;
+    }
 
-/** The open tab is kept in the address (#displays), like FTC Live's match control tabs. */
-function useConsoleTab(): [ConsoleTab, (tab: ConsoleTab) => void] {
-    const [tab, setTab] = useState<ConsoleTab>(() => (window.location.hash === '#displays' ? 'displays' : 'matches'));
+    const tabletsFor = (color: 'red' | 'blue') => seats?.seats[String(getAllianceMembers(match, color)[0]?.alliance.id)] ?? {};
+    const awaiting = awaitingSubmissions(match);
 
-    const changeTab = (next: ConsoleTab) => {
-        setTab(next);
-        window.history.replaceState(window.history.state, '', next === 'matches' ? window.location.pathname : '#displays');
-    };
+    return (
+        <div className="flex min-h-full flex-col">
+            <div className="flex flex-1 flex-col md:flex-row">
+                <AllianceHalf match={match} color="blue" tablets={tabletsFor('blue')} />
+                <AllianceHalf match={match} color="red" tablets={tabletsFor('red')} />
+            </div>
+            <div className="space-y-3 bg-[#334c55] p-3">
+                {(match.status === 'ongoing' || match.status === 'completed') && (
+                    <div className="rounded-md bg-white p-3 text-black">
+                        <TeamCards match={match} matches={matches} />
+                    </div>
+                )}
+                {match.status === 'ongoing' && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        {confirming === 'abort' ? (
+                            <>
+                                <span>Abort {getMatchTitle(match)}? It goes back to unplayed; scores are kept.</span>
+                                <button
+                                    type="button"
+                                    className="rounded-md bg-[#dc3545] px-3 py-1.5 text-white"
+                                    disabled={busy}
+                                    onClick={() => {
+                                        setConfirming(null);
+                                        onAbort(match);
+                                    }}
+                                >
+                                    Yes, abort
+                                </button>
+                                <button type="button" className={headerButtonClass} onClick={() => setConfirming(null)}>
+                                    Keep running
+                                </button>
+                            </>
+                        ) : confirming === 'force' ? (
+                            <>
+                                <span>Commit without {awaiting.join(' and ')}?</span>
+                                <button
+                                    type="button"
+                                    className="rounded-md bg-[#ffc107] px-3 py-1.5 text-black"
+                                    disabled={busy}
+                                    onClick={() => {
+                                        setConfirming(null);
+                                        onForceCommit(match);
+                                    }}
+                                >
+                                    Yes, commit now
+                                </button>
+                                <button type="button" className={headerButtonClass} onClick={() => setConfirming(null)}>
+                                    Wait for referees
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    type="button"
+                                    className="rounded-md bg-[#dc3545] px-3 py-1.5 text-white"
+                                    disabled={busy}
+                                    onClick={() => setConfirming('abort')}
+                                >
+                                    Abort Match
+                                </button>
+                                {awaiting.length > 0 && (
+                                    <>
+                                        <span>Waiting for {awaiting.join(' and ')} to submit.</span>
+                                        <button type="button" className={headerButtonClass} disabled={busy} onClick={() => setConfirming('force')}>
+                                            Commit without waiting
+                                        </button>
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
 
-    return [tab, changeTab];
+function SyncFooter({ matches }: { matches: CompetitionMatch[] }) {
+    const status = useConnectionStatus();
+    const drift = scheduleDriftMinutes(matches, useServerNow());
+    const driftLabel = drift === null ? '' : Math.abs(drift) <= 1 ? 'On schedule' : drift > 0 ? `${drift}m behind` : `${-drift}m ahead`;
+
+    return (
+        <div className="flex h-[19px] shrink-0 items-center gap-2 bg-[#274555] text-base leading-none">
+            <span
+                className={cn('h-4 w-2.5 rounded-[3px]', status === 'connected' ? 'bg-[#00ff00]' : 'bg-[#ff0000]')}
+                title={status === 'connected' ? 'Live updates connected' : 'Live updates disconnected'}
+            />
+            {driftLabel}
+        </div>
+    );
+}
+
+function HeaderButton({ isNext, className, children, ...props }: { isNext: boolean; children: ReactNode } & React.ComponentProps<'button'>) {
+    return (
+        <button type="button" className={cn(headerButtonClass, isNext && nextActionClass, className)} {...props}>
+            {children}
+        </button>
+    );
 }
 
 export default function MatchControlConsole() {
-    const fieldCount = useFieldCount();
+    const { event, name } = usePage<SharedData>().props;
     const [tab, changeTab] = useConsoleTab();
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
     const { value: display } = useProp<AudienceDisplayState>('display');
-    const { value: displayModes = [] } = useProp<DisplayModeOption[]>('displayModes');
 
     const api = useApi();
     const loadMatch = useLoadMatch();
     const startMatch = useStartMatch();
     const endMatch = useEndMatch();
     const cancelMatch = useCancelMatch();
-
-    // The operator who clicked sees the outcome at once, without waiting for
-    // the broadcast round trip (which also covers a backgrounded console tab).
-    const refresh = { onSuccess: () => router.reload({ only: ['matches', 'display'] }) };
     const { timer, matchConfig } = useActiveMatchTimer();
 
-    const [chosenId, setChosenId] = useState<number | null>(null);
-    const [confirmingAbort, setConfirmingAbort] = useState(false);
-    const [confirmingForce, setConfirmingForce] = useState(false);
+    const [phase, setPhase] = useState<MatchPhase>(() => currentPhase(matches));
     const [displayError, setDisplayError] = useState<string | null>(null);
 
+    const refresh = { onSuccess: () => router.reload({ only: ['matches', 'display'] }) };
+    const phaseNow = currentPhase(matches);
     const ongoing = matches.find((match) => match.status === 'ongoing') ?? null;
-    const phase = currentPhase(
-        matches,
-        MATCH_FILTERS.filter((option) => matches.some((match) => match.type === option.value)),
-    );
+    const loaded = matches.find((match) => match.id === display?.match_id && match.status === 'upcoming') ?? null;
     const nextUpcoming =
-        matches.find((match) => match.type === phase && match.status === 'upcoming') ?? matches.find((match) => match.status === 'upcoming') ?? null;
+        matches.find((match) => match.type === phaseNow && match.status === 'upcoming' && match.id !== loaded?.id) ??
+        matches.find((match) => match.status === 'upcoming' && match.id !== loaded?.id) ??
+        null;
+    const lastCompleted = matches.filter((match) => match.status === 'completed').at(-1) ?? null;
+    const awaiting = awaitingSubmissions(ongoing);
+    const lastPosted = lastCompleted !== null && display?.mode === 'results' && display.match_id === lastCompleted.id;
 
-    // Follow the field: the running match wins, then whatever is on the display, then the next match to play.
-    const selected = useMemo(
-        () =>
-            matches.find((match) => match.id === chosenId) ??
-            ongoing ??
-            matches.find((match) => match.id === display?.match_id) ??
-            nextUpcoming ??
-            null,
-        [matches, chosenId, ongoing, display?.match_id, nextUpcoming],
-    );
-
-    // Which tablets are scoring each alliance of the running match.
-    const { data: seats } = useQuery({
-        queryKey: ['referee-seats', selected?.id],
-        queryFn: () => api.getRefereeSeats(selected!.id),
-        enabled: selected?.status === 'ongoing',
-        refetchInterval: 5000,
-        refetchIntervalInBackground: true,
-    });
-    const tabletsFor = (color: 'red' | 'blue') => (selected ? (seats?.seats[String(getAllianceMembers(selected, color)[0]?.alliance.id)] ?? {}) : {});
-    // Every alliance's scoring referee, plus its penalty referee once one joined, must submit before the commit.
-    const awaitingSubmission =
-        selected?.status === 'ongoing'
-            ? (['red', 'blue'] as const).flatMap((color) => {
-                  const allianceId = getAllianceMembers(selected, color)[0]?.alliance.id;
-                  return allianceId === undefined
-                      ? []
-                      : seatsOf(selected, allianceId)
-                            .filter((role) => !isSubmitted(selected, allianceId, role))
-                            .map((role) => `${color} ${role === 'penalty' ? 'penalties' : 'scoring'}`);
-              })
-            : [];
-
-    const isLoaded = selected !== null && display?.match_id === selected.id && display.mode === 'preview';
     const busy = loadMatch.isPending || startMatch.isPending || endMatch.isPending || cancelMatch.isPending;
     const error = errorMessage(loadMatch.error ?? startMatch.error ?? endMatch.error ?? cancelMatch.error) ?? displayError;
-    const phaseColors = getPhaseColors(timer.phase);
+    const phases = MATCH_PHASES.filter((option) => matches.some((match) => match.type === option.value));
 
     const show = (mode: DisplayModeValue, matchId?: number | null, message?: string) => {
         setDisplayError(null);
@@ -422,249 +467,182 @@ export default function MatchControlConsole() {
             .catch((e) => setDisplayError(errorMessage(e)));
     };
 
-    const selectNext = () => {
-        const index = selected ? matches.findIndex((match) => match.id === selected.id) : -1;
-        const next = matches.slice(index + 1).find((match) => match.status === 'upcoming') ?? nextUpcoming;
-        setChosenId(next?.id ?? null);
+    const commitAndPost = () => {
+        if (ongoing) {
+            endMatch.mutate(ongoing.id, {
+                onSuccess: () => {
+                    router.reload({ only: ['matches'] });
+                    show('results', ongoing.id);
+                },
+            });
+
+            return;
+        }
+
+        if (lastCompleted) {
+            show('results', lastCompleted.id);
+        }
     };
 
+    const nextAction = ongoing ? (awaiting.length === 0 ? 'commit' : null) : loaded ? 'start' : !lastPosted && lastCompleted ? 'commit' : 'load';
+    const timerLabel =
+        ongoing &&
+        `${getPhaseLabel(timer.phase)} ${
+            timer.phase === 'autonomous'
+                ? formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))
+                : formatTime(timer.phase === 'pre-match' ? 0 : timer.phaseRemainingSeconds)
+        }`;
+
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <div className="flex h-screen flex-col overflow-hidden bg-[#334c55] text-[#f8f9fa]">
             <Head title="Match Control" />
 
-            <div className="space-y-4 p-4">
-                <div className="flex gap-1 border-b" role="tablist">
-                    {CONSOLE_TABS.map((option) => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            role="tab"
-                            aria-selected={tab === option.value}
-                            onClick={() => changeTab(option.value)}
-                            className={cn(
-                                '-mb-px border-b-2 px-4 py-2 text-sm font-medium transition',
-                                tab === option.value
-                                    ? 'border-primary text-foreground'
-                                    : 'text-muted-foreground hover:text-foreground border-transparent',
-                            )}
-                        >
-                            {option.label}
-                        </button>
-                    ))}
+            <div className="flex h-[35px] shrink-0 items-center bg-[#293d45] px-2">
+                <Link href={`/event/${event?.code}`} className="rounded border border-[#f8f9fa] bg-[#f8f9fa] px-2 py-1 text-sm text-black">
+                    Exit
+                </Link>
+                <span className="ml-auto truncate">
+                    <span className="font-mono font-bold">{event?.code}</span> - <span className="italic">{name}</span> running at{' '}
+                    {window.location.host}
+                </span>
+            </div>
+
+            <div className="shrink-0 bg-[#293d45] pb-2.5">
+                <h1 className="text-center text-[30px] font-bold">Match Control</h1>
+                <div className="flex flex-wrap items-end gap-y-2 px-2">
+                    <table className="mx-auto md:ml-[300px]">
+                        <tbody>
+                            <tr>
+                                <th className="p-px pr-2 text-left">Loaded Match:</th>
+                                <td>{loaded ? getMatchTitle(loaded) : ''}</td>
+                            </tr>
+                            <tr>
+                                <th className="p-px pr-2 text-left">Active Match:</th>
+                                <td>
+                                    {ongoing ? getMatchTitle(ongoing) : ''}
+                                    {timerLabel && <span className="ml-3 font-mono">{timerLabel}</span>}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
+                <div className="mt-1 flex flex-wrap items-center gap-y-2 px-2">
+                    <div className="flex flex-wrap gap-4 md:ml-[424px]">
+                        <HeaderButton
+                            isNext={nextAction === 'load'}
+                            disabled={busy || ongoing !== null || !nextUpcoming}
+                            onClick={() => nextUpcoming && loadMatch.mutate(nextUpcoming.id, refresh)}
+                        >
+                            {'Load Next\nMatch'}
+                        </HeaderButton>
+                        <HeaderButton isNext={false} disabled={!loaded} onClick={() => loaded && show('preview', loaded.id)}>
+                            {'Show\nPreview'}
+                        </HeaderButton>
+                        <HeaderButton isNext={false} disabled={!loaded && !ongoing} onClick={() => show('match', (ongoing ?? loaded)?.id)}>
+                            {'Show\nMatch'}
+                        </HeaderButton>
+                        <HeaderButton
+                            isNext={nextAction === 'start'}
+                            disabled={busy || !loaded || ongoing !== null}
+                            onClick={() => loaded && startMatch.mutate(loaded.id, refresh)}
+                        >
+                            {'Start\nMatch'}
+                        </HeaderButton>
+                    </div>
+                    <HeaderButton
+                        isNext={nextAction === 'commit'}
+                        className="ml-auto"
+                        disabled={busy || (ongoing ? awaiting.length > 0 : !lastCompleted || lastPosted)}
+                        title={awaiting.length > 0 ? `Waiting for ${awaiting.join(' and ')} to submit` : undefined}
+                        onClick={commitAndPost}
+                    >
+                        {'Commit & Post\nLast Match'}
+                    </HeaderButton>
+                </div>
+                {error && <p className="mx-2 mt-2 rounded bg-[#f8d7da] px-3 py-1 text-[#842029]">{error}</p>}
+            </div>
 
-                {displayError && tab === 'displays' && <p className="text-destructive text-sm">{displayError}</p>}
+            <nav className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 bg-[#578394] px-2 pt-[3px]" role="tablist">
+                {CONSOLE_TABS.map((option) => (
+                    <button
+                        key={option.value}
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === option.value}
+                        onClick={() => changeTab(option.value)}
+                        className={cn('rounded-t-lg px-2 leading-[26px] text-white', tab === option.value ? 'bg-[#13458f]' : 'bg-[#1e7abb]')}
+                    >
+                        {option.label}
+                    </button>
+                ))}
+                {[
+                    { label: 'Settings', href: '/admin/competition-settings' },
+                    { label: 'Alliance Selection', href: '/admin/alliance-selection' },
+                    { label: 'Present Awards', href: '/admin/awards' },
+                ].map((link) => (
+                    <Link key={link.label} href={eventUrl(link.href)} className="rounded-t-lg bg-[#1e7abb] px-2 leading-[26px] text-white">
+                        {link.label}
+                    </Link>
+                ))}
+            </nav>
 
-                {tab === 'displays' ? (
-                    <DisplaySwitch display={display} onShow={(mode, message) => show(mode, null, message)} />
-                ) : (
+            <main className="min-h-0 flex-1 overflow-auto">
+                {tab === 'schedule' && (
                     <>
-                        <Card>
-                            <CardContent className="flex flex-wrap items-center gap-2 py-3">
-                                <span className="text-muted-foreground mr-2 text-sm font-medium">Audience display:</span>
-                                {displayModes
-                                    .filter((mode) => mode.value !== 'message')
-                                    .map((mode) => (
-                                        <Button
-                                            key={mode.value}
-                                            size="sm"
-                                            variant={display?.mode === mode.value ? 'default' : 'outline'}
-                                            onClick={() =>
-                                                show(mode.value, ['preview', 'match', 'results'].includes(mode.value) ? selected?.id : null)
-                                            }
-                                        >
-                                            {mode.label}
-                                        </Button>
-                                    ))}
-                                <Button asChild size="sm" variant="ghost" className="ml-auto">
-                                    <a href={eventUrl('/display?type=audience')} target="_blank" rel="noreferrer">
-                                        <ExternalLink className="mr-1 size-4" /> Open display
-                                    </a>
-                                </Button>
-                            </CardContent>
-                        </Card>
-
-                        <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(22rem,2fr)]">
-                            <MatchList matches={matches} selectedId={selected?.id ?? null} onSelect={(match) => setChosenId(match.id)} />
-
-                            <Card className="h-fit xl:sticky xl:top-4">
-                                {selected ? (
-                                    <>
-                                        <CardHeader className="space-y-1">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <CardTitle className="text-2xl">{getMatchTitle(selected)}</CardTitle>
-                                                <Badge className={(STATUS_BADGES[selected.status] ?? STATUS_BADGES.upcoming).className}>
-                                                    {(STATUS_BADGES[selected.status] ?? STATUS_BADGES.upcoming).label}
-                                                </Badge>
-                                            </div>
-                                            {getFieldLabel(selected, fieldCount) && (
-                                                <p className="text-muted-foreground text-sm font-medium">{getFieldLabel(selected, fieldCount)}</p>
-                                            )}
-                                            {isLoaded && (
-                                                <p className="text-sm text-emerald-600">Loaded — the audience display is showing the preview.</p>
-                                            )}
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            <div className="flex gap-3">
-                                                <AllianceSummary match={selected} color="red" tablets={tabletsFor('red')} />
-                                                <AllianceSummary match={selected} color="blue" tablets={tabletsFor('blue')} />
-                                            </div>
-
-                                            {selected.status === 'ongoing' && (
-                                                <div className="bg-muted rounded-lg p-4 text-center">
-                                                    <div className={cn('text-sm font-bold tracking-widest', phaseColors.text)}>
-                                                        {getPhaseLabel(timer.phase)}
-                                                    </div>
-                                                    <div className="text-5xl font-black tabular-nums">
-                                                        {timer.phase === 'autonomous'
-                                                            ? formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))
-                                                            : formatTime(timer.phase === 'pre-match' ? 0 : timer.phaseRemainingSeconds)}
-                                                    </div>
-                                                    <div className="bg-background mt-2 h-2 overflow-hidden rounded-full">
-                                                        <div
-                                                            className={cn('h-full', phaseColors.bg)}
-                                                            style={{ width: `${timer.progressPercent}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {error && <p className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</p>}
-
-                                            {(selected.status === 'ongoing' || selected.status === 'completed') && (
-                                                <TeamCards match={selected} matches={matches} />
-                                            )}
-
-                                            <div className="grid gap-2">
-                                                {selected.status === 'upcoming' && (
-                                                    <>
-                                                        <Button
-                                                            variant="outline"
-                                                            disabled={busy || isLoaded}
-                                                            onClick={() => loadMatch.mutate(selected.id, refresh)}
-                                                        >
-                                                            <Upload className="mr-1 size-4" /> {isLoaded ? 'Loaded' : 'Load match & show preview'}
-                                                        </Button>
-                                                        <Button
-                                                            size="lg"
-                                                            className="bg-emerald-600 text-white hover:bg-emerald-700"
-                                                            disabled={busy || ongoing !== null}
-                                                            onClick={() => startMatch.mutate(selected.id, refresh)}
-                                                        >
-                                                            <Play className="mr-1 size-5" /> Start match
-                                                        </Button>
-                                                        {ongoing && (
-                                                            <p className="text-muted-foreground text-xs">
-                                                                {getMatchTitle(ongoing)} is still running.
-                                                            </p>
-                                                        )}
-                                                    </>
-                                                )}
-
-                                                {selected.status === 'ongoing' && (
-                                                    <>
-                                                        {confirmingAbort ? (
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <Button
-                                                                    variant="destructive"
-                                                                    disabled={busy}
-                                                                    onClick={() => {
-                                                                        setConfirmingAbort(false);
-                                                                        cancelMatch.mutate(selected.id, refresh);
-                                                                    }}
-                                                                >
-                                                                    Yes, abort
-                                                                </Button>
-                                                                <Button variant="outline" onClick={() => setConfirmingAbort(false)}>
-                                                                    Keep running
-                                                                </Button>
-                                                            </div>
-                                                        ) : (
-                                                            <Button
-                                                                size="lg"
-                                                                variant="destructive"
-                                                                disabled={busy}
-                                                                onClick={() => setConfirmingAbort(true)}
-                                                            >
-                                                                <Octagon className="mr-1 size-5" /> Abort match
-                                                            </Button>
-                                                        )}
-                                                        <Button
-                                                            size="lg"
-                                                            disabled={busy || awaitingSubmission.length > 0}
-                                                            onClick={() => endMatch.mutate(selected.id, refresh)}
-                                                        >
-                                                            <CheckCircle className="mr-1 size-5" />
-                                                            {awaitingSubmission.length > 0
-                                                                ? `Waiting for ${awaitingSubmission.join(' and ')} to submit`
-                                                                : 'Commit scores & end match'}
-                                                        </Button>
-                                                        {awaitingSubmission.length > 0 &&
-                                                            (confirmingForce ? (
-                                                                <div className="grid grid-cols-2 gap-2">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        className="border-amber-500 text-amber-700 dark:text-amber-400"
-                                                                        disabled={busy}
-                                                                        onClick={() => {
-                                                                            setConfirmingForce(false);
-                                                                            endMatch.mutate({ matchId: selected.id, force: true }, refresh);
-                                                                        }}
-                                                                    >
-                                                                        Yes, commit now
-                                                                    </Button>
-                                                                    <Button variant="outline" onClick={() => setConfirmingForce(false)}>
-                                                                        Wait for referees
-                                                                    </Button>
-                                                                </div>
-                                                            ) : (
-                                                                <Button variant="outline" disabled={busy} onClick={() => setConfirmingForce(true)}>
-                                                                    <Square className="mr-1 size-4" /> Commit without waiting
-                                                                </Button>
-                                                            ))}
-                                                        <p className="text-muted-foreground text-xs">
-                                                            Referees submit each alliance's scores from their tablets; the match ends once you commit.
-                                                            Abort puts the match back to upcoming so it can be replayed. Scores are kept.
-                                                        </p>
-                                                    </>
-                                                )}
-
-                                                {selected.status === 'completed' && (
-                                                    <>
-                                                        <Button
-                                                            size="lg"
-                                                            disabled={display?.mode === 'results' && display.match_id === selected.id}
-                                                            onClick={() => show('results', selected.id)}
-                                                        >
-                                                            <Megaphone className="mr-1 size-5" />
-                                                            {display?.mode === 'results' && display.match_id === selected.id
-                                                                ? 'Results posted'
-                                                                : 'Post results to display'}
-                                                        </Button>
-                                                        <Button asChild variant="outline">
-                                                            <a href={eventUrl('/referee/scoring')}>
-                                                                <Flag className="mr-1 size-4" /> Review scores
-                                                            </a>
-                                                        </Button>
-                                                    </>
-                                                )}
-
-                                                <Button variant="ghost" onClick={selectNext} disabled={!nextUpcoming}>
-                                                    Next match <ChevronRight className="ml-1 size-4" />
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </>
-                                ) : (
-                                    <CardContent className="text-muted-foreground py-10 text-center text-sm">
-                                        Select a match to control it.
-                                    </CardContent>
-                                )}
-                            </Card>
-                        </div>
+                        {phases.length > 1 && (
+                            <div className="flex gap-2 px-2 py-1">
+                                {phases.map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setPhase(option.value)}
+                                        className={cn(
+                                            rowButtonClass,
+                                            phase === option.value && 'border-[#13458f] bg-[#13458f] text-white hover:bg-[#13458f]',
+                                        )}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <ScheduleTable
+                            matches={matches.filter((match) => match.type === phase)}
+                            display={display}
+                            busy={busy}
+                            hasRunningMatch={ongoing !== null}
+                            onPlay={(match) => loadMatch.mutate(match.id, refresh)}
+                            onPost={(match) => show('results', match.id)}
+                        />
                     </>
                 )}
-            </div>
-        </AppLayout>
+                {tab === 'incomplete' && (
+                    <ScheduleTable
+                        matches={matches.filter((match) => match.status !== 'completed')}
+                        display={display}
+                        busy={busy}
+                        hasRunningMatch={ongoing !== null}
+                        onPlay={(match) => loadMatch.mutate(match.id, refresh)}
+                        onPost={(match) => show('results', match.id)}
+                    />
+                )}
+                {tab === 'active' && (
+                    <ActiveMatchPanel
+                        match={ongoing ?? loaded}
+                        matches={matches}
+                        busy={busy}
+                        onAbort={(match) => cancelMatch.mutate(match.id, refresh)}
+                        onForceCommit={(match) => endMatch.mutate({ matchId: match.id, force: true }, refresh)}
+                    />
+                )}
+                {tab === 'video' && (
+                    <div className="p-1">
+                        <DisplaySwitch display={display} onShow={(mode, message) => show(mode, null, message)} />
+                    </div>
+                )}
+            </main>
+
+            <SyncFooter matches={matches} />
+        </div>
     );
 }

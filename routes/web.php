@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\DisplayMode;
 use App\Enums\EventType;
 use App\Enums\MatchStatus;
 use App\Enums\RankingMethod;
@@ -150,7 +149,6 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         return Inertia::render('match-control/index', [
             'matches' => $live->matches(),
             'display' => $live->audienceDisplay(),
-            'displayModes' => array_map(fn (DisplayMode $mode): array => ['value' => $mode->value, 'label' => $mode->label()], DisplayMode::switchable()),
         ]);
     })->middleware(['auth', 'can:control-matches'])->name('match-control');
 
