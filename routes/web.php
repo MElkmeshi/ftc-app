@@ -159,6 +159,10 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         ]);
     })->middleware(['auth', 'can:control-matches'])->name('match-control');
 
+    Route::get('head-referee', function (EventLiveProps $live) {
+        return Inertia::render('referee/head-referee', ['matches' => $live->matches()]);
+    })->middleware(['auth', 'can:control-matches'])->name('head-referee');
+
     Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('dashboard', function (CurrentEvent $currentEvent, EventSetupChecklist $checklist) {
             return Inertia::render('dashboard', [

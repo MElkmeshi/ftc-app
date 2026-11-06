@@ -7,6 +7,7 @@ import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useStartMatch } from '@/hooks/use-match';
 import { eventUrl } from '@/lib/event';
 import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, getPhaseLabel, scheduleDriftMinutes } from '@/lib/match-utils';
+import { findSubmission, seatsOf } from '@/lib/referee-seats';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
 import { type AudienceDisplayState, type CompetitionMatch, type DisplayModeValue, type RefereeRole, type SharedData } from '@/types';
@@ -81,12 +82,6 @@ function currentPhase(matches: CompetitionMatch[]): MatchPhase {
     return finished && phases[startedIndex + 1] ? phases[startedIndex + 1].value : phases[startedIndex].value;
 }
 
-const isSubmitted = (match: CompetitionMatch, allianceId: number, role: RefereeRole) =>
-    match.submissions?.find((entry) => entry.alliance_id === allianceId && (entry.role ?? 'scoring') === role);
-
-const seatsOf = (match: CompetitionMatch, allianceId: number): RefereeRole[] =>
-    match.referee_seats?.some((seat) => seat.alliance_id === allianceId && seat.role === 'penalty') ? ['scoring', 'penalty'] : ['scoring'];
-
 function awaitingSubmissions(match: CompetitionMatch | null): string[] {
     if (match?.status !== 'ongoing') {
         return [];
@@ -98,7 +93,7 @@ function awaitingSubmissions(match: CompetitionMatch | null): string[] {
         return allianceId === undefined
             ? []
             : seatsOf(match, allianceId)
-                  .filter((role) => !isSubmitted(match, allianceId, role))
+                  .filter((role) => !findSubmission(match, allianceId, role))
                   .map((role) => `${color} ${role === 'penalty' ? 'penalties' : 'scoring'}`);
     });
 }
@@ -231,7 +226,7 @@ function ScheduleTable({
 }
 
 function RefereeStatus({ match, allianceId, role, tablets }: { match: CompetitionMatch; allianceId: number; role: RefereeRole; tablets: string[] }) {
-    const submission = isSubmitted(match, allianceId, role);
+    const submission = findSubmission(match, allianceId, role);
     const label = ROLE_LABELS[role];
 
     if (submission) {

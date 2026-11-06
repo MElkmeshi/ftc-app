@@ -101,6 +101,7 @@ export default function EventShow() {
                         { label: 'Blue Alliance Wall Scorer', href: `${base}/referee/scoring?alliance=blue&role=scoring` },
                         { label: 'Red Referee (Fouls)', href: `${base}/referee/scoring?alliance=red&role=penalty` },
                         { label: 'Blue Referee (Fouls)', href: `${base}/referee/scoring?alliance=blue&role=penalty` },
+                        { label: 'Head Referee', href: `${base}/head-referee` },
                     ]}
                 />
             </Section>

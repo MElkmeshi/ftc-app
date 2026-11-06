@@ -221,3 +221,14 @@ it('does not let a score type take points away', function (array $scoreType, str
     'negative scoring' => [['points' => -10, 'referee' => 'scoring'], 'Points cannot be negative'],
     'free foul' => [['points' => 0, 'referee' => 'penalty'], 'at least 1 point'],
 ]);
+
+it('opens the head referee page with every match for head referees only', function () {
+    $headReferee = User::factory()->create(['role' => UserRole::HeadReferee]);
+
+    $this->actingAs($headReferee)->get('/event/testevent/head-referee')->assertOk()->assertInertia(fn ($page) => $page
+        ->component('referee/head-referee')
+        ->has('matches', 1)
+    );
+
+    $this->actingAs($this->referee)->get('/event/testevent/head-referee')->assertForbidden();
+});

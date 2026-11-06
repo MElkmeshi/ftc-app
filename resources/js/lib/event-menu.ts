@@ -15,6 +15,7 @@ export const EVENT_ADMIN_MENU: EventMenuGroup[] = [
             { title: 'Event Dashboard', href: '/dashboard' },
             { title: 'Match Control', href: '/match-control' },
             { title: 'Referee Scoring', href: '/referee/scoring' },
+            { title: 'Head Referee', href: '/head-referee' },
             { title: 'Robot Inspection', href: '/inspection' },
             { title: 'Schedule & Results', href: '/competition-matches' },
             { title: 'Event Reports', href: '/reports' },
