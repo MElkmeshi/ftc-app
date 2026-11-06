@@ -13,6 +13,7 @@ use App\Http\Controllers\EventController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\MatchSheetController;
+use App\Http\Controllers\PitMapController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScreenReloadController;
 use App\Http\Controllers\ScriptController;
@@ -116,6 +117,8 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         ]))->name('rankings');
 
         Route::get('inspection/status', [InspectionController::class, 'board'])->name('inspection.board');
+
+        Route::get('pit-map', [PitMapController::class, 'show'])->name('pit-map.show');
 
         Route::get('matches/{match}', [MatchSheetController::class, 'show'])->whereNumber('match')->name('matches.sheet');
     });
@@ -238,6 +241,9 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('admin/competition-settings', [GameController::class, 'settings'])->middleware('can:manage-competition')->name('admin.competition-settings');
 
         Route::middleware('can:manage-competition')->group(function () {
+            Route::get('admin/pit-map', [PitMapController::class, 'edit'])->name('pit-map.edit');
+            Route::post('pit-map', [PitMapController::class, 'update'])->name('pit-map.update');
+            Route::delete('pit-map', [PitMapController::class, 'destroy'])->name('pit-map.destroy');
             Route::get('admin/sponsors', [SponsorController::class, 'index'])->name('sponsors.index');
             Route::post('sponsors', [SponsorController::class, 'store'])->name('sponsors.store');
             Route::post('sponsors/{sponsor}', [SponsorController::class, 'update'])->whereNumber('sponsor')->name('sponsors.update');

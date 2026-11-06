@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\EliminationRound;
 use App\Enums\MatchStatus;
 use App\Enums\UserRole;
+use App\Http\Controllers\PitMapController;
 use App\Models\AllianceGroup;
 use App\Models\CompetitionMatch;
 use App\Models\EliminationSeries;
@@ -87,6 +88,14 @@ class EventSetupChecklist
                 $sponsorCount > 0 ? self::DONE : self::OPTIONAL,
                 "{$sponsorCount} sponsor".($sponsorCount === 1 ? '' : 's').' added',
                 '/admin/sponsors',
+            ),
+            $this->step(
+                'pit-map',
+                'Pit map',
+                'A picture of the pits that teams open on their phones.',
+                PitMapController::path() !== null ? self::DONE : self::OPTIONAL,
+                PitMapController::path() !== null ? 'Published' : '(Optional)',
+                '/admin/pit-map',
             ),
             $this->step(
                 'schedule',

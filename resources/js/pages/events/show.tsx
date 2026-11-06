@@ -84,6 +84,7 @@ export default function EventShow() {
                         { label: 'Playoff', children: [{ label: 'Bracket', href: `${base}/elimination/bracket` }] },
                         { label: 'Match Results', href: `${base}/schedule` },
                         { label: 'Pit Display', href: `${base}/display?type=pit` },
+                        { label: 'Pit Map', href: `${base}/pit-map` },
                         { label: 'Event Reports', href: `${base}/reports` },
                     ]}
                 />
