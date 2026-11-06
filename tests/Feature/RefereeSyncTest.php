@@ -152,6 +152,15 @@ it('warns tablets that score the same alliance and shows match control who is sc
     $this->actingAs($this->referee)->postJson('/api/referee-seats', $seat($second, $this->red))->assertJsonPath('sharing_with', []);
 });
 
+it('tells the head referee which step each referee tablet is on', function () {
+    $this->actingAs($this->referee)->postJson('/api/referee-seats', [
+        'tablet_id' => (string) Str::uuid(), 'match_id' => $this->match->id, 'alliance_id' => $this->red->id, 'role' => 'scoring', 'step' => 'TELEOP',
+    ])->assertOk();
+
+    $this->actingAs($this->headReferee)->getJson("/api/matches/{$this->match->id}/referee-seats")
+        ->assertJsonPath("steps.{$this->red->id}.scoring", 'TELEOP');
+});
+
 it('keeps referee seats for referees and the seat list for match control', function () {
     $viewer = User::factory()->create(['role' => UserRole::Viewer]);
 

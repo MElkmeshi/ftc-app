@@ -24,6 +24,7 @@ class RefereeSeatRequest extends FormRequest
             'match_id' => ['required', 'integer', $this->existsInEvent('matches')->whereNull('deleted_at')],
             'alliance_id' => ['nullable', 'integer', 'exists:alliances,id'],
             'role' => ['sometimes', Rule::enum(RefereeRole::class)],
+            'step' => ['sometimes', 'nullable', 'string', 'max:60'],
         ];
     }
 }

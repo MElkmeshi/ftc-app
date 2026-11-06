@@ -410,3 +410,17 @@ export function useSetAllianceSubmitted() {
         onSuccess: ({ match }) => cacheMatch(queryClient, match),
     });
 }
+
+/** Marks one team ready (or not) for its match during the referee's pre-match setup. */
+export function useSetTeamReady() {
+    const api = useApi();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (params: { matchId: number; teamId: number; ready: boolean }) => api.setTeamReady(params.matchId, params.teamId, params.ready),
+        onSuccess: ({ match }) => {
+            void queryClient.invalidateQueries({ queryKey: ['loaded-match'] });
+            return cacheMatch(queryClient, match);
+        },
+    });
+}

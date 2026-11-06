@@ -2,7 +2,7 @@ import { TeamCards } from '@/components/match-control/team-cards';
 import { formatScoreName } from '@/components/scoring/score-controls';
 import { TeamCardBadge } from '@/components/team-card-badge';
 import { useApi } from '@/hooks/use-api';
-import { useMatch, useScoreTypes } from '@/hooks/use-match';
+import { useLoadedMatch, useMatch, useScoreTypes } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
 import { eventUrl } from '@/lib/event';
 import { getAllianceMembers, getAllianceScore, getMatchTitle } from '@/lib/match-utils';
@@ -32,7 +32,19 @@ function ScoreRow({ label, red, blue, flip, className }: { label: ReactNode; red
     );
 }
 
-function TabletStatus({ match, color, role, tablets }: { match: CompetitionMatch; color: Color; role: RefereeRole; tablets: string[] }) {
+function TabletStatus({
+    match,
+    color,
+    role,
+    tablets,
+    step,
+}: {
+    match: CompetitionMatch;
+    color: Color;
+    role: RefereeRole;
+    tablets: string[];
+    step: string | null;
+}) {
     const allianceId = getAllianceMembers(match, color)[0]?.alliance.id;
 
     if (allianceId === undefined) {
@@ -47,7 +59,13 @@ function TabletStatus({ match, color, role, tablets }: { match: CompetitionMatch
         return <span className="rounded bg-[#ffc107] px-2 py-0.5 text-black">Conflict: {tablets.join(', ')}</span>;
     }
 
-    return tablets.length === 1 ? <span>Scoring ({tablets[0]})</span> : <span className="text-[#dc3545]">No Tablet</span>;
+    return tablets.length === 1 ? (
+        <span>
+            {step ?? 'Scoring'} ({tablets[0]})
+        </span>
+    ) : (
+        <span className="text-[#dc3545]">No Tablet</span>
+    );
 }
 
 function countFor(match: CompetitionMatch, color: Color, scoreType: ScoreType): number {
@@ -90,7 +108,7 @@ function ActiveMatchTab({ match, matches }: { match: CompetitionMatch; matches: 
     const { data: seats } = useQuery({
         queryKey: ['referee-seats', match.id],
         queryFn: () => api.getRefereeSeats(match.id),
-        enabled: match.status === 'ongoing',
+        enabled: match.status === 'ongoing' || match.status === 'upcoming',
         refetchInterval: 5000,
         refetchIntervalInBackground: true,
     });
@@ -107,6 +125,7 @@ function ActiveMatchTab({ match, matches }: { match: CompetitionMatch; matches: 
         return [...byGroup.entries()].sort(([, a], [, b]) => a.order - b.order);
     }, [scoreTypes]);
 
+    const stepFor = (color: Color, role: RefereeRole) => seats?.steps?.[String(getAllianceMembers(match, color)[0]?.alliance.id)]?.[role] ?? null;
     const tabletsFor = (color: Color, role: RefereeRole) => seats?.seats[String(getAllianceMembers(match, color)[0]?.alliance.id)]?.[role] ?? [];
     const roles: RefereeRole[] =
         ALLIANCES.some((color) => {
@@ -136,22 +155,22 @@ function ActiveMatchTab({ match, matches }: { match: CompetitionMatch; matches: 
                 red={<span className="font-bold text-[#ed1c24]">Red</span>}
                 blue={<span className="font-bold text-[#0066b3]">Blue</span>}
             />
-            {match.status === 'ongoing' ? (
+            {match.status === 'ongoing' || match.status === 'upcoming' ? (
                 roles.map((role) => (
                     <ScoreRow
                         key={role}
                         flip={flip}
                         label={ROLE_LABELS[role]}
-                        red={<TabletStatus match={match} color="red" role={role} tablets={tabletsFor('red', role)} />}
-                        blue={<TabletStatus match={match} color="blue" role={role} tablets={tabletsFor('blue', role)} />}
+                        red={<TabletStatus match={match} color="red" role={role} tablets={tabletsFor('red', role)} step={stepFor('red', role)} />}
+                        blue={<TabletStatus match={match} color="blue" role={role} tablets={tabletsFor('blue', role)} step={stepFor('blue', role)} />}
                     />
                 ))
             ) : (
                 <ScoreRow
                     flip={flip}
                     label="State"
-                    red={match.status === 'completed' ? 'Committed' : 'Unplayed'}
-                    blue={match.status === 'completed' ? 'Committed' : 'Unplayed'}
+                    red={match.status === 'completed' ? 'Committed' : 'Cancelled'}
+                    blue={match.status === 'completed' ? 'Committed' : 'Cancelled'}
                 />
             )}
             <ScoreRow
@@ -198,8 +217,10 @@ function ActiveMatchTab({ match, matches }: { match: CompetitionMatch; matches: 
 export default function HeadReferee() {
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
     const running = matches.find((match) => match.status === 'ongoing');
+    const { data: loadedMatch } = useLoadedMatch(5000);
+    const waiting = loadedMatch?.status === 'upcoming' ? loadedMatch : null;
     const lastPlayed = [...matches].reverse().find((match) => match.status === 'completed');
-    const { data: liveMatch } = useMatch(running?.id ?? lastPlayed?.id ?? null, 2000);
+    const { data: liveMatch } = useMatch(running?.id ?? waiting?.id ?? lastPlayed?.id ?? null, 2000);
     const match = liveMatch ?? running ?? null;
 
     return (

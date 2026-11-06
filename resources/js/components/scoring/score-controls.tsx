@@ -1,7 +1,7 @@
 import { type ScoreControl } from '@/lib/score-controls';
 import { cn } from '@/lib/utils';
 import { Minus, Plus } from 'lucide-react';
-import { type CSSProperties } from 'react';
+import { type CSSProperties, type ReactNode } from 'react';
 
 export const formatScoreName = (name: string) => name.replace(/_/g, ' ');
 
@@ -44,27 +44,21 @@ function ToggleOption({
     );
 }
 
-/**
- * FTC Live's toggle: the score type's name, then a button group. A yes/no
- * score type is No / Yes; a "one of" choice is None, then each option, and
- * choosing one replaces the previous one on the server.
- */
-export function ScoreControlButtons({ control, countFor, onAdd, onRemove, disabled, color }: ControlProps) {
-    const isToggle = control.kind === 'toggle';
-    const chosen = control.options.find((option) => countFor(option.id) > 0);
-    const options = [
-        { key: 'none', label: isToggle ? 'No' : 'None', selected: !chosen, onClick: () => chosen && onRemove(chosen.id) },
-        ...control.options.map((option) => ({
-            key: String(option.id),
-            label: isToggle ? 'Yes' : formatScoreName(option.name),
-            selected: chosen?.id === option.id,
-            onClick: () => (chosen?.id === option.id ? onRemove(option.id) : onAdd(option.id)),
-        })),
-    ];
-
+/** FTC Live's toggle: a label, then a button group with one option chosen. */
+export function ToggleGroup({
+    label,
+    options,
+    disabled,
+    color,
+}: {
+    label: ReactNode;
+    options: { key: string; label: string; selected: boolean; onClick: () => void }[];
+    disabled: boolean;
+    color: string;
+}) {
     return (
-        <div role="group" aria-label={formatScoreName(control.label)} className="mb-2 flex flex-wrap items-center gap-y-1">
-            <span className="w-1/3 pr-2 capitalize">{formatScoreName(control.label)}</span>
+        <div role="group" aria-label={typeof label === 'string' ? label : undefined} className="mb-2 flex flex-wrap items-center gap-y-1">
+            <span className="w-1/3 pr-2 capitalize">{label}</span>
             <div className="flex w-2/3 max-w-md">
                 {options.map((option) => (
                     <ToggleOption
@@ -79,6 +73,27 @@ export function ScoreControlButtons({ control, countFor, onAdd, onRemove, disabl
             </div>
         </div>
     );
+}
+
+/**
+ * A score type as FTC Live's toggle. A yes/no score type is No / Yes; a
+ * "one of" choice is None, then each option, and choosing one replaces the
+ * previous one on the server.
+ */
+export function ScoreControlButtons({ control, countFor, onAdd, onRemove, disabled, color }: ControlProps) {
+    const isToggle = control.kind === 'toggle';
+    const chosen = control.options.find((option) => countFor(option.id) > 0);
+    const options = [
+        { key: 'none', label: isToggle ? 'No' : 'None', selected: !chosen, onClick: () => chosen && onRemove(chosen.id) },
+        ...control.options.map((option) => ({
+            key: String(option.id),
+            label: isToggle ? 'Yes' : formatScoreName(option.name),
+            selected: chosen?.id === option.id,
+            onClick: () => (chosen?.id === option.id ? onRemove(option.id) : onAdd(option.id)),
+        })),
+    ];
+
+    return <ToggleGroup label={formatScoreName(control.label)} options={options} disabled={disabled} color={color} />;
 }
 
 /** FTC Live's counter: the label, then −, the count and + in the alliance colour. */

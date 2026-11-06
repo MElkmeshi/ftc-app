@@ -449,6 +449,8 @@ export default function MatchControlConsole() {
         null;
     const lastCompleted = matches.filter((match) => match.status === 'completed').at(-1) ?? null;
     const awaiting = awaitingSubmissions(ongoing);
+    const loadedTeams = loaded?.match_alliances ?? [];
+    const notReady = loadedTeams.filter((member) => !member.ready).map((member) => member.team.number);
     const lastPosted = lastCompleted !== null && display?.mode === 'results' && display.match_id === lastCompleted.id;
 
     const busy = loadMatch.isPending || startMatch.isPending || endMatch.isPending || cancelMatch.isPending;
@@ -511,6 +513,28 @@ export default function MatchControlConsole() {
                                 <th className="p-px pr-2 text-left">Loaded Match:</th>
                                 <td>{loaded ? getMatchTitle(loaded) : ''}</td>
                             </tr>
+                            {loaded && (
+                                <tr>
+                                    <th className="p-px pr-2 text-left">Teams Ready:</th>
+                                    <td>
+                                        <span className={cn('mr-2 font-bold', notReady.length === 0 ? 'text-[#75b798]' : 'text-[#ffc107]')}>
+                                            {loadedTeams.length - notReady.length}/{loadedTeams.length}
+                                        </span>
+                                        {loadedTeams.map((member) => (
+                                            <span
+                                                key={member.id}
+                                                title={member.ready ? 'Ready' : 'Not ready'}
+                                                className={cn(
+                                                    'mr-1 rounded px-1 tabular-nums',
+                                                    member.ready ? 'bg-[#198754] text-white' : 'bg-[#6c757d] text-white',
+                                                )}
+                                            >
+                                                {member.team.number}
+                                            </span>
+                                        ))}
+                                    </td>
+                                </tr>
+                            )}
                             <tr>
                                 <th className="p-px pr-2 text-left">Active Match:</th>
                                 <td>
@@ -539,9 +563,10 @@ export default function MatchControlConsole() {
                         <HeaderButton
                             isNext={nextAction === 'start'}
                             disabled={busy || !loaded || ongoing !== null}
+                            title={loaded && notReady.length > 0 ? `Not ready: ${notReady.join(', ')}` : undefined}
                             onClick={() => loaded && startMatch.mutate(loaded.id, refresh)}
                         >
-                            {'Start\nMatch'}
+                            {loaded ? `Start Match\n${loadedTeams.length - notReady.length}/${loadedTeams.length} Ready` : 'Start\nMatch'}
                         </HeaderButton>
                     </div>
                     <HeaderButton

@@ -11,14 +11,19 @@ const HEARTBEAT_MS = 5000;
 /**
  * Tells the server which alliance this tablet is scoring, every few seconds,
  * and returns the names on any other tablet in the same seat (alliance and
- * scoring or penalty referee). Two tablets in one seat overwrite each other's counts, so the page warns.
+ * scoring or penalty referee) and the step it is on. Two tablets in one seat overwrite each other's counts, so the page warns.
  */
-export function useRefereeSeat(matchId: number | null | undefined, allianceId: number | null, role: RefereeRole = 'scoring'): string[] {
+export function useRefereeSeat(
+    matchId: number | null | undefined,
+    allianceId: number | null,
+    role: RefereeRole = 'scoring',
+    step: string | null = null,
+): string[] {
     const api = useApi();
 
     const { data } = useQuery({
-        queryKey: ['referee-seat', matchId, allianceId, role],
-        queryFn: () => api.reportRefereeSeat({ tablet_id: TABLET_ID, match_id: matchId!, alliance_id: allianceId, role }),
+        queryKey: ['referee-seat', matchId, allianceId, role, step],
+        queryFn: () => api.reportRefereeSeat({ tablet_id: TABLET_ID, match_id: matchId!, alliance_id: allianceId, role, step }),
         enabled: !!matchId,
         refetchInterval: HEARTBEAT_MS,
         refetchIntervalInBackground: true,

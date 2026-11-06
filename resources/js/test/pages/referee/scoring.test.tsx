@@ -47,7 +47,20 @@ const scoreTypes = [
         choice_set: null,
         referee: 'scoring',
         awarded_to: 'self',
-        group_id: null,
+        group_id: 1,
+        group: { id: 1, name: 'AUTO', display_order: 1 },
+    },
+    {
+        id: 7,
+        name: 'parked',
+        points: 3,
+        target: 'alliance',
+        kind: 'count',
+        choice_set: null,
+        referee: 'scoring',
+        awarded_to: 'self',
+        group_id: 2,
+        group: { id: 2, name: 'TELEOP', display_order: 2 },
     },
     {
         id: 6,
@@ -66,6 +79,8 @@ const api = vi.hoisted(() => ({
     getMatches: vi.fn(),
     getActiveMatch: vi.fn(),
     getMatch: vi.fn(),
+    getLoadedMatch: vi.fn(),
+    setTeamReady: vi.fn(),
     getScoreTypes: vi.fn(),
     setScoreCount: vi.fn(),
     setAllianceSubmitted: vi.fn(),
@@ -87,6 +102,9 @@ describe('Referee scoring tablet', () => {
         api.getMatches.mockResolvedValue([running]);
         api.getActiveMatch.mockResolvedValue(running);
         api.getMatch.mockResolvedValue(running);
+        api.getLoadedMatch.mockResolvedValue(null);
+        api.setTeamReady.mockResolvedValue({ match: running });
+        window.sessionStorage.clear();
         api.getScoreTypes.mockResolvedValue(scoreTypes);
         api.setScoreCount.mockResolvedValue({ match: running });
         api.reportRefereeSeat.mockResolvedValue({ sharing_with: [] });
@@ -107,16 +125,36 @@ describe('Referee scoring tablet', () => {
         );
     });
 
-    it("scores the seat's own alliance in the running match", async () => {
+    it('marks each of its own robots ready during pre-match setup', async () => {
         await renderTablet('/event/testevent/referee/scoring?alliance=blue&role=scoring');
 
-        expect(await screen.findByText('Blue Alliance Teams: 200')).toBeInTheDocument();
+        expect(await screen.findByText('Q4 Pre-Match Setup (Scorer)')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Ready' }));
+        await act(async () => {});
+
+        expect(api.setTeamReady).toHaveBeenCalledWith(7, 22, true);
+    });
+
+    it("scores the seat's own alliance one score group at a time, then reviews them all", async () => {
+        await renderTablet('/event/testevent/referee/scoring?alliance=blue&role=scoring');
+        fireEvent.click(await screen.findByRole('button', { name: 'Submit Pre-Match Setup' }));
+
+        expect(screen.getByText('Q4 AUTO (Scorer)')).toBeInTheDocument();
+        expect(screen.queryByText('parked')).not.toBeInTheDocument();
         expect(screen.queryByText('minor foul')).not.toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Add high basket' }));
         await act(async () => {});
-
         expect(api.setScoreCount).toHaveBeenCalledWith(expect.objectContaining({ match_id: 7, score_type_id: 5, alliance_id: 2, count: 1 }));
+
+        fireEvent.click(screen.getByRole('button', { name: 'Submit AUTO' }));
+        expect(screen.getByText('parked')).toBeInTheDocument();
+        expect(screen.queryByText('high basket')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Submit TELEOP' }));
+        expect(screen.getByText('Q4 Review (Scorer)')).toBeInTheDocument();
+        expect(screen.getByText('high basket')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Submit Final Scores' })).toBeInTheDocument();
     });
 
     it("records a foul referee's call on the opposing alliance", async () => {

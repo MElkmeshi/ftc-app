@@ -16,7 +16,7 @@ class MatchAlliance extends Model
     protected $attributes = ['score' => 0];
 
     protected $fillable = [
-        'event_id', 'match_id', 'team_id', 'alliance_id', 'alliance_pos', 'score', 'card', 'counts_for_ranking', 'alliance_group_id', 'created_by', 'updated_by',
+        'event_id', 'match_id', 'team_id', 'alliance_id', 'alliance_pos', 'score', 'card', 'ready', 'counts_for_ranking', 'alliance_group_id', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -30,6 +30,7 @@ class MatchAlliance extends Model
     {
         return [
             'counts_for_ranking' => 'boolean',
+            'ready' => 'boolean',
             'card' => TeamCard::class,
         ];
     }

@@ -31,7 +31,7 @@ class RefereeSeatController extends Controller
 
         $seats = Cache::lock($this->key($matchId).':lock', 5)->block(3, function () use ($matchId, $validated, $allianceId, $role, $request): array {
             $seats = $this->liveSeats($matchId);
-            $seats[$validated['tablet_id']] = ['alliance_id' => $allianceId, 'role' => $role, 'name' => $request->user()->name, 'seen_at' => now()->timestamp];
+            $seats[$validated['tablet_id']] = ['alliance_id' => $allianceId, 'role' => $role, 'name' => $request->user()->name, 'step' => $validated['step'] ?? null, 'seen_at' => now()->timestamp];
             Cache::put($this->key($matchId), $seats, self::SEAT_TTL_SECONDS * 4);
 
             return $seats;
@@ -51,19 +51,23 @@ class RefereeSeatController extends Controller
     }
 
     /**
-     * The tablets in each seat of a match, for match control:
-     * `{alliance_id: {scoring: [names], penalty: [names]}}`.
+     * The tablets in each seat of a match, for match control and the head
+     * referee: `seats` is `{alliance_id: {scoring: [names], penalty: [names]}}`
+     * and `steps` is where each seat's tablet is, e.g. `{alliance_id: {scoring: "AUTO"}}`.
      */
     public function index(int $id): JsonResponse
     {
         $match = CompetitionMatch::query()->findOrFail($id);
 
-        $seats = collect($this->liveSeats($match->id))
+        $bySeat = collect($this->liveSeats($match->id))
             ->filter(fn (array $seat): bool => $seat['alliance_id'] !== null)
             ->groupBy('alliance_id')
-            ->map(fn ($group) => $group->groupBy('role')->map(fn ($tablets) => $tablets->pluck('name')->values()));
+            ->map(fn ($group) => $group->groupBy('role'));
 
-        return response()->json(['seats' => $seats]);
+        return response()->json([
+            'seats' => $bySeat->map(fn ($roles) => $roles->map(fn ($tablets) => $tablets->pluck('name')->values())),
+            'steps' => $bySeat->map(fn ($roles) => $roles->map(fn ($tablets) => $tablets->pluck('step')->filter()->first())),
+        ]);
     }
 
     private function rememberPenaltySeat(int $matchId, int $allianceId): void
@@ -85,7 +89,7 @@ class RefereeSeatController extends Controller
     }
 
     /**
-     * @return array<string, array{alliance_id: ?int, role: string, name: string, seen_at: int}>
+     * @return array<string, array{alliance_id: ?int, role: string, name: string, step: ?string, seen_at: int}>
      */
     private function liveSeats(int $matchId): array
     {

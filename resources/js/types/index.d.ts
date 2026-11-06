@@ -220,6 +220,7 @@ export interface MatchAlliance {
     alliance: Alliance;
     score: number;
     card?: TeamCard | null;
+    ready?: boolean;
     alliance_group_id: number | null;
     scores?: Score[];
 }

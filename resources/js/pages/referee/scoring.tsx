@@ -1,16 +1,15 @@
-import { ScoreControlButtons, ScoreCounter, formatScoreName } from '@/components/scoring/score-controls';
-import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
+import { ScoreControlButtons, ScoreCounter, ToggleGroup, formatScoreName } from '@/components/scoring/score-controls';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { useMatches } from '@/hooks/use-match';
 import { useRefereeField } from '@/hooks/use-referee-field';
-import { useScoringPage } from '@/hooks/use-scoring-page';
+import { SETUP_STEP, useScoringPage } from '@/hooks/use-scoring-page';
 import AppLayout from '@/layouts/app-layout';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { resolveEventHref } from '@/lib/event';
 import { getAllianceMembers, getMatchTitle } from '@/lib/match-utils';
 import { allianceColorsOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
-import { type BreadcrumbItem, type CompetitionMatch, type MatchPhase, type RefereeRole } from '@/types';
+import { type BreadcrumbItem, type CompetitionMatch, type MatchAlliance, type RefereeRole } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useConnectionStatus } from '@laravel/echo-react';
 import { TriangleAlert } from 'lucide-react';
@@ -33,22 +32,6 @@ function shortMatchName(match: Pick<CompetitionMatch, 'number' | 'type' | 'round
     }
 
     return match.type === 'qualification' ? `Q${match.number}` : getMatchTitle(match);
-}
-
-function phaseName(phase: MatchPhase): string {
-    if (phase === 'autonomous') {
-        return 'AUTO';
-    }
-
-    if (phase === 'transition') {
-        return 'AUTO Review';
-    }
-
-    if (phase === 'teleop' || phase === 'endgame') {
-        return 'TELEOP';
-    }
-
-    return phase === 'post-match' ? 'Review' : 'Pre-Match Setup';
 }
 
 function readSeat(url: string): { color: string; role: RefereeRole } | null {
@@ -171,26 +154,104 @@ function MatchSelect({ matches, onSelect }: { matches: CompetitionMatch[]; onSel
     );
 }
 
+function ReadyTable({ members, color }: { members: MatchAlliance[]; color: string }) {
+    return (
+        <table className="mx-auto mb-2 w-full max-w-xl text-2xl">
+            <tbody>
+                <tr>
+                    <td colSpan={members.length} className="pb-2 text-center">
+                        {capitalize(color)} Alliance Teams:
+                    </td>
+                </tr>
+                <tr>
+                    {members.map((member) => (
+                        <td key={member.id} className="text-center">
+                            <div className="font-medium">{member.team.number}</div>
+                            <div className={cn('text-base', member.ready ? 'text-[#198754]' : 'text-[#dc3545]')}>
+                                {member.ready ? 'Ready' : 'Not Ready'}
+                            </div>
+                        </td>
+                    ))}
+                </tr>
+            </tbody>
+        </table>
+    );
+}
+
+function SetupStep({
+    members,
+    color,
+    hex,
+    disabled,
+    onReady,
+    onSubmit,
+    buttonClass,
+}: {
+    members: MatchAlliance[];
+    color: string;
+    hex: string;
+    disabled: boolean;
+    onReady: (teamId: number, ready: boolean) => void;
+    onSubmit: () => void;
+    buttonClass: string;
+}) {
+    return (
+        <>
+            <Row>
+                <h3 className="mb-4 text-center text-[1.75rem] leading-tight font-medium">
+                    {capitalize(color)} Alliance Teams: {members.map((member) => member.team.number).join(', ')}
+                </h3>
+            </Row>
+            <GroupHeader>Robot Ready</GroupHeader>
+            <Row>
+                {members.map((member) => (
+                    <ToggleGroup
+                        key={member.id}
+                        label={`${member.team.number} ${member.team.name}`}
+                        disabled={disabled}
+                        color={hex}
+                        options={[
+                            { key: 'no', label: 'Not Ready', selected: !member.ready, onClick: () => member.ready && onReady(member.team.id, false) },
+                            { key: 'yes', label: 'Ready', selected: !!member.ready, onClick: () => !member.ready && onReady(member.team.id, true) },
+                        ]}
+                    />
+                ))}
+            </Row>
+            <Row className="mt-4 text-center">
+                <button type="button" onClick={onSubmit} className={buttonClass}>
+                    Submit Pre-Match Setup
+                </button>
+            </Row>
+        </>
+    );
+}
+
 function Tablet({ color, role }: { color: string; role: RefereeRole }) {
     const scoring = useScoringPage({ role, allianceColor: color });
     const { match, isPending, submission } = scoring;
     const [field] = useRefereeField();
     const fieldCount = useFieldCount();
-    const { timer } = useActiveMatchTimer({ field });
     const connection = useConnectionStatus();
     const [isFullscreen, toggleFullscreen] = useFullscreen();
     const hex = allianceHex(color);
     const errorMessage = getApiErrorMessage(scoring.submitError);
     const allianceId = scoring.selectedAllianceId ?? 0;
 
+    const { step, stepIndex, goToStep } = scoring;
+    const isSetup = step === SETUP_STEP;
+    const isWaiting = match?.status === 'upcoming' && !isSetup;
+    const isGroupStep = !isSetup && step !== 'Review' && step !== 'Submitted';
     const phaseLabel = match
-        ? `${shortMatchName(match)} ${submission ? 'Review' : phaseName(timer.isRunning ? timer.phase : 'post-match')}`
+        ? `${shortMatchName(match)} ${isWaiting ? 'Wait For Match Start' : step === 'Submitted' ? 'Review' : step}`
         : 'Match Selection';
     const roleLabel = role === 'penalty' ? ' (Referee)' : ' (Scorer)';
     const fieldLabel = fieldCount > 1 ? ` (${field ? `Field ${field}` : 'All Fields'})` : '';
-    const hasScores = scoring.sortedGroups.some(
+    const filledGroups = scoring.sortedGroups.filter(
         ([, group]) => group.alliance.length + group.team.length + group.allianceControls.length + group.teamControls.length > 0,
     );
+    const hasScores = filledGroups.length > 0;
+    const visibleGroups = isGroupStep ? filledGroups.filter(([name]) => (name === 'ungrouped' ? 'Scores' : name) === step) : filledGroups;
+    const stepButtonClass = 'w-1/2 rounded-md bg-[#6c757d] px-3 py-1.5 text-white hover:bg-[#5c636a] disabled:opacity-65';
 
     const content = (
         <div className="pb-8 text-[#212529]">
@@ -230,10 +291,31 @@ function Tablet({ color, role }: { color: string; role: RefereeRole }) {
                 scoring.isLoading && scoring.selectedMatchId ? (
                     <p className="text-center">Loading match…</p>
                 ) : (
-                    <MatchSelect matches={scoring.ongoingMatches} onSelect={scoring.setSelectedMatchId} />
+                    <MatchSelect matches={scoring.selectableMatches} onSelect={scoring.setSelectedMatchId} />
                 )
             ) : !scoring.selectedAllianceId ? (
                 <p className="text-center">This match has no {color} alliance.</p>
+            ) : isSetup ? (
+                <SetupStep
+                    members={scoring.teamsInAlliance}
+                    color={color}
+                    hex={hex}
+                    disabled={scoring.isReadyPending || (match.status !== 'upcoming' && match.status !== 'ongoing')}
+                    onReady={scoring.markTeamReady}
+                    onSubmit={() => goToStep(stepIndex + 1)}
+                    buttonClass={stepButtonClass}
+                />
+            ) : isWaiting ? (
+                <Row className="text-center">
+                    <p className="mb-4">Waiting for match to start. This page will automatically load when the match has started.</p>
+                    <h3 className="mb-4 text-[1.75rem] leading-tight font-medium">Waiting for Match {shortMatchName(match)}</h3>
+                    <ReadyTable members={scoring.teamsInAlliance} color={color} />
+                    {role === 'scoring' && (
+                        <button type="button" onClick={() => goToStep(0)} className={cn(stepButtonClass, 'mt-4')}>
+                            Edit Pre-Match Setup
+                        </button>
+                    )}
+                </Row>
             ) : (
                 <>
                     <Row>
@@ -248,14 +330,7 @@ function Tablet({ color, role }: { color: string; role: RefereeRole }) {
                         className={cn(role === 'penalty' && 'mx-auto max-w-[1100px] rounded-md border-2 pt-4')}
                         style={role === 'penalty' ? { borderColor: hex } : undefined}
                     >
-                        {scoring.sortedGroups.map(([groupName, group]) => {
-                            const isEmpty =
-                                group.alliance.length + group.team.length + group.allianceControls.length + group.teamControls.length === 0;
-
-                            if (isEmpty) {
-                                return null;
-                            }
-
+                        {visibleGroups.map(([groupName, group]) => {
                             return (
                                 <section key={groupName} className="mb-4">
                                     <GroupHeader>
@@ -335,7 +410,16 @@ function Tablet({ color, role }: { color: string; role: RefereeRole }) {
                             </p>
                         )}
                         {errorMessage && <p className="mb-2 text-[#dc3545]">{errorMessage}</p>}
-                        {submission ? (
+                        {isGroupStep ? (
+                            <button
+                                type="button"
+                                onClick={() => goToStep(stepIndex + 1)}
+                                disabled={match.status !== 'ongoing'}
+                                className={stepButtonClass}
+                            >
+                                Submit {step}
+                            </button>
+                        ) : submission ? (
                             <>
                                 <div className="mb-2 rounded-md border border-[#a3cfbb] bg-[#d1e7dd] px-4 py-3 text-[#0a3622]">
                                     {role === 'penalty' ? 'Fouls' : 'Final scores'} submitted by {submission.by} at{' '}
@@ -346,7 +430,7 @@ function Tablet({ color, role }: { color: string; role: RefereeRole }) {
                                         type="button"
                                         onClick={() => scoring.setSubmitted(false)}
                                         disabled={scoring.isSubmitPending}
-                                        className="w-1/2 rounded-md bg-[#6c757d] px-3 py-1.5 text-white hover:bg-[#5c636a] disabled:opacity-65"
+                                        className={stepButtonClass}
                                     >
                                         Edit {role === 'penalty' ? 'Fouls' : 'Scores'}
                                     </button>
@@ -357,7 +441,7 @@ function Tablet({ color, role }: { color: string; role: RefereeRole }) {
                                 type="button"
                                 onClick={() => scoring.setSubmitted(true)}
                                 disabled={scoring.isSubmitPending || match.status !== 'ongoing'}
-                                className="w-1/2 rounded-md bg-[#6c757d] px-3 py-1.5 text-white hover:bg-[#5c636a] disabled:opacity-65"
+                                className={stepButtonClass}
                             >
                                 {scoring.isSubmitPending ? 'Submitting…' : role === 'penalty' ? 'Submit Fouls' : 'Submit Final Scores'}
                             </button>

@@ -129,6 +129,10 @@ export const useApi = () => {
         return request('put', `/api/matches/${matchId}/cards`, { team_id: teamId, card });
     }, []);
 
+    const setTeamReady = useCallback(async (matchId: number, teamId: number, ready: boolean) => {
+        return request<{ match: CompetitionMatch }>('put', `/api/matches/${matchId}/ready`, { team_id: teamId, ready });
+    }, []);
+
     const getScoreTypes = useCallback(async (): Promise<ScoreType[]> => {
         return get('/api/score-types');
     }, []);
@@ -168,12 +172,18 @@ export const useApi = () => {
         });
     }, []);
 
-    const reportRefereeSeat = useCallback(async (data: { tablet_id: string; match_id: number; alliance_id: number | null; role: RefereeRole }) => {
-        return post<{ sharing_with: string[] }>('/api/referee-seats', data);
-    }, []);
+    const reportRefereeSeat = useCallback(
+        async (data: { tablet_id: string; match_id: number; alliance_id: number | null; role: RefereeRole; step?: string | null }) => {
+            return post<{ sharing_with: string[] }>('/api/referee-seats', data);
+        },
+        [],
+    );
 
     const getRefereeSeats = useCallback(async (matchId: number) => {
-        return get<{ seats: Record<string, Partial<Record<RefereeRole, string[]>>> }>(`/api/matches/${matchId}/referee-seats`);
+        return get<{
+            seats: Record<string, Partial<Record<RefereeRole, string[]>>>;
+            steps?: Record<string, Partial<Record<RefereeRole, string | null>>>;
+        }>(`/api/matches/${matchId}/referee-seats`);
     }, []);
 
     const cancelMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
@@ -380,6 +390,7 @@ export const useApi = () => {
         getActiveMatch,
         updateScore,
         setTeamCard,
+        setTeamReady,
         getScoreTypes,
         addScore,
         deleteScore,

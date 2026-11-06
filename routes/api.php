@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\EventArchiveController;
 use App\Http\Controllers\Api\MatchCardController;
 use App\Http\Controllers\Api\MatchController;
+use App\Http\Controllers\Api\MatchReadyController;
 use App\Http\Controllers\Api\MatchSubmissionController;
 use App\Http\Controllers\Api\RefereeSeatController;
 use App\Http\Controllers\Api\ScoreController;
@@ -46,6 +47,7 @@ Route::middleware(['auth', 'can:score-matches'])->group(function () {
     Route::post('/matches/{id}/submissions', [MatchSubmissionController::class, 'store'])->whereNumber('id');
     Route::delete('/matches/{id}/submissions', [MatchSubmissionController::class, 'destroy'])->whereNumber('id');
     Route::post('/referee-seats', [RefereeSeatController::class, 'heartbeat'])->middleware('throttle:120,1');
+    Route::put('/matches/{id}/ready', [MatchReadyController::class, 'update'])->whereNumber('id');
     Route::delete('/scores/{score}', [ScoreController::class, 'destroy']);
 });
 
