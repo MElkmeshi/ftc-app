@@ -27,7 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: env('TRUSTED_PROXIES'));
         $middleware->prepend(HandleCors::class);
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
+        $middleware->encryptCookies(except: ['appearance']);
 
         $middleware->alias(['event' => ResolveEvent::class, 'game' => ResolveGame::class]);
         $middleware->prependToPriorityList(before: SubstituteBindings::class, prepend: ResolveEvent::class);

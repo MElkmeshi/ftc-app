@@ -29,7 +29,6 @@ export interface SharedData {
     quote: { message: string; author: string };
     auth: Auth;
     ziggy: Config & { location: string };
-    sidebarOpen: boolean;
     /** The event being viewed; null on server-wide pages (event list, settings). */
     event: CompetitionEvent | null;
     /** The game being edited, or the game the current event plays, with its pictures. */

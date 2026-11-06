@@ -1,5 +1,4 @@
 import InputError from '@/components/input-error';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,20 +16,7 @@ import {
     type SharedData,
 } from '@/types';
 import { Deferred, Head, Link, router, useForm, usePage, useProp } from '@inertiajs/react';
-import {
-    Activity,
-    Archive,
-    ArchiveRestore,
-    CheckCircle,
-    CheckCircle2,
-    Circle,
-    CircleDashed,
-    Download,
-    ExternalLink,
-    MonitorPlay,
-    Trophy,
-    Users,
-} from 'lucide-react';
+import { Activity, Archive, ArchiveRestore, CheckCircle, Download, Trophy, Users } from 'lucide-react';
 import { type FormEventHandler } from 'react';
 
 type StepStatus = 'done' | 'in_progress' | 'todo' | 'optional';
@@ -52,13 +38,6 @@ interface DashboardProps extends SharedData {
 }
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Event Dashboard', href: '/dashboard' }];
-
-const STATUS_STYLES: Record<StepStatus, { icon: typeof Circle; className: string; label: string }> = {
-    done: { icon: CheckCircle2, className: 'text-emerald-500', label: 'Done' },
-    in_progress: { icon: CircleDashed, className: 'text-amber-500', label: 'In progress' },
-    todo: { icon: Circle, className: 'text-muted-foreground', label: 'To do' },
-    optional: { icon: Circle, className: 'text-sky-500', label: 'Optional' },
-};
 
 function StatsCards() {
     const { stats } = usePage<DashboardProps>().props;
@@ -116,42 +95,50 @@ function StatsSkeleton() {
     );
 }
 
+const STEP_STATUS_CLASS: Record<StepStatus, string> = {
+    done: 'text-[#198754]',
+    in_progress: '',
+    todo: 'text-[#dc3545]',
+    optional: '',
+};
+
 function SetupChecklist({ eventCode }: { eventCode: string }) {
     const { value: steps = [] } = useProp<SetupStep[]>('steps');
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Event setup</CardTitle>
-                <p className="text-muted-foreground text-sm">Work down the list. Each step updates on its own as the event progresses.</p>
-            </CardHeader>
-            <CardContent className="p-0">
-                <ol className="divide-y">
-                    {steps.map((step, index) => {
-                        const style = STATUS_STYLES[step.status];
-                        const href = step.href.startsWith('/dashboard#')
-                            ? step.href.replace('/dashboard', '')
-                            : resolveEventHref(step.href, `/event/${eventCode}/`);
+        <table className="mx-auto w-full max-w-[520px] text-center">
+            <thead>
+                <tr className="border-b">
+                    <th className="p-2">Step</th>
+                    <th className="p-2">Action</th>
+                    <th className="p-2">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {steps.map((step, index) => {
+                    const href = step.href.startsWith('/dashboard#')
+                        ? step.href.replace('/dashboard', '')
+                        : resolveEventHref(step.href, `/event/${eventCode}/`);
 
-                        return (
-                            <li key={step.key}>
-                                <Link href={href} className="hover:bg-muted/50 flex items-center gap-4 px-6 py-3 transition">
-                                    <span className="text-muted-foreground w-6 text-right font-mono text-sm tabular-nums">{index}</span>
-                                    <style.icon className={cn('size-5 shrink-0', style.className)} aria-label={style.label} />
-                                    <div className="min-w-0 flex-1">
-                                        <div className="font-medium">{step.title}</div>
-                                        <div className="text-muted-foreground truncate text-sm">{step.description}</div>
-                                    </div>
-                                    <Badge variant={step.status === 'done' ? 'secondary' : 'outline'} className="shrink-0">
-                                        {step.detail}
-                                    </Badge>
-                                </Link>
-                            </li>
-                        );
-                    })}
-                </ol>
-            </CardContent>
-        </Card>
+                    return (
+                        <tr key={step.key} className="border-b align-top">
+                            <td className="p-2 font-bold">{index}</td>
+                            <td className="p-2">
+                                <Button
+                                    asChild
+                                    variant={step.status === 'optional' ? 'outline' : 'secondary'}
+                                    className="w-full"
+                                    title={step.description}
+                                >
+                                    <Link href={href}>{step.title}</Link>
+                                </Button>
+                            </td>
+                            <td className={cn('p-2', STEP_STATUS_CLASS[step.status])}>{step.detail}</td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
     );
 }
 
@@ -326,36 +313,21 @@ export default function Dashboard() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${event.name} · Dashboard`} />
 
-            <div className="space-y-6 p-4">
-                <div className="flex flex-wrap items-end justify-between gap-4">
-                    <div>
-                        <div className="text-muted-foreground font-mono text-sm">{event.code}</div>
-                        <h1 className="text-2xl font-bold">{event.name}</h1>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button asChild variant="outline">
-                            <Link href={`/event/${event.code}`}>
-                                <ExternalLink className="mr-1 size-4" /> Event home
-                            </Link>
-                        </Button>
-                        <Button asChild>
-                            <Link href={`/event/${event.code}/match-control`}>
-                                <MonitorPlay className="mr-1 size-4" /> Match control
-                            </Link>
-                        </Button>
-                    </div>
+            <div className="space-y-6">
+                <div className="text-center">
+                    <h1 className="text-[2.5rem] leading-tight font-medium">{event.code} Dashboard</h1>
+                    <h2 className="text-[1.75rem] leading-tight font-medium">{event.name}</h2>
                 </div>
+
+                <SetupChecklist eventCode={event.code} />
 
                 <Deferred data="stats" fallback={<StatsSkeleton />}>
                     <StatsCards />
                 </Deferred>
 
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                    <SetupChecklist eventCode={event.code} />
-                    <div className="space-y-6">
-                        <EventDetailsForm key={event.code} event={event} eventTypes={eventTypes} games={games} gameLocked={gameLocked} />
-                        <ExportCard event={event} />
-                    </div>
+                <div className="grid gap-6 xl:grid-cols-2">
+                    <EventDetailsForm key={event.code} event={event} eventTypes={eventTypes} games={games} gameLocked={gameLocked} />
+                    <ExportCard event={event} />
                 </div>
             </div>
         </AppLayout>

@@ -82,7 +82,7 @@ export default function RefereeScoring2() {
                                         size="sm"
                                         className={cn(
                                             'font-semibold capitalize',
-                                            isSelected ? cn(cc.bg, cc.bgHover, 'text-white shadow-md') : 'bg-secondary hover:bg-secondary/80',
+                                            isSelected ? cn(cc.bg, cc.bgHover, 'text-white shadow-md') : 'bg-accent hover:bg-accent/80',
                                         )}
                                     >
                                         {alliance.color}

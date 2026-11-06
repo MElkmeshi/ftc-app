@@ -1,50 +1,47 @@
 import PublicLayout from '@/layouts/public-layout';
 import { type EventTypeOption, type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { BarChart3, ClipboardCheck, ListOrdered, Monitor, MonitorPlay, Swords, Trophy, UserCheck, Users } from 'lucide-react';
-import { type ComponentType, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 interface EventShowProps extends SharedData {
     summary: { teams: number; matches: number; completed_matches: number };
     eventTypes: EventTypeOption[];
 }
 
-interface LinkEntry {
+interface MenuEntry {
     label: string;
-    href: string;
-    description?: string;
+    href?: string;
+    children?: MenuEntry[];
 }
 
-function LinkSection({ title, icon: Icon, children }: { title: string; icon: ComponentType<{ className?: string }>; children: ReactNode }) {
+function MenuList({ entries }: { entries: MenuEntry[] }) {
     return (
-        <section className="bg-card rounded-xl border p-5 shadow-sm">
-            <h2 className="mb-3 inline-flex items-center gap-2 font-semibold">
-                <Icon className="text-primary size-5" /> {title}
-            </h2>
-            {children}
-        </section>
-    );
-}
-
-function LinkList({ links }: { links: LinkEntry[] }) {
-    return (
-        <ul className="space-y-1.5">
-            {links.map((link) => (
-                <li key={link.href}>
-                    <Link href={link.href} className="text-primary font-medium hover:underline">
-                        {link.label}
-                    </Link>
-                    {link.description && <span className="text-muted-foreground text-sm"> — {link.description}</span>}
+        <ul className="list-disc pl-[7.5rem] max-sm:pl-10 [&_ul]:list-[circle] [&_ul]:pl-8">
+            {entries.map((entry) => (
+                <li key={entry.label} className="my-4">
+                    {entry.href ? (
+                        <Link href={entry.href} className="text-[#0d6efd] underline">
+                            {entry.label}
+                        </Link>
+                    ) : (
+                        entry.label
+                    )}
+                    {entry.children && <MenuList entries={entry.children} />}
                 </li>
             ))}
         </ul>
     );
 }
 
-/**
- * An event's public landing page, modelled on FTC Live's event home: one place
- * to find every schedule, ranking, display and tablet page for the event.
- */
+function Section({ title, children }: { title: string; children: ReactNode }) {
+    return (
+        <section>
+            <h3 className="mt-1 text-[1.75rem] leading-tight font-medium">{title}</h3>
+            {children}
+        </section>
+    );
+}
+
 export default function EventShow() {
     const { event, summary, eventTypes } = usePage<EventShowProps>().props;
 
@@ -59,107 +56,86 @@ export default function EventShow() {
         <PublicLayout>
             <Head title={event.name} />
 
-            <div className="mb-6">
-                <div className="text-muted-foreground font-mono text-sm">{event.code}</div>
-                <h1 className="text-3xl font-bold">{event.name}</h1>
-                <p className="text-muted-foreground">
+            <div>
+                <h2 className="text-[2rem] leading-tight font-medium">
+                    {event.code}: {event.name}
+                </h2>
+                <p className="text-muted-foreground mt-1">
                     {typeLabel}
                     {event.venue && ` · ${event.venue}`}
                     {event.start_date && ` · ${event.start_date}`}
-                    {event.end_date && event.end_date !== event.start_date && ` → ${event.end_date}`}
+                    {event.end_date && event.end_date !== event.start_date && ` – ${event.end_date}`}
+                    {` · ${summary.teams} teams · ${summary.completed_matches} of ${summary.matches} matches played`}
                 </p>
-                <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                    <span className="bg-muted rounded-full px-3 py-1">{summary.teams} teams</span>
-                    <span className="bg-muted rounded-full px-3 py-1">
-                        {summary.completed_matches} / {summary.matches} matches played
-                    </span>
-                    <span className="bg-muted rounded-full px-3 py-1">
-                        {event.field_count} field{event.field_count === 1 ? '' : 's'}
-                    </span>
-                </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <LinkSection title="Event Info" icon={ListOrdered}>
-                    <LinkList
-                        links={[
-                            { label: 'Schedule & results', href: `${base}/schedule`, description: 'for phones; pick your team' },
-                            { label: 'Rankings', href: `${base}/rankings` },
-                            { label: 'Elimination bracket', href: `${base}/elimination/bracket` },
-                        ]}
-                    />
-                </LinkSection>
+            <Section title="Event Info">
+                <MenuList
+                    entries={[
+                        { label: 'Inspection Status', href: `${base}/inspection/status` },
+                        { label: 'Practice', children: [{ label: 'Schedule', href: `${base}/schedule` }] },
+                        {
+                            label: 'Qualification',
+                            children: [
+                                { label: 'Schedule', href: `${base}/schedule` },
+                                { label: 'Rankings', href: `${base}/rankings` },
+                            ],
+                        },
+                        { label: 'Playoff', children: [{ label: 'Bracket', href: `${base}/elimination/bracket` }] },
+                        { label: 'Match Results', href: `${base}/schedule` },
+                        { label: 'Pit Display', href: `${base}/display?type=pit` },
+                        { label: 'Event Reports', href: `${base}/reports` },
+                    ]}
+                />
+            </Section>
 
-                <LinkSection title="Displays" icon={Monitor}>
-                    <LinkList
-                        links={[
-                            {
-                                label: 'Display',
-                                href: `${base}/display`,
-                                description: 'open on any screen, then pick audience, field, pit or stream overlay from the gear menu',
-                            },
-                            {
-                                label: 'Audience display',
-                                href: `${base}/display?type=audience`,
-                                description: 'follows match control: preview, timer, results, rankings',
-                            },
-                            { label: 'Field display', href: `${base}/display?type=field`, description: 'timer and live score for the drive teams' },
-                            { label: 'Pit display', href: `${base}/display?type=pit`, description: 'scrolling rankings and upcoming matches' },
-                            { label: 'Stream overlay', href: `${base}/display?type=overlay`, description: 'green-screen scorebar for livestreams' },
-                            { label: 'Rankings display', href: `${base}/referee/display` },
-                            { label: 'Alliance selection display', href: `${base}/alliance-selection/display` },
-                            { label: 'Bracket display', href: `${base}/elimination/bracket` },
-                        ]}
-                    />
-                </LinkSection>
+            <Section title="Inspection">
+                <MenuList entries={[{ label: 'Robot Inspection', href: `${base}/inspection` }]} />
+            </Section>
 
-                <LinkSection title="Referees" icon={UserCheck}>
-                    <LinkList
-                        links={[
-                            { label: 'Referee scoring', href: `${base}/referee/scoring`, description: 'sign-in required' },
-                            { label: 'Robot inspection', href: `${base}/inspection`, description: 'inspectors, sign-in required' },
-                            { label: 'Inspection status board', href: `${base}/inspection/status` },
-                        ]}
-                    />
-                </LinkSection>
+            <Section title="Referee">
+                <MenuList entries={[{ label: 'Referee Scoring', href: `${base}/referee/scoring` }]} />
+            </Section>
 
-                <LinkSection title="Event Admin" icon={ClipboardCheck}>
-                    <LinkList
-                        links={[
-                            { label: 'Event dashboard', href: `${base}/dashboard`, description: 'setup checklist' },
-                            { label: 'Match control', href: `${base}/match-control`, description: 'load, start, post results' },
-                            { label: 'Teams', href: `${base}/admin/teams` },
-                            { label: 'Connect devices', href: `${base}/connect`, description: 'QR codes for phones, tablets and displays' },
-                            { label: 'Reports', href: `${base}/reports`, description: 'cycle times and printouts' },
-                            { label: 'Awards', href: `${base}/admin/awards`, description: 'enter winners and present them' },
-                            { label: 'Emcee scripts', href: `${base}/scripts`, description: 'opening, alliance selection and awards' },
-                        ]}
-                    />
-                </LinkSection>
+            <Section title="FTA/CSA Tools">
+                <MenuList entries={[{ label: 'Field Notes', href: `${base}/reports/field-notes` }]} />
+            </Section>
 
-                <LinkSection title="Alliance Selection" icon={Users}>
-                    <LinkList
-                        links={[
-                            { label: 'Run alliance selection', href: `${base}/admin/alliance-selection` },
-                            { label: 'Audience view', href: `${base}/alliance-selection/display` },
-                        ]}
-                    />
-                </LinkSection>
+            <Section title="Displays">
+                <MenuList
+                    entries={[
+                        { label: 'Scoring/Timing Displays', href: `${base}/display` },
+                        { label: 'Pit Display', href: `${base}/display?type=pit` },
+                        { label: 'Rankings Display', href: `${base}/referee/display` },
+                        { label: 'Alliance Selection Display', href: `${base}/alliance-selection/display` },
+                    ]}
+                />
+            </Section>
 
-                <LinkSection title="Playoffs" icon={Swords}>
-                    <LinkList
-                        links={[
-                            { label: 'Bracket', href: `${base}/elimination/bracket` },
-                            { label: 'Results', href: `${base}/competition-matches` },
-                        ]}
-                    />
-                </LinkSection>
-            </div>
+            <Section title="Judging">
+                <MenuList entries={[{ label: 'Manage Awards', href: `${base}/admin/awards` }]} />
+            </Section>
 
-            <p className="text-muted-foreground mt-8 flex items-center gap-2 text-sm">
-                <Trophy className="size-4" /> <BarChart3 className="size-4" /> <MonitorPlay className="size-4" />
-                Open any display on a screen at the venue and it updates live — no refreshing needed.
-            </p>
+            <Section title="GA/Emcee">
+                <MenuList
+                    entries={[
+                        { label: 'Opening Ceremony Script', href: `${base}/scripts?tab=opening` },
+                        { label: 'Announcer Report', href: `${base}/reports/announcer` },
+                        { label: 'Alliance Selection', href: `${base}/scripts?tab=selection` },
+                        { label: 'Closing Ceremony Script', href: `${base}/scripts?tab=closing` },
+                    ]}
+                />
+            </Section>
+
+            <Section title="Event Administration">
+                <MenuList
+                    entries={[
+                        { label: 'Event Dashboard', href: `${base}/dashboard` },
+                        { label: 'Match Control Page', href: `${base}/match-control` },
+                        { label: 'Connect Devices', href: `${base}/connect` },
+                    ]}
+                />
+            </Section>
         </PublicLayout>
     );
 }

@@ -35,6 +35,12 @@ interface ScriptsProps extends SharedData {
 
 type Tab = ScriptKind | 'selection';
 
+function initialTab(): Tab {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+
+    return requested === 'selection' || requested === 'closing' ? requested : 'opening';
+}
+
 const TABS: { value: Tab; label: string }[] = [
     { value: 'opening', label: 'Opening' },
     { value: 'selection', label: 'Alliance selection' },
@@ -235,7 +241,7 @@ function ScriptEditor({ kind, text, placeholders, onDone }: { kind: ScriptKind; 
 export default function Scripts() {
     const { auth, scripts, placeholders, facts, awards, awardsLocked } = usePage<ScriptsProps>().props;
     const { value: selection = [] } = useProp<SelectionGroup[]>('selection');
-    const [tab, setTab] = useState<Tab>('opening');
+    const [tab, setTab] = useState<Tab>(initialTab);
     const [editing, setEditing] = useState(false);
     const canEdit = auth.user?.role === 'admin' && tab !== 'selection';
 

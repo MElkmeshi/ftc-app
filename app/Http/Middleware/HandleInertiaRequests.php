@@ -62,7 +62,6 @@ class HandleInertiaRequests extends Middleware
             ],
             'event' => fn () => app(CurrentEvent::class)->get(),
             'currentGame' => fn (): ?array => app(CurrentGame::class)->get()?->only(['id', 'name', 'logo_url', 'background_url']),
-            'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'matchConfig' => fn () => [
                 'timing' => $this->matchTiming->current(),
                 'sounds' => config('competition.sounds'),

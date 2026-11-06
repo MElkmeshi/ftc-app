@@ -101,7 +101,7 @@ export default function RefereeScoringOnly() {
                                     size="sm"
                                     className={cn(
                                         'font-semibold capitalize',
-                                        isSelected ? cn(cc.bg, cc.bgHover, 'text-white') : 'bg-secondary hover:bg-secondary/80',
+                                        isSelected ? cn(cc.bg, cc.bgHover, 'text-white') : 'bg-accent hover:bg-accent/80',
                                     )}
                                 >
                                     {alliance.color}
