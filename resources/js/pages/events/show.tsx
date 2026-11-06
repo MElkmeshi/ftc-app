@@ -88,28 +88,6 @@ export function visibleSections(base: string, can: Partial<Record<Ability, boole
         .filter((section) => section.entries.length > 0);
 }
 
-function AccessNote() {
-    const { auth } = usePage<SharedData>().props;
-
-    if (!auth.user) {
-        return (
-            <p className="mb-4 rounded-md border border-[#9eeaf9] bg-[#cff4fc] px-4 py-3 text-[#055160]">
-                You are viewing as a guest, so only public pages are listed.{' '}
-                <Link href="/login" className="underline">
-                    Login
-                </Link>{' '}
-                for referee, inspection and event admin tools.
-            </p>
-        );
-    }
-
-    return (
-        <p className="mb-4 rounded-md border border-[#a3cfbb] bg-[#d1e7dd] px-4 py-3 text-[#0a3622]">
-            Signed in as <strong>{auth.user.name}</strong> ({auth.role ?? 'User'}). The pages your account can open are listed below.
-        </p>
-    );
-}
-
 function MenuList({ entries, nested = false }: { entries: MenuEntry[]; nested?: boolean }) {
     return (
         <ul className={nested ? 'list-[circle] pl-8' : 'mb-4 ml-[calc(8.333%-10px)] list-disc px-3'}>
@@ -156,7 +134,6 @@ export default function EventShow() {
                     {event.code}: {event.name}
                 </h3>
                 <br />
-                <AccessNote />
                 {visibleSections(base, auth.can).map((section) => (
                     <Section key={section.title} title={section.title}>
                         <MenuList entries={section.entries} />
