@@ -55,6 +55,13 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user(),
+                'role' => $request->user()?->role?->label(),
+                'can' => [
+                    'manageCompetition' => $request->user()?->can('manage-competition') ?? false,
+                    'controlMatches' => $request->user()?->can('control-matches') ?? false,
+                    'inspectRobots' => $request->user()?->can('inspect-robots') ?? false,
+                    'scoreMatches' => $request->user()?->can('score-matches') ?? false,
+                ],
             ],
             'ziggy' => fn (): array => [
                 ...(new Ziggy)->toArray(),

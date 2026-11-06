@@ -3,8 +3,12 @@ import { type DisplayConfig } from '@/lib/display-config';
 import { LucideIcon } from 'lucide-react';
 import type { Config } from 'ziggy-js';
 
+export type Ability = 'manageCompetition' | 'controlMatches' | 'inspectRobots' | 'scoreMatches';
+
 export interface Auth {
     user: User;
+    role: string | null;
+    can: Record<Ability, boolean>;
 }
 
 export interface BreadcrumbItem {

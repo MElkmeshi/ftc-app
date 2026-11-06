@@ -10,15 +10,18 @@ import {
 import { UserMenuContent } from '@/components/user-menu-content';
 import { ADMIN_SERVER_MENU, EVENT_ADMIN_MENU, SERVER_MENU } from '@/lib/event-menu';
 import { cn } from '@/lib/utils';
-import { type SharedData } from '@/types';
+import { type Ability, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, Menu } from 'lucide-react';
 import { Fragment, useState } from 'react';
 
 const navLinkClass = 'flex items-center gap-1 px-2 py-2 text-white/55 hover:text-white/75 focus-visible:text-white/75 outline-none';
 
-function EventAdminMenu({ eventCode, isAdmin }: { eventCode: string | null; isAdmin: boolean }) {
+function EventAdminMenu({ eventCode, isAdmin, can }: { eventCode: string | null; isAdmin: boolean; can: Partial<Record<Ability, boolean>> }) {
     const base = eventCode ? `/event/${eventCode}` : '';
+    const groups = EVENT_ADMIN_MENU.map((group) => ({ ...group, links: group.links.filter((link) => !link.ability || can[link.ability]) })).filter(
+        (group) => group.links.length > 0,
+    );
 
     return (
         <DropdownMenu modal={false}>
@@ -27,7 +30,7 @@ function EventAdminMenu({ eventCode, isAdmin }: { eventCode: string | null; isAd
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="max-h-[80vh] min-w-60 overflow-y-auto rounded-md">
                 {eventCode &&
-                    EVENT_ADMIN_MENU.map((group) => (
+                    groups.map((group) => (
                         <Fragment key={group.title}>
                             <DropdownMenuLabel className="text-muted-foreground text-xs font-normal uppercase">{group.title}</DropdownMenuLabel>
                             {group.links.map((link) => (
@@ -81,7 +84,7 @@ export function TopNavbar() {
                 </button>
 
                 <div className={cn('w-full flex-col lg:flex lg:w-auto lg:flex-1 lg:flex-row lg:items-center', isOpen ? 'flex' : 'hidden')}>
-                    {user && <EventAdminMenu eventCode={event?.code ?? null} isAdmin={user.role === 'admin'} />}
+                    {user && <EventAdminMenu eventCode={event?.code ?? null} isAdmin={user.role === 'admin'} can={auth.can ?? {}} />}
                     <div className="flex flex-col lg:ml-auto lg:flex-row lg:items-center">
                         {event && (
                             <Link href={`/event/${event.code}`} className={navLinkClass}>

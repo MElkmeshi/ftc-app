@@ -20,6 +20,7 @@ class AuthenticatedSessionController extends Controller
     {
         return Inertia::render('auth/login', [
             'canResetPassword' => Route::has('password.request'),
+            'localSignIn' => (bool) config('competition.local_sign_in'),
             'status' => $request->session()->get('status'),
         ]);
     }

@@ -67,4 +67,6 @@ return [
             'abort_match' => 'canel_match.wav',          // Match cancelled/aborted
         ],
     ],
+
+    'local_sign_in' => (bool) env('LOCAL_SIGN_IN', false),
 ];

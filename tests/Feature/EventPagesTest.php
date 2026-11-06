@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\UserRole;
 use App\Models\Event;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -50,4 +52,16 @@ it('serves public screens without starting a session', function (string $method,
 
 it('keeps the session on pages that can sign people in', function () {
     $this->get('/event/testevent')->assertOk()->assertCookie(config('session.cookie'));
+});
+
+it('tells the event home what the visitor may open', function () {
+    $this->get('/event/testevent')->assertInertia(fn ($page) => $page
+        ->where('auth.role', null)
+        ->where('auth.can', ['manageCompetition' => false, 'controlMatches' => false, 'inspectRobots' => false, 'scoreMatches' => false])
+    );
+
+    $this->actingAs(User::factory()->create(['role' => UserRole::Inspector]))->get('/event/testevent')->assertInertia(fn ($page) => $page
+        ->where('auth.role', 'Inspector')
+        ->where('auth.can', ['manageCompetition' => false, 'controlMatches' => false, 'inspectRobots' => true, 'scoreMatches' => false])
+    );
 });
