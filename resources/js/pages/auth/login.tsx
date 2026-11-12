@@ -1,14 +1,9 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
-import TextLink from '@/components/text-link';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import AuthLayout from '@/layouts/auth-layout';
+import { bs } from '@/lib/bootstrap';
 
 type LoginForm = {
     email: string;
@@ -18,11 +13,11 @@ type LoginForm = {
 
 interface LoginProps {
     status?: string;
-    canResetPassword: boolean;
     localSignIn: boolean;
 }
 
-export default function Login({ status, canResetPassword, localSignIn }: LoginProps) {
+export default function Login({ status, localSignIn }: LoginProps) {
+    const [isPasswordShown, setIsPasswordShown] = useState(false);
     const { data, setData, post, processing, errors, reset } = useForm<Required<LoginForm>>({
         email: '',
         password: '',
@@ -39,86 +34,78 @@ export default function Login({ status, canResetPassword, localSignIn }: LoginPr
     };
 
     return (
-        <AuthLayout title="Login" description="Sign in with the account the event organiser gave you.">
-            <Head title="Log in" />
-
-            {localSignIn && (
-                <div className="mb-4">
-                    <p className="mb-2">
-                        The default user has username <code className="text-[#d63384]">local</code> and no password.
-                    </p>
-                    <Link href="/login/local" className="text-[#0d6efd] underline">
-                        Click here to select a default user.
-                    </Link>
-                </div>
-            )}
-
-            <form className="flex flex-col gap-4" onSubmit={submit}>
-                <div className="grid gap-3">
-                    <div className="grid gap-2">
-                        <Label htmlFor="email">{localSignIn ? 'Username or Email:' : 'Email:'}</Label>
-                        <Input
-                            id="email"
-                            type={localSignIn ? 'text' : 'email'}
-                            required
-                            autoFocus
-                            tabIndex={1}
-                            autoComplete="username"
-                            value={data.email}
-                            onChange={(e) => setData('email', e.target.value)}
-                            placeholder={localSignIn ? 'Enter username or email' : 'Enter email'}
-                        />
-                        <InputError message={errors.email} />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <div className="flex items-center">
-                            <Label htmlFor="password">Password:</Label>
-                            {canResetPassword && (
-                                <TextLink href={route('password.request')} className="ml-auto text-sm" tabIndex={5}>
-                                    Forgot password?
-                                </TextLink>
-                            )}
+        <AuthLayout>
+            <Head title="Login" />
+            <div>
+                {localSignIn && (
+                    <>
+                        <div className="text-center">
+                            The default user has username <code className="text-[0.875em] text-[#d63384]">local</code> and no password.
+                            <br />
+                            &nbsp;
                         </div>
-                        <Input
-                            id="password"
-                            type="password"
-                            required={!isDefaultUser}
-                            tabIndex={2}
-                            autoComplete="current-password"
-                            value={data.password}
-                            onChange={(e) => setData('password', e.target.value)}
-                            placeholder="Password"
-                        />
-                        <InputError message={errors.password} />
-                    </div>
+                        <div className="mx-auto w-full md:w-1/2 lg:w-1/3">
+                            <Link href="/login/local" className={bs.link}>
+                                Click here to select a default user.
+                            </Link>
+                            <br />
+                            &nbsp;
+                        </div>
+                    </>
+                )}
 
-                    <div className="flex items-center space-x-3">
-                        <Checkbox
-                            id="remember"
-                            name="remember"
-                            checked={data.remember}
-                            onClick={() => setData('remember', !data.remember)}
-                            tabIndex={3}
-                        />
-                        <Label htmlFor="remember">Remember me</Label>
-                    </div>
-
-                    <Button type="submit" className="justify-self-start" tabIndex={4} disabled={processing}>
-                        {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
-                        Login
-                    </Button>
+                <div className="mx-auto w-full md:w-1/2 lg:w-1/3">
+                    {status && <div className={bs.alertSuccess}>{status}</div>}
+                    <form onSubmit={submit}>
+                        <div className="mb-2">
+                            <label htmlFor="usernameInput" className={bs.formLabel}>
+                                Username:
+                            </label>
+                            <input
+                                id="usernameInput"
+                                type={localSignIn ? 'text' : 'email'}
+                                name="username"
+                                className={bs.formControl}
+                                placeholder="Enter username"
+                                required
+                                autoFocus
+                                autoComplete="username"
+                                value={data.email}
+                                onChange={(e) => setData('email', e.target.value)}
+                            />
+                            <InputError message={errors.email} />
+                        </div>
+                        <div className="mb-2">
+                            <label htmlFor="passwordInput" className={bs.formLabel}>
+                                Password:
+                            </label>
+                            <input
+                                id="passwordInput"
+                                type={isPasswordShown ? 'text' : 'password'}
+                                name="password"
+                                className={bs.formControl}
+                                placeholder="Password"
+                                required={!isDefaultUser}
+                                autoComplete="current-password"
+                                value={data.password}
+                                onChange={(e) => setData('password', e.target.value)}
+                            />
+                            <div className="mt-1 flex gap-2 pl-0">
+                                <input
+                                    id="showPassword"
+                                    type="checkbox"
+                                    className={bs.formCheckInput}
+                                    checked={isPasswordShown}
+                                    onChange={(e) => setIsPasswordShown(e.target.checked)}
+                                />
+                                <label htmlFor="showPassword">Show Password</label>
+                            </div>
+                            <InputError message={errors.password} />
+                        </div>
+                        <input type="submit" className={bs.btnPrimary} value="Login" disabled={processing} />
+                    </form>
                 </div>
-
-                <div className="text-sm">
-                    Don't have an account?{' '}
-                    <TextLink href={route('register')} tabIndex={5}>
-                        Sign up
-                    </TextLink>
-                </div>
-            </form>
-
-            {status && <div className="mb-4 text-center text-sm font-medium text-green-600">{status}</div>}
+            </div>
         </AuthLayout>
     );
 }

@@ -1,32 +1,64 @@
-import { Button } from '@/components/ui/button';
-import { type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, Printer } from 'lucide-react';
+import AppLayout from '@/layouts/app-layout';
+import { bs } from '@/lib/bootstrap';
+import { cn } from '@/lib/utils';
+import { Head } from '@inertiajs/react';
+import { Printer } from 'lucide-react';
 import { type ReactNode } from 'react';
 
-/**
- * Plain white pages meant for paper: a toolbar on screen, nothing but the
- * content when printed.
- */
-export default function PrintLayout({ title, toolbar, children }: { title: string; toolbar?: ReactNode; children: ReactNode }) {
-    const { event } = usePage<SharedData>().props;
+interface PrintLayoutProps {
+    title: string;
+    toolbar?: ReactNode;
+    plain?: boolean;
+    printable?: boolean;
+    children: ReactNode;
+}
 
+export function PrintButton({ className }: { className?: string }) {
     return (
-        <div className="min-h-screen bg-white text-black">
+        <button type="button" title="Print" onClick={() => window.print()} className={cn(bs.btnLight, 'print:hidden', className)}>
+            <Printer className="inline size-8" strokeWidth={2.5} />
+        </button>
+    );
+}
+
+export function ReportRow({ className, children }: { className?: string; children: ReactNode }) {
+    return <div className={cn('-mx-3 print:mx-0', className)}>{children}</div>;
+}
+
+/**
+ * FTC Live's report chrome: the "<< Back to Reports" link, the centred title
+ * with the page's options on its left and the print button on its right.
+ * Plain reports only get the print button, level with the back link.
+ */
+export default function PrintLayout({ title, toolbar, plain = false, printable = true, children }: PrintLayoutProps) {
+    return (
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Reports', href: '/reports' },
+                { title, href: '' },
+            ]}
+        >
             <Head title={title} />
-            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-white/95 px-4 py-2 backdrop-blur print:hidden">
-                <Link href={`/event/${event?.code}/reports`} className="text-muted-foreground flex items-center gap-1 text-sm hover:underline">
-                    <ArrowLeft className="size-4" /> Reports
-                </Link>
-                <h1 className="font-semibold">{title}</h1>
-                <div className="ml-auto flex flex-wrap items-center gap-3">
-                    {toolbar}
-                    <Button size="sm" onClick={() => window.print()}>
-                        <Printer className="mr-1 size-4" /> Print
-                    </Button>
-                </div>
+            <div className="text-base leading-normal text-[#212529]">
+                {plain ? (
+                    <>
+                        {printable && (
+                            <div className="-mt-8 ml-auto w-fit print:hidden">
+                                <PrintButton />
+                            </div>
+                        )}
+                        {toolbar}
+                    </>
+                ) : (
+                    <ReportRow className="mt-4 flex flex-wrap justify-center">
+                        <div className="w-3/12 px-3 print:hidden">{toolbar ?? ' '}</div>
+                        <h2 className={cn(bs.h2, 'w-6/12 px-3 text-center')}>{title}</h2>
+                        <div className={cn(printable ? 'w-2/12' : 'w-3/12', 'px-3 print:hidden')}>&nbsp;</div>
+                        {printable && <PrintButton className="w-1/12" />}
+                    </ReportRow>
+                )}
+                {children}
             </div>
-            <div className="mx-auto max-w-4xl p-6 print:max-w-none print:p-0">{children}</div>
-        </div>
+        </AppLayout>
     );
 }

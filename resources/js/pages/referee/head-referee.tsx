@@ -4,6 +4,7 @@ import { TeamCardBadge } from '@/components/team-card-badge';
 import { useApi } from '@/hooks/use-api';
 import { useLoadedMatch, useMatch, useScoreTypes } from '@/hooks/use-match';
 import AppLayout from '@/layouts/app-layout';
+import { bs } from '@/lib/bootstrap';
 import { eventUrl } from '@/lib/event';
 import { getAllianceMembers, getAllianceScore, getMatchTitle } from '@/lib/match-utils';
 import { findSubmission, seatsOf } from '@/lib/referee-seats';
@@ -138,12 +139,12 @@ function ActiveMatchTab({ match, matches }: { match: CompetitionMatch; matches: 
 
     return (
         <>
-            <h4 className="mb-2 text-center text-2xl font-medium">{getMatchTitle(match)}</h4>
+            <h4 className={cn(bs.h4, 'mt-4 text-center')}>{getMatchTitle(match)}</h4>
             <div className="flex flex-wrap justify-center gap-2">
-                <button type="button" onClick={() => setFlip(!flip)} className="rounded-md bg-[#0dcaf0] px-3 py-1.5 text-black hover:bg-[#31d2f2]">
+                <button type="button" onClick={() => setFlip(!flip)} className={bs.btnInfo}>
                     Flip Alliances
                 </button>
-                <Link href={eventUrl('/match-control')} className="rounded-md bg-[#0dcaf0] px-3 py-1.5 text-black hover:bg-[#31d2f2]">
+                <Link href={eventUrl('/match-control')} className={bs.btnInfo}>
                     Match Control
                 </Link>
             </div>
@@ -209,11 +210,6 @@ function ActiveMatchTab({ match, matches }: { match: CompetitionMatch; matches: 
     );
 }
 
-/**
- * The head referee's page, like FTC Live's: the running match with each
- * referee tablet's status, what every alliance has been scored for, and the
- * cards for its teams.
- */
 export default function HeadReferee() {
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
     const running = matches.find((match) => match.status === 'ongoing');
@@ -226,35 +222,33 @@ export default function HeadReferee() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Head Referee" />
-            <h1 className="mb-4 text-center text-[2rem] leading-tight font-medium">Head Referee</h1>
+            <div>
+                <h2 className={cn(bs.h2, 'text-center')}>Head Referee</h2>
 
-            <ul className="mb-4 flex flex-wrap border-b border-[#dee2e6]" role="tablist">
-                <li>
-                    <span
-                        role="tab"
-                        aria-selected="true"
-                        className="-mb-px block rounded-t-md border border-[#dee2e6] border-b-white bg-white px-4 py-2 text-[#495057]"
-                    >
-                        Active Match
-                    </span>
-                </li>
-                <li>
-                    <Link href={eventUrl('/reports/field-notes')} className="block px-4 py-2 text-[#0d6efd] hover:text-[#0a58ca]">
-                        Notes
-                    </Link>
-                </li>
-                <li>
-                    <Link href={eventUrl('/reports/scoresheets')} className="block px-4 py-2 text-[#0d6efd] hover:text-[#0a58ca]">
-                        Scoresheets
-                    </Link>
-                </li>
-            </ul>
+                <ul className="flex flex-wrap border-b border-[#dee2e6]" role="tablist">
+                    <li>
+                        <span
+                            role="tab"
+                            aria-selected="true"
+                            className="-mb-px block rounded-t-md border border-[#dee2e6] border-b-white bg-white px-4 py-2 text-black"
+                        >
+                            Active Match
+                        </span>
+                    </li>
+                    <li>
+                        <Link href={eventUrl('/reports/field-notes')} className="block px-4 py-2 text-[#0d6efd] hover:text-[#0a58ca]">
+                            Notes
+                        </Link>
+                    </li>
+                    <li>
+                        <Link href={eventUrl('/reports/scoresheets')} className="block px-4 py-2 text-[#0d6efd] hover:text-[#0a58ca]">
+                            Scoresheets
+                        </Link>
+                    </li>
+                </ul>
 
-            {match ? (
-                <ActiveMatchTab match={match} matches={matches} />
-            ) : (
-                <div className="rounded-md border border-[#9eeaf9] bg-[#cff4fc] px-4 py-3 text-center text-[#055160]">No Active Match</div>
-            )}
+                {match ? <ActiveMatchTab match={match} matches={matches} /> : <div className={cn(bs.alertInfo, 'text-center')}>No Active Match</div>}
+            </div>
         </AppLayout>
     );
 }

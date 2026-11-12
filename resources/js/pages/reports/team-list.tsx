@@ -1,4 +1,5 @@
-import PrintLayout from '@/layouts/print-layout';
+import PrintLayout, { ReportRow } from '@/layouts/print-layout';
+import { bs } from '@/lib/bootstrap';
 import { cn } from '@/lib/utils';
 import { type SharedData, type Team } from '@/types';
 import { usePage } from '@inertiajs/react';
@@ -6,18 +7,20 @@ import { useState } from 'react';
 
 type Detail = 'organization' | 'city' | 'rookie_year';
 
-const DETAILS: { value: Detail; label: string }[] = [
-    { value: 'organization', label: 'School / organization' },
-    { value: 'city', label: 'City' },
-    { value: 'rookie_year', label: 'Rookie year' },
+const DETAILS: { value: Detail; toggle: string; label: string; centred: boolean }[] = [
+    { value: 'organization', toggle: 'Show Affiliation', label: 'Affiliation', centred: false },
+    { value: 'city', toggle: 'Show City', label: 'City', centred: false },
+    { value: 'rookie_year', toggle: 'Show Rookie', label: 'Rookie Year', centred: true },
 ];
+
+const LEFT_BORDER = 'border-l border-[#dee2e6]';
 
 /**
  * Every team with the details the organiser picks (FTC Live's team list).
  */
 export default function TeamListReport() {
     const { event, teams } = usePage<SharedData & { teams: Team[] }>().props;
-    const [shown, setShown] = useState<Detail[]>(['organization', 'city']);
+    const [shown, setShown] = useState<Detail[]>([]);
     const [condensed, setCondensed] = useState(false);
     const columns = DETAILS.filter((detail) => shown.includes(detail.value));
 
@@ -25,48 +28,58 @@ export default function TeamListReport() {
 
     return (
         <PrintLayout
-            title="Team list"
+            title={`${event?.name ?? ''} Teams`}
             toolbar={
-                <div className="flex flex-wrap gap-3 text-sm">
-                    {DETAILS.map((detail) => (
-                        <label key={detail.value} className="flex items-center gap-1">
-                            <input type="checkbox" checked={shown.includes(detail.value)} onChange={() => toggle(detail.value)} /> {detail.label}
-                        </label>
-                    ))}
-                    <label className="flex items-center gap-1">
-                        <input type="checkbox" checked={condensed} onChange={() => setCondensed(!condensed)} /> Condensed
-                    </label>
-                </div>
+                <label className="pl-[5em]">
+                    <input type="checkbox" checked={condensed} onChange={() => setCondensed(!condensed)} />
+                    Condensed
+                </label>
             }
         >
-            <p className="text-sm text-gray-600">{event?.name}</p>
-            <h2 className="mb-3 text-2xl font-bold">Teams ({teams.length})</h2>
-            <table className="w-full border-collapse text-sm">
-                <thead>
-                    <tr className="border-b-2 text-left">
-                        <th className="w-24 py-1">Number</th>
-                        <th className="py-1">Name</th>
-                        {columns.map((column) => (
-                            <th key={column.value} className="py-1">
-                                {column.label}
+            <div className="print:hidden">
+                {DETAILS.map((detail) => (
+                    <label key={detail.value} className="block">
+                        <input type="checkbox" checked={shown.includes(detail.value)} onChange={() => toggle(detail.value)} />
+                        {detail.toggle}
+                    </label>
+                ))}
+            </div>
+            <ReportRow>
+                <table className={cn(bs.table, bs.tableStriped, condensed && '[&_td]:px-[.25em] [&_td]:py-0 [&_th]:px-[.25em] [&_th]:py-0')}>
+                    <thead>
+                        <tr>
+                            <th scope="col" className="text-center">
+                                Number
                             </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {teams.map((team) => (
-                        <tr key={team.id} className="border-b">
-                            <td className={cn('font-mono font-bold', condensed ? 'py-0.5' : 'py-2')}>{team.number}</td>
-                            <td className={condensed ? 'py-0.5' : 'py-2'}>{team.name}</td>
+                            <th scope="col" className={cn('text-center', LEFT_BORDER)}>
+                                Team Number
+                            </th>
+                            <th scope="col" className={cn('text-center', LEFT_BORDER)}>
+                                Name
+                            </th>
                             {columns.map((column) => (
-                                <td key={column.value} className={condensed ? 'py-0.5' : 'py-2'}>
-                                    {team[column.value] ?? ''}
-                                </td>
+                                <th key={column.value} scope="col" className={cn('text-center', LEFT_BORDER)}>
+                                    {column.label}
+                                </th>
                             ))}
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {teams.map((team, index) => (
+                            <tr key={team.id}>
+                                <td className="text-center">{index + 1}</td>
+                                <td className={cn('text-center', LEFT_BORDER)}>{team.number}</td>
+                                <td className={LEFT_BORDER}>{team.name}</td>
+                                {columns.map((column) => (
+                                    <td key={column.value} className={cn(LEFT_BORDER, column.centred && 'text-center')}>
+                                        {team[column.value] ?? ''}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </ReportRow>
         </PrintLayout>
     );
 }

@@ -1,8 +1,7 @@
 import InputError from '@/components/input-error';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import { bs } from '@/lib/bootstrap';
+import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { type FormEventHandler, useState } from 'react';
@@ -11,6 +10,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Event Dashboard', href: '/dashboard' },
     { title: 'Pit Map', href: '/admin/pit-map' },
 ];
+
+const fileInput = cn(
+    bs.formControl,
+    'w-auto overflow-hidden p-0 file:mr-3 file:cursor-pointer file:border-0 file:border-r file:border-[#dee2e6] file:bg-[#f8f9fa] file:px-3 file:py-1.5 file:text-[#212529]',
+);
 
 export default function PitMapSetup() {
     const { event, mapUrl } = usePage<SharedData & { mapUrl: string | null }>().props;
@@ -34,42 +38,43 @@ export default function PitMapSetup() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Pit Map" />
 
-            <h1 className="text-[2rem] leading-tight font-medium">Create Pit Map</h1>
-            <p>
-                Upload a picture of the pit layout. Teams find it on the event home under{' '}
-                <Link href={`${base}/pit-map`} className="text-[#0d6efd] underline">
-                    Pit Map
-                </Link>
-                .
-            </p>
+            <div>
+                <h2 className={`${bs.h2} text-center`}>Pit Map Editor</h2>
+                <h4 className={`${bs.h4} text-center`}>
+                    [{event?.code}] {event?.name}
+                </h4>
 
-            <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-                <div className="grid gap-1">
-                    <Label htmlFor="map">{mapUrl ? 'Replace pit map' : 'Pit map picture'}</Label>
-                    <Input
+                {mapUrl && <img src={mapUrl} alt="Pit map" className="max-h-[70vh] w-auto max-w-full border border-black object-contain" />}
+
+                <form onSubmit={submit} className="my-2 flex flex-wrap items-center justify-end gap-1">
+                    <input
                         key={inputKey}
                         id="map"
                         type="file"
+                        aria-label="Pit map"
                         accept=".png,.jpg,.jpeg,.webp,.svg"
+                        className={cn(fileInput, 'mr-auto')}
                         onChange={(changeEvent) => form.setData('map', changeEvent.target.files?.[0] ?? null)}
                     />
-                    <InputError message={form.errors.map} />
-                </div>
-                <Button type="submit" disabled={form.processing || form.data.map === null}>
-                    Publish
-                </Button>
-                {mapUrl && (
-                    <Button type="button" variant="destructive" onClick={() => router.delete(`${base}/pit-map`, { preserveScroll: true })}>
-                        Remove
-                    </Button>
-                )}
-            </form>
+                    {mapUrl && (
+                        <button type="button" className={bs.btnDanger} onClick={() => router.delete(`${base}/pit-map`, { preserveScroll: true })}>
+                            Clear
+                        </button>
+                    )}
+                    <button type="submit" className={bs.btnPrimary} disabled={form.processing || form.data.map === null}>
+                        Save
+                    </button>
+                </form>
+                <InputError message={form.errors.map} />
 
-            {mapUrl ? (
-                <img src={mapUrl} alt="Pit map" className="max-h-[70vh] w-auto max-w-full border object-contain" />
-            ) : (
-                <p className="text-muted-foreground">No pit map has been published for this event.</p>
-            )}
+                <div className={bs.alertInfo}>
+                    Upload a picture of the pit layout. Teams find it on the event home under{' '}
+                    <Link href={`${base}/pit-map`} className={bs.link}>
+                        Pit Map
+                    </Link>
+                    . Maps do not need to be made to-scale.
+                </div>
+            </div>
         </AppLayout>
     );
 }

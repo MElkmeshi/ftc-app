@@ -60,7 +60,7 @@ test('a live partial reload returns only the requested prop', function () {
 });
 
 test('dashboard stats stay deferred and are live', function () {
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->admin()->create());
 
     $response = $this->get('/dashboard')->assertOk();
 

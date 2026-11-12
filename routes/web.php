@@ -183,7 +183,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
                         ->first(['id', 'number']),
                 ])->live(on: MatchStatusChanged::class, channel: $currentEvent->channel('match-control'), throttle: 3000),
             ]);
-        })->name('dashboard');
+        })->middleware('can:manage-competition')->name('dashboard');
 
         Route::get('competition-matches', function () {
             $matches = CompetitionMatch::query()
@@ -204,7 +204,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
                 'positions' => $positions,
                 'allianceLabels' => $allianceLabels,
             ]);
-        })->name('matches.index');
+        })->middleware('can:manage-competition')->name('matches.index');
 
         Route::get('referee/scoring', function () {
             return Inertia::render('referee/scoring');

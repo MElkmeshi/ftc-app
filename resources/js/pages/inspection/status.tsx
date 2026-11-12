@@ -1,86 +1,175 @@
-import { InspectionStatusBadge } from '@/components/inspection-status-badge';
-import { INSPECTION_STATUSES, inspectionStatusOf, passedShare, type TeamInspectionStatus } from '@/lib/inspection-utils';
+import PublicLayout from '@/layouts/public-layout';
+import { bs } from '@/lib/bootstrap';
+import { type InspectionStatus, type TeamInspectionStatus } from '@/lib/inspection-utils';
 import { cn } from '@/lib/utils';
 import { type SharedData } from '@/types';
 import { Head, usePage, useProp } from '@inertiajs/react';
-import { useState } from 'react';
 
-const COLUMN_CLASSES: Record<number, string> = { 1: 'grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-2 lg:grid-cols-3' };
+const STATUS_LABELS: Record<InspectionStatus, string> = {
+    not_started: 'Not Started',
+    in_progress: 'In Progress',
+    incomplete: 'Incomplete',
+    passed: 'Passed',
+};
 
-function readColumns(): number {
+const STATUS_COLORS: Record<InspectionStatus, string> = {
+    not_started: 'bg-transparent text-black',
+    in_progress: 'bg-[#00ffff] text-black',
+    incomplete: 'bg-[#f0e442] text-black',
+    passed: 'bg-[#32cd32] text-white',
+};
+
+const PROGRESS_ORDER: InspectionStatus[] = ['passed', 'in_progress', 'incomplete', 'not_started'];
+const LEGEND_ORDER: InspectionStatus[] = ['not_started', 'in_progress', 'incomplete', 'passed'];
+
+const STATUS_TABLE =
+    'border-collapse border-[3px] border-black text-center [&_td]:border [&_td]:border-black [&_th]:border [&_th]:border-black [&_th]:font-bold';
+
+function readProjectorColumns(): number | null {
     const columns = Number(new URLSearchParams(window.location.search).get('columns'));
 
-    return columns >= 1 && columns <= 3 ? columns : 2;
+    return columns >= 1 && columns <= 3 ? columns : null;
 }
 
-/**
- * The inspection status board for a projector or the pit (FTC Live's
- * Inspection Status page). It carries no notes, only each team's result.
- */
-export default function InspectionStatusBoard() {
+function splitIntoColumns(teams: TeamInspectionStatus[], columns: number): TeamInspectionStatus[][] {
+    const perColumn = Math.max(1, Math.ceil(teams.length / columns));
+
+    return Array.from({ length: columns }, (_, index) => teams.slice(index * perColumn, (index + 1) * perColumn));
+}
+
+function StatusBoard({ projector }: { projector: boolean }) {
     const { event } = usePage<SharedData>().props;
     const { value: teams = [] } = useProp<TeamInspectionStatus[]>('teams');
-    const [columns, setColumns] = useState(readColumns);
-    const share = passedShare(teams);
+    const columns = readProjectorColumns() ?? 1;
 
     return (
-        <div className="bg-background text-foreground min-h-screen p-4 sm:p-6">
-            <Head title="Inspection status" />
-
-            <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <p className="text-muted-foreground">{event?.name}</p>
-                    <h1 className="text-3xl font-bold">Inspection status</h1>
+        <div>
+            <div className={cn('pointer-events-none flex', !projector && '-mt-6')}>
+                {!projector && (
+                    <div className="invisible" aria-hidden>
+                        &lt;&lt; Back to Event Home
+                    </div>
+                )}
+                <div className="flex-1">
+                    <h1 className={cn(bs.h1, 'text-center')}>{event?.name}</h1>
+                    <h4 className={cn(bs.h4, 'text-center')}>Inspection Status</h4>
                 </div>
-                <div className="flex items-center gap-1 text-sm print:hidden">
-                    <span className="text-muted-foreground mr-1">Columns</span>
-                    {[1, 2, 3].map((count) => (
-                        <button
-                            key={count}
-                            type="button"
-                            onClick={() => setColumns(count)}
-                            className={cn('rounded-md border px-2.5 py-1', columns === count && 'bg-primary text-primary-foreground')}
-                        >
-                            {count}
-                        </button>
-                    ))}
-                </div>
-            </header>
-
-            <div className="mb-4">
-                <div className="mb-1 flex justify-between text-sm font-medium">
-                    <span>{share}% passed</span>
-                    <span className="flex flex-wrap gap-2">
-                        {INSPECTION_STATUSES.map((status) => (
-                            <InspectionStatusBadge key={status.value} status={status.value} />
-                        ))}
-                    </span>
-                </div>
-                <div className="bg-muted flex h-3 overflow-hidden rounded-full">
-                    {INSPECTION_STATUSES.filter((status) => status.value !== 'not_started').map((status) => {
-                        const count = teams.filter((team) => team.status === status.value).length;
-
-                        return count === 0 ? null : (
-                            <div key={status.value} className={status.className} style={{ width: `${(count / teams.length) * 100}%` }} />
-                        );
-                    })}
-                </div>
+                {!projector && (
+                    <div className="pointer-events-auto print:hidden">
+                        <b>Projector Friendly:</b>
+                        <br />
+                        <a href="?columns=1" className={bs.link}>
+                            1 column
+                        </a>
+                        <br />
+                        <a href="?columns=2" className={bs.link}>
+                            2 columns
+                        </a>
+                        <br />
+                        <a href="?columns=3" className={bs.link}>
+                            3 columns
+                        </a>
+                        <br />
+                    </div>
+                )}
             </div>
 
-            {teams.length === 0 ? (
-                <p className="text-muted-foreground py-12 text-center text-lg">No teams yet.</p>
-            ) : (
-                <ul className={cn('grid gap-2', COLUMN_CLASSES[columns])}>
-                    {teams.map((team) => (
-                        <li key={team.id} className="bg-card flex items-center gap-3 rounded-lg border px-3 py-2 text-lg">
-                            <span className={cn('size-4 shrink-0 rounded-full', inspectionStatusOf(team.status).className)} />
-                            <span className="w-20 font-mono font-bold">{team.number}</span>
-                            <span className="min-w-0 flex-1 truncate">{team.name}</span>
-                            <span className="text-muted-foreground text-sm">{inspectionStatusOf(team.status).label}</span>
-                        </li>
-                    ))}
-                </ul>
-            )}
+            <div className="flex h-4 overflow-hidden rounded-md bg-[#e9ecef] text-xs">
+                {PROGRESS_ORDER.map((status) => {
+                    const count = teams.filter((team) => team.status === status).length;
+                    const share = teams.length === 0 ? 0 : Math.round((count / teams.length) * 100);
+                    const label = `${share}% ${STATUS_LABELS[status]}`;
+
+                    return count === 0 ? null : (
+                        <div
+                            key={status}
+                            title={label}
+                            className={cn('flex flex-col justify-center overflow-hidden text-center whitespace-nowrap', STATUS_COLORS[status])}
+                            style={{ width: `${(count / teams.length) * 100}%` }}
+                        >
+                            {label}
+                        </div>
+                    );
+                })}
+            </div>
+
+            <table className="w-full text-[20px]">
+                <tbody>
+                    <tr className="align-top">
+                        {splitIntoColumns(teams, columns).map((columnTeams, columnIndex) => (
+                            <td key={columnIndex} className="p-[5px]" style={{ width: `${100 / columns}%` }}>
+                                <table className={cn(STATUS_TABLE, 'w-full')}>
+                                    <tbody>
+                                        <tr>
+                                            <th>R</th>
+                                            <th className="px-5">Team</th>
+                                            <th>Name</th>
+                                        </tr>
+                                        {columnTeams.map((team) => (
+                                            <tr key={team.id}>
+                                                <td className={cn('w-[7.5%] font-bold', STATUS_COLORS[team.status])}>&nbsp;</td>
+                                                <td className="w-px px-5 whitespace-nowrap">{team.number}</td>
+                                                <td className="px-2.5 text-left">{team.name}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </td>
+                        ))}
+                    </tr>
+                </tbody>
+            </table>
+
+            <table className={cn(STATUS_TABLE, 'mx-auto [&_td]:px-2 [&_th]:px-2')}>
+                <tbody>
+                    <tr>
+                        <th>Name</th>
+                        <td>Robot Inspection</td>
+                    </tr>
+                    <tr>
+                        <th>Symbol</th>
+                        <td>R</td>
+                    </tr>
+                </tbody>
+            </table>
+            <table className={cn(STATUS_TABLE, 'mx-auto mt-[5px] [&_td]:px-2 [&_th]:px-2')}>
+                <tbody>
+                    <tr>
+                        <th>Status</th>
+                        {LEGEND_ORDER.map((status) => (
+                            <td key={status}>{STATUS_LABELS[status]}</td>
+                        ))}
+                    </tr>
+                    <tr>
+                        <th>Color</th>
+                        {LEGEND_ORDER.map((status) => (
+                            <td key={status} className={STATUS_COLORS[status]}>
+                                &nbsp;
+                            </td>
+                        ))}
+                    </tr>
+                </tbody>
+            </table>
         </div>
+    );
+}
+
+export default function InspectionStatusBoard() {
+    const projector = readProjectorColumns() !== null;
+
+    if (projector) {
+        return (
+            <div className="min-h-screen bg-white p-3 text-[#212529]">
+                <Head title="Inspection Status" />
+                <StatusBoard projector />
+            </div>
+        );
+    }
+
+    return (
+        <PublicLayout>
+            <Head title="Inspection Status" />
+            <StatusBoard projector={false} />
+        </PublicLayout>
     );
 }

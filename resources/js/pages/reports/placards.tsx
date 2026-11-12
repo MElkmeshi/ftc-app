@@ -1,7 +1,10 @@
 import PrintLayout from '@/layouts/print-layout';
+import { bs } from '@/lib/bootstrap';
 import { type Standing } from '@/lib/report-utils';
+import { cn } from '@/lib/utils';
 import { type SharedData, type Team } from '@/types';
 import { usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 /**
  * A page per team with its number big enough to read across the venue (FTC
@@ -9,25 +12,25 @@ import { usePage } from '@inertiajs/react';
  */
 export default function PlacardsReport() {
     const { event, teams, standings } = usePage<SharedData & { teams: Team[]; standings: Record<number, Standing> }>().props;
+    const [sortByRank, setSortByRank] = useState(true);
+    const sheets = sortByRank ? teams : [...teams].sort((a, b) => Number(a.number) - Number(b.number));
 
     return (
-        <PrintLayout title="Team placards">
-            <p className="text-muted-foreground mb-4 text-sm print:hidden">
-                One landscape page per team, in ranking order (unranked teams last, by number). Set the printer to landscape.
-            </p>
-            <div className="space-y-6 print:space-y-0">
-                {teams.map((team) => (
-                    <section
-                        key={team.id}
-                        className="flex aspect-[11/8.5] break-after-page flex-col items-center justify-center rounded border p-8 text-center print:aspect-auto print:h-screen print:rounded-none print:border-0"
-                    >
-                        {standings[team.id] && <div className="text-2xl text-gray-600">Rank {standings[team.id].rank}</div>}
-                        <div className="font-mono text-[9rem] leading-none font-black tabular-nums print:text-[14rem]">{team.number}</div>
-                        <div className="mt-4 text-4xl font-semibold">{team.name}</div>
-                        {(team.organization || team.city) && (
-                            <div className="mt-2 text-xl text-gray-600">{[team.organization, team.city].filter(Boolean).join(' · ')}</div>
-                        )}
-                        <div className="mt-8 text-sm text-gray-400">{event?.name}</div>
+        <PrintLayout title="Team Placards" plain>
+            <div className={cn(bs.alertInfo, 'text-center print:hidden')}>
+                This page renders a page per team, which can be printed and placed where you would like teams to line up for alliance selection, used
+                for pit signs (without rankings), or for other purposes.
+                <br />
+                <input type="checkbox" id="showRank" checked={sortByRank} onChange={() => setSortByRank(!sortByRank)} />{' '}
+                <label htmlFor="showRank">Sort by rank (uncheck for team number order)</label>
+            </div>
+            <div>
+                {sheets.map((team) => (
+                    <section key={team.id} className="flex h-screen w-full break-after-page flex-col items-center pt-[1em] pb-[2em]">
+                        <div className="mt-[10px] text-[28px]">{event?.name}</div>
+                        <div className="mt-5 text-[150px] font-bold">Team {team.number}</div>
+                        <div className="h-[130px] text-center text-[40px]">{team.name}</div>
+                        {sortByRank && standings[team.id] && <div className="mt-5 text-[80px] font-bold">Rank #{standings[team.id].rank}</div>}
                     </section>
                 ))}
             </div>

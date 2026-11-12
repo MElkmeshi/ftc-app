@@ -1,11 +1,8 @@
 import InputError from '@/components/input-error';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem, type EventTypeOption, type EventTypeValue, type GameOption } from '@/types';
+import PublicLayout from '@/layouts/public-layout';
+import { bs } from '@/lib/bootstrap';
+import { type EventTypeOption, type EventTypeValue, type GameOption } from '@/types';
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { Info, Upload } from 'lucide-react';
 import { type FormEventHandler } from 'react';
 
 interface CreateEventProps {
@@ -24,19 +21,9 @@ interface EventForm {
     start_date: string;
     end_date: string;
     field_count: number;
-    /** Empty for a new blank game named after the event. */
     game_id: string;
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Events', href: '/events' },
-    { title: 'New event', href: '/events/create' },
-];
-
-const selectClassName =
-    'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm';
-
-/** Suggests an event code from its name: "Tripoli Spring Scrimmage" → "tripoli_spring_scrimmage". */
 function suggestCode(name: string): string {
     return name
         .toLowerCase()
@@ -61,7 +48,6 @@ export default function CreateEvent() {
         field_count: 1,
         game_id: games[0] ? String(games[0].id) : '',
     });
-    const codeWasEdited = data.code !== '' && data.code !== suggestCode(data.name);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -69,146 +55,146 @@ export default function CreateEvent() {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="New event" />
+        <PublicLayout>
+            <Head title="Create Event" />
 
-            <div className="mx-auto w-full max-w-2xl p-4">
-                <h1 className="text-2xl font-bold">Create an event</h1>
-                <p className="text-muted-foreground mb-6">
-                    Each event has its own teams, schedule, scoring and displays. You can host as many events as you like on one server.
-                </p>
-
-                <form onSubmit={submit} className="space-y-5">
-                    <div className="grid gap-2">
-                        <Label htmlFor="name">Event name</Label>
-                        <Input
-                            id="name"
-                            value={data.name}
+            <div className="mx-auto w-full md:w-1/2">
+                <h2 className={bs.h2}>Create Event</h2>
+                <hr className="my-4 border-t border-black/25" />
+                <form onSubmit={submit}>
+                    <div className="mb-2">
+                        <label htmlFor="eventCodeInput" className={bs.formLabel}>
+                            Event Code:
+                        </label>
+                        <input
+                            id="eventCodeInput"
+                            type="text"
+                            className={bs.formControl}
+                            placeholder="Event Code"
                             required
-                            placeholder="Tripoli Spring Scrimmage"
-                            onChange={(e) => {
-                                const name = e.target.value;
-                                setData((current) => ({ ...current, name, code: codeWasEdited ? current.code : suggestCode(name) }));
-                            }}
+                            value={data.code}
+                            onChange={(e) => setData('code', e.target.value.toLowerCase())}
+                        />
+                        <InputError message={errors.code} />
+                    </div>
+                    <div className="mb-2">
+                        <label htmlFor="eventNameInput" className={bs.formLabel}>
+                            Event Name:
+                        </label>
+                        <input
+                            id="eventNameInput"
+                            type="text"
+                            className={bs.formControl}
+                            placeholder="Event Name"
+                            required
+                            value={data.name}
+                            onChange={(e) => setData('name', e.target.value)}
                         />
                         <InputError message={errors.name} />
                     </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="code">Event code</Label>
-                        <Input
-                            id="code"
-                            value={data.code}
-                            required
-                            className="font-mono"
-                            placeholder="tripoli_spring"
-                            onChange={(e) => setData('code', e.target.value.toLowerCase())}
+                    <div className="mb-2">
+                        <label htmlFor="eventTypeInput" className={bs.formLabel}>
+                            Event Type:
+                        </label>
+                        <select
+                            id="eventTypeInput"
+                            className={bs.formSelect}
+                            value={data.type}
+                            onChange={(e) => setData('type', e.target.value as EventTypeValue)}
+                        >
+                            {eventTypes.map((type) => (
+                                <option key={type.value} value={type.value}>
+                                    {type.label}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={errors.type} />
+                    </div>
+                    <div>
+                        <label htmlFor="timeZoneInput">Time zone:</label>
+                        <select
+                            id="timeZoneInput"
+                            className={bs.formSelect}
+                            value={data.timezone}
+                            onChange={(e) => setData('timezone', e.target.value)}
+                        >
+                            {timezones.map((zone) => (
+                                <option key={zone} value={zone}>
+                                    {zone}
+                                </option>
+                            ))}
+                        </select>
+                        <InputError message={errors.timezone} />
+                    </div>
+                    <div className="mb-2">
+                        <label htmlFor="startDatePicker" className={bs.formLabel}>
+                            Event Start Date:
+                        </label>
+                        <input
+                            id="startDatePicker"
+                            type="date"
+                            className={bs.formControl}
+                            value={data.start_date}
+                            onChange={(e) => setData('start_date', e.target.value)}
                         />
-                        <p className="text-muted-foreground text-xs">
-                            Lowercase letters, numbers and underscores. It appears in every URL (e.g. <code>/event/{data.code || 'code'}</code>) and
-                            can't be changed later.
-                        </p>
-                        <InputError message={errors.code} />
+                        <InputError message={errors.start_date} />
                     </div>
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="type">Event type</Label>
-                            <select
-                                id="type"
-                                className={selectClassName}
-                                value={data.type}
-                                onChange={(e) => setData('type', e.target.value as EventTypeValue)}
-                            >
-                                {eventTypes.map((type) => (
-                                    <option key={type.value} value={type.value}>
-                                        {type.label}
-                                    </option>
-                                ))}
-                            </select>
-                            <InputError message={errors.type} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="field_count">Number of fields</Label>
-                            <Input
-                                id="field_count"
-                                type="number"
-                                min={1}
-                                max={8}
-                                value={data.field_count}
-                                onChange={(e) => setData('field_count', Number(e.target.value))}
-                            />
-                            <InputError message={errors.field_count} />
-                        </div>
+                    <div className="mb-2">
+                        <label htmlFor="endDatePicker" className={bs.formLabel}>
+                            Event End Date:
+                        </label>
+                        <input
+                            id="endDatePicker"
+                            type="date"
+                            className={bs.formControl}
+                            value={data.end_date}
+                            onChange={(e) => setData('end_date', e.target.value)}
+                        />
+                        <InputError message={errors.end_date} />
                     </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="venue">Venue</Label>
-                        <Input id="venue" value={data.venue} placeholder="School gym, city" onChange={(e) => setData('venue', e.target.value)} />
-                        <InputError message={errors.venue} />
+                    <br />
+                    <div className="mb-2">
+                        <label htmlFor="fieldNumberInput" className={bs.formLabel}>
+                            Number of Fields:
+                        </label>
+                        <input
+                            id="fieldNumberInput"
+                            type="number"
+                            min={1}
+                            max={8}
+                            className={bs.formControl}
+                            placeholder="Number of Fields"
+                            value={data.field_count}
+                            onChange={(e) => setData('field_count', Number(e.target.value))}
+                        />
+                        <InputError message={errors.field_count} />
                     </div>
-
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        <div className="grid gap-2">
-                            <Label htmlFor="start_date">Start date</Label>
-                            <Input id="start_date" type="date" value={data.start_date} onChange={(e) => setData('start_date', e.target.value)} />
-                            <InputError message={errors.start_date} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="end_date">End date</Label>
-                            <Input id="end_date" type="date" value={data.end_date} onChange={(e) => setData('end_date', e.target.value)} />
-                            <InputError message={errors.end_date} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="timezone">Time zone</Label>
-                            <select
-                                id="timezone"
-                                className={selectClassName}
-                                value={data.timezone}
-                                onChange={(e) => setData('timezone', e.target.value)}
-                            >
-                                {timezones.map((zone) => (
-                                    <option key={zone} value={zone}>
-                                        {zone}
-                                    </option>
-                                ))}
-                            </select>
-                            <InputError message={errors.timezone} />
-                        </div>
-                    </div>
-
-                    <div className="bg-muted/40 grid gap-2 rounded-lg border p-4">
-                        <Label htmlFor="game_id">Game</Label>
-                        <select id="game_id" className={selectClassName} value={data.game_id} onChange={(e) => setData('game_id', e.target.value)}>
+                    <div className="mb-2">
+                        <label htmlFor="gameInput" className={bs.formLabel}>
+                            Game:
+                        </label>
+                        <select id="gameInput" className={bs.formSelect} value={data.game_id} onChange={(e) => setData('game_id', e.target.value)}>
                             {games.map((game) => (
                                 <option key={game.id} value={game.id}>
                                     {game.name}
                                 </option>
                             ))}
-                            <option value="">New blank game (define score types later)</option>
+                            <option value="">New blank game</option>
                         </select>
-                        <p className="text-muted-foreground flex items-start gap-1.5 text-xs">
-                            <Info className="mt-0.5 size-3.5 shrink-0" />
-                            The game holds the score types, match timing and ranking. Events on the same game share it, so a league can run every meet
-                            with the same rules. You can change the game later in Event details.
-                        </p>
                         <InputError message={errors.game_id} />
                     </div>
-
-                    <div className="flex justify-end">
-                        <Button type="submit" disabled={processing}>
-                            Create event
-                        </Button>
-                    </div>
+                    <br />
+                    <button type="submit" className={bs.btnPrimary} disabled={processing}>
+                        Create Event
+                    </button>
                 </form>
 
                 <ImportEventForm />
             </div>
-        </AppLayout>
+        </PublicLayout>
     );
 }
 
-/** Restores an event from a file downloaded on any server's event dashboard. */
 function ImportEventForm() {
     const { data, setData, post, errors, processing, progress } = useForm<{ file: File | null; code: string }>({ file: null, code: '' });
 
@@ -218,18 +204,19 @@ function ImportEventForm() {
     };
 
     return (
-        <section className="mt-10 border-t pt-6">
-            <h2 className="text-lg font-semibold">Import an event file</h2>
-            <p className="text-muted-foreground mb-4 text-sm">
-                Bring in an event exported from this or another server, with its teams, game, schedule, scores and playoffs.
-            </p>
-            <form onSubmit={submit} className="grid gap-4 sm:grid-cols-[1fr_12rem_auto] sm:items-start">
-                <div className="grid gap-2">
-                    <Label htmlFor="import_file">Event file (.json)</Label>
-                    <Input
-                        id="import_file"
+        <section>
+            <hr className="my-4 border-t border-black/25" />
+            <h2 className={bs.h2}>Import Event</h2>
+            <form onSubmit={submit}>
+                <div className="mb-2">
+                    <label htmlFor="importFileInput" className={bs.formLabel}>
+                        Event File:
+                    </label>
+                    <input
+                        id="importFileInput"
                         type="file"
                         accept="application/json,.json"
+                        className={bs.formControl}
                         onChange={(e) => {
                             const file = e.target.files?.[0] ?? null;
                             setData((previous) => ({
@@ -240,15 +227,23 @@ function ImportEventForm() {
                     />
                     <InputError message={errors.file} />
                 </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="import_code">New event code</Label>
-                    <Input id="import_code" value={data.code} onChange={(e) => setData('code', e.target.value.toLowerCase())} className="font-mono" />
+                <div className="mb-2">
+                    <label htmlFor="importCodeInput" className={bs.formLabel}>
+                        Event Code:
+                    </label>
+                    <input
+                        id="importCodeInput"
+                        type="text"
+                        className={bs.formControl}
+                        placeholder="Event Code"
+                        value={data.code}
+                        onChange={(e) => setData('code', e.target.value.toLowerCase())}
+                    />
                     <InputError message={errors.code} />
                 </div>
-                <Button type="submit" variant="outline" disabled={processing || !data.file} className="sm:mt-6">
-                    <Upload className="mr-1 size-4" />
-                    {progress ? `${progress.percentage ?? 0}%` : 'Import'}
-                </Button>
+                <button type="submit" className={bs.btnPrimary} disabled={processing || !data.file}>
+                    {progress ? `${progress.percentage ?? 0}%` : 'Import Event'}
+                </button>
             </form>
         </section>
     );

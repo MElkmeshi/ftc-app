@@ -1,6 +1,8 @@
-import { InspectionStatusBadge } from '@/components/inspection-status-badge';
+import { inspectionStatusCellClass, inspectionStatusLabel, InspectionStatusLegend } from '@/components/inspection-status-badge';
 import AppLayout from '@/layouts/app-layout';
-import { INSPECTION_STATUSES, type InspectionStatus, passedShare, type TeamInspectionStatus } from '@/lib/inspection-utils';
+import { bs } from '@/lib/bootstrap';
+import { INSPECTION_STATUSES, type InspectionStatus, type TeamInspectionStatus } from '@/lib/inspection-utils';
+import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, router, usePage, useProp } from '@inertiajs/react';
 import { useState } from 'react';
@@ -24,49 +26,44 @@ export default function InspectionOverride() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Inspection Override" />
 
-            <h1 className="text-[2rem] leading-tight font-medium">Robot Inspection - {event?.name}</h1>
-
-            <div className="flex flex-wrap items-center gap-2">
-                <span>Legend:</span>
-                {INSPECTION_STATUSES.map((status) => (
-                    <InspectionStatusBadge key={status.value} status={status.value} />
-                ))}
-            </div>
-            <p className="font-medium">{passedShare(teams)}% Passed</p>
-            <p>Set the status of each team. This skips the checklist, so use it only when inspection was done another way.</p>
-
-            <table className="w-full max-w-3xl">
-                <thead>
-                    <tr className="border-b-2 text-left">
-                        <th className="p-2">Team</th>
-                        <th className="p-2">Name</th>
-                        <th className="p-2">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {teams.map((team) => (
-                        <tr key={team.id} className="border-b">
-                            <td className="p-2 font-bold tabular-nums">{team.number}</td>
-                            <td className="p-2">{team.name}</td>
-                            <td className="p-2">
-                                <select
-                                    aria-label={`Status of team ${team.number}`}
-                                    className="border-input bg-background h-[38px] rounded-md border px-2"
-                                    value={team.status}
-                                    disabled={savingTeamId === team.id}
-                                    onChange={(changeEvent) => setStatus(team, changeEvent.target.value as InspectionStatus)}
-                                >
-                                    {INSPECTION_STATUSES.map((status) => (
-                                        <option key={status.value} value={status.value}>
-                                            {status.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </td>
+            <div>
+                <h3 className={bs.h3}>Robot Inspection - {event?.name}</h3>
+                <br />
+                <InspectionStatusLegend teams={teams} />
+                <div>Set the status of each team:</div>
+                <table className={cn(bs.table, bs.tableStriped, 'text-center')}>
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>Name</th>
+                            <th>Status</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {teams.map((team) => (
+                            <tr key={team.id}>
+                                <td>{team.number}</td>
+                                <td>{team.name}</td>
+                                <td className={inspectionStatusCellClass(team.status)}>
+                                    <select
+                                        aria-label={`Status of team ${team.number}`}
+                                        className="rounded-sm border border-black bg-white text-black"
+                                        value={team.status}
+                                        disabled={savingTeamId === team.id}
+                                        onChange={(changeEvent) => setStatus(team, changeEvent.target.value as InspectionStatus)}
+                                    >
+                                        {INSPECTION_STATUSES.map((status) => (
+                                            <option key={status.value} value={status.value}>
+                                                {inspectionStatusLabel(status.value)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </AppLayout>
     );
 }

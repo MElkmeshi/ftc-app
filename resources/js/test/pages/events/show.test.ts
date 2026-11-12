@@ -23,7 +23,7 @@ describe('event home links', () => {
     it('gives an admin every section', () => {
         const sections = visibleSections('/event/x', { manageCompetition: true, controlMatches: true, inspectRobots: true, scoreMatches: true });
 
-        expect(sections).toHaveLength(8);
+        expect(sections).toHaveLength(9);
         expect(labels(sections)).toContain('Event Dashboard');
     });
 });

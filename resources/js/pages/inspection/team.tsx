@@ -1,13 +1,11 @@
 import InputError from '@/components/input-error';
-import { InspectionStatusBadge } from '@/components/inspection-status-badge';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import { bs } from '@/lib/bootstrap';
 import { type InspectionStatus } from '@/lib/inspection-utils';
+import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { Head, useForm, usePage } from '@inertiajs/react';
+import { useState } from 'react';
 
 interface TeamInspectionProps extends SharedData {
     team: { id: number; number: number | string; name: string | null; organization: string | null; city: string | null };
@@ -15,14 +13,14 @@ interface TeamInspectionProps extends SharedData {
     inspection: { status: InspectionStatus; checked: string[]; notes: string | null; updated_by: string | null; updated_at: string | null };
 }
 
-/**
- * One team's inspection checklist, sized for an inspector's phone.
- */
+const inspectionButton =
+    'inline-block cursor-pointer rounded-md border px-3 py-1.5 text-center align-middle text-base leading-normal font-normal text-black select-none disabled:pointer-events-none disabled:opacity-65';
+
 export default function TeamInspection() {
     const { event, team, checklist, inspection } = usePage<TeamInspectionProps>().props;
     const base = `/event/${event?.code}`;
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Inspection', href: '/inspection' },
+        { title: 'Team Select', href: '/inspection' },
         { title: `Team ${team.number}`, href: `/inspection/${team.id}` },
     ];
     const form = useForm({
@@ -30,108 +28,145 @@ export default function TeamInspection() {
         notes: inspection.notes ?? '',
         status: inspection.status,
     });
-    const allChecked = checklist.every((item) => form.data.checked.includes(item));
+    const [highlightMissing, setHighlightMissing] = useState(false);
+    const [showUnchecked, setShowUnchecked] = useState(false);
+    const uncheckedCount = checklist.filter((item) => !form.data.checked.includes(item)).length;
 
-    const toggle = (item: string, isChecked: boolean) =>
-        form.setData('checked', isChecked ? [...form.data.checked, item] : form.data.checked.filter((checkedItem) => checkedItem !== item));
+    const toggle = (item: string) =>
+        form.setData(
+            'checked',
+            form.data.checked.includes(item) ? form.data.checked.filter((checkedItem) => checkedItem !== item) : [...form.data.checked, item],
+        );
 
     const save = (status: InspectionStatus) => {
         form.transform((data) => ({ ...data, status, notes: data.notes.trim() || null }));
         form.put(`${base}/inspection/${team.id}`);
     };
 
+    const pass = () => {
+        if (uncheckedCount > 0) {
+            setShowUnchecked(true);
+
+            return;
+        }
+
+        save('passed');
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Inspect ${team.number}`} />
 
-            <div className="mx-auto max-w-2xl space-y-5 p-4">
-                <Link href={`${base}/inspection`} className="text-muted-foreground inline-flex items-center gap-1 text-sm">
-                    <ArrowLeft className="size-4" /> All teams
-                </Link>
-
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-bold">
-                            <span className="font-mono">{team.number}</span> {team.name}
-                        </h1>
-                        {(team.organization || team.city) && (
-                            <p className="text-muted-foreground">{[team.organization, team.city].filter(Boolean).join(' · ')}</p>
-                        )}
+            <div>
+                <h2 className={bs.h2}>
+                    <b>Inspection Checklist</b>
+                </h2>
+                <div className="flex w-full justify-between">
+                    <div className="w-3/5">
+                        <h3 className={bs.h3}>
+                            <b>Team Number: {team.number}</b>
+                        </h3>
                     </div>
-                    <InspectionStatusBadge status={inspection.status} className="text-sm" />
+                    <div className="w-2/5 text-right">
+                        <button type="button" className={bs.btnInfo} disabled={form.processing} onClick={() => save('in_progress')}>
+                            Mark In Progress
+                        </button>{' '}
+                        <button type="button" className={bs.btnInfo} onClick={() => setHighlightMissing(true)}>
+                            Highlight Missing
+                        </button>
+                    </div>
                 </div>
+                <table className="w-full border-collapse [&_td]:border [&_td]:border-[gray] [&_th]:border [&_th]:border-[gray]">
+                    <tbody>
+                        <tr className="bg-[#EE7C36] text-center font-[Tahoma,Arial,sans-serif] text-white">
+                            <th className="max-w-[100px] min-w-[40px]">✔</th>
+                            <th>Inspection Checklist</th>
+                        </tr>
+                        {checklist.map((item, index) => {
+                            const isChecked = form.data.checked.includes(item);
 
-                {inspection.updated_by && inspection.updated_at && (
-                    <p className="text-muted-foreground text-sm">
-                        Last saved by {inspection.updated_by} at {new Date(inspection.updated_at).toLocaleTimeString()}
-                    </p>
-                )}
-
-                <ul className="divide-y rounded-lg border">
-                    {checklist.map((item, index) => (
-                        <li key={item}>
-                            <Label htmlFor={`item-${index}`} className="flex cursor-pointer items-center gap-3 px-4 py-3.5 text-base font-normal">
-                                <Checkbox
-                                    id={`item-${index}`}
-                                    className="size-6"
-                                    checked={form.data.checked.includes(item)}
-                                    onCheckedChange={(checked) => toggle(item, checked === true)}
-                                />
-                                {item}
-                            </Label>
-                        </li>
-                    ))}
-                </ul>
-                <p className="text-muted-foreground text-sm">
-                    {form.data.checked.length} of {checklist.length} ticked
-                </p>
-
-                <div className="grid gap-1.5">
-                    <Label htmlFor="notes">Notes for the team</Label>
-                    <textarea
-                        id="notes"
-                        className="border-input bg-background min-h-24 w-full rounded-md border p-3 text-sm"
-                        placeholder="What needs fixing, or anything to remember"
-                        value={form.data.notes}
-                        onChange={(changeEvent) => form.setData('notes', changeEvent.target.value)}
-                    />
-                    <InputError message={form.errors.notes} />
+                            return (
+                                <tr key={item} className="h-[30px]">
+                                    <td
+                                        className={cn(
+                                            'max-w-[100px] min-w-[40px] p-0 text-center font-[Arial] text-sm leading-[14px]',
+                                            highlightMissing && !isChecked && 'bg-[#00FFFF]',
+                                        )}
+                                    >
+                                        <button
+                                            type="button"
+                                            id={`item-${index}`}
+                                            role="checkbox"
+                                            aria-checked={isChecked}
+                                            aria-label={item}
+                                            className="block min-h-[30px] w-full cursor-pointer"
+                                            onClick={() => toggle(item)}
+                                        >
+                                            {isChecked ? '✓' : ''}
+                                        </button>
+                                    </td>
+                                    <td className="pt-[0.1rem] pl-[2px] font-[Arial] text-sm leading-[14px]">{item}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+                <br />
+                <label htmlFor="notes" className="font-bold">
+                    General Comments or Reason(s) for Incomplete:
+                </label>
+                <textarea
+                    id="notes"
+                    rows={4}
+                    className="block w-full border border-[#767676] bg-white px-0.5"
+                    value={form.data.notes}
+                    onChange={(changeEvent) => form.setData('notes', changeEvent.target.value)}
+                />
+                <div className="text-[10px]">
+                    Comments are visible to Teams. For record-keeping purposes, when a comment is no longer relevant, append "RESOLVED" instead of
+                    deleting it.
                 </div>
-
-                <InputError message={form.errors.status} />
-
-                <div className="grid gap-2 sm:grid-cols-3">
-                    <Button
-                        size="lg"
-                        className="bg-emerald-600 hover:bg-emerald-700"
-                        disabled={form.processing || !allChecked}
-                        onClick={() => save('passed')}
+                <div className="flex justify-between">
+                    <button type="button" className={bs.btnPrimary} disabled={form.processing} onClick={() => save(inspection.status)}>
+                        Save Comment
+                    </button>
+                </div>
+                <InputError message={form.errors.notes} className="text-base text-[#dc3545]" />
+                <p className="mb-4">{form.isDirty ? 'Unsaved Changes' : ' '}</p>
+                <div className="w-full text-center">
+                    <button
+                        type="button"
+                        className={cn(inspectionButton, 'border-[#32cd32] bg-[#32cd32] hover:border-[#47d247] hover:bg-[#51d551]')}
+                        disabled={form.processing}
+                        onClick={pass}
                     >
                         Pass
-                    </Button>
-                    <Button
-                        size="lg"
-                        variant="outline"
-                        className="border-amber-500 text-amber-700 dark:text-amber-400"
+                    </button>
+                    <span className="inline-block w-8" />
+                    <button
+                        type="button"
+                        className={cn(inspectionButton, 'border-[#f0e442] bg-[#f0e442] hover:border-[#f2e755] hover:bg-[#f2e85e]')}
                         disabled={form.processing}
                         onClick={() => save('incomplete')}
                     >
                         Incomplete
-                    </Button>
-                    <Button size="lg" variant="secondary" disabled={form.processing} onClick={() => save('in_progress')}>
-                        Save progress
-                    </Button>
-                </div>
-                {inspection.status !== 'not_started' && (
-                    <button
-                        type="button"
-                        className="text-muted-foreground text-sm underline"
-                        disabled={form.processing}
-                        onClick={() => save('not_started')}
-                    >
-                        Reset to not started
                     </button>
-                )}
+                </div>
+                <br />
+                <div className="w-full text-center">
+                    {showUnchecked && uncheckedCount > 0 ? (
+                        <span className="text-[red]">
+                            {uncheckedCount} Items Unchecked!{' '}
+                            <button type="button" className={bs.link} onClick={() => setHighlightMissing(true)}>
+                                Show
+                            </button>
+                        </span>
+                    ) : form.errors.status ? (
+                        <span className="text-[red]">{form.errors.status}</span>
+                    ) : (
+                        ' '
+                    )}
+                </div>
             </div>
         </AppLayout>
     );

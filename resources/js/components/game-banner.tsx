@@ -1,4 +1,4 @@
-import { currentGameId } from '@/lib/event';
+import { currentGameId, resolveEventHref } from '@/lib/event';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type GameSummary } from '@/types';
 import { Link } from '@inertiajs/react';
@@ -37,7 +37,7 @@ export function gameBreadcrumbs(game: GameSummary, page: GamePage): BreadcrumbIt
 export function GameBanner({ game, page }: { game: GameSummary; page: GamePage }) {
     const onGamePage = currentGameId() !== null;
     const playedEvents = game.events.filter((event) => event.has_played_matches);
-    const tabHref = (target: GamePage) => (onGamePage ? `/games/${game.id}/${target}` : EVENT_PAGE_PATHS[target]);
+    const tabHref = (target: GamePage) => (onGamePage ? `/games/${game.id}/${target}` : resolveEventHref(EVENT_PAGE_PATHS[target]));
 
     return (
         <div className="mb-4 space-y-3">

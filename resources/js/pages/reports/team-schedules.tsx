@@ -1,5 +1,6 @@
-import PrintLayout from '@/layouts/print-layout';
-import { formatMatchTime, getAllianceColorClasses, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
+import PrintLayout, { ReportRow } from '@/layouts/print-layout';
+import { bs } from '@/lib/bootstrap';
+import { formatMatchTime, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
 import { allianceColorsOf, membersOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type SharedData, type Team } from '@/types';
@@ -24,10 +25,10 @@ export default function TeamSchedulesReport() {
 
     return (
         <PrintLayout
-            title="Team match lists"
+            title={`${event?.name ?? ''} Team Match Schedules`}
             toolbar={
-                <select className="rounded border px-2 py-1 text-sm" value={teamId} onChange={(changeEvent) => setTeamId(changeEvent.target.value)}>
-                    <option value="">Every team</option>
+                <select aria-label="Team" className={bs.formSelect} value={teamId} onChange={(changeEvent) => setTeamId(changeEvent.target.value)}>
+                    <option value="">All Teams</option>
                     {teams.map((team) => (
                         <option key={team.id} value={team.id}>
                             {team.number} {team.name}
@@ -36,69 +37,54 @@ export default function TeamSchedulesReport() {
                 </select>
             }
         >
-            <div className="space-y-8 print:space-y-0">
-                {visibleTeams.map((team) => {
-                    const teamMatches = matches.filter((match) => match.match_alliances.some((matchAlliance) => matchAlliance.team?.id === team.id));
+            {visibleTeams.map((team) => {
+                const teamMatches = matches.filter((match) => match.match_alliances.some((matchAlliance) => matchAlliance.team?.id === team.id));
 
-                    return (
-                        <section key={team.id} className="break-after-page">
-                            <p className="text-sm text-gray-600">{event?.name}</p>
-                            <h2 className="mb-3 text-2xl font-bold">
-                                <span className="font-mono">{team.number}</span> {team.name}
-                            </h2>
-                            {teamMatches.length === 0 ? (
-                                <p className="text-gray-600">This team is not in the schedule yet.</p>
-                            ) : (
-                                <table className="w-full border-collapse text-sm">
-                                    <thead>
-                                        <tr className="border-b-2 text-left">
-                                            <th className="py-1 pr-2">Match</th>
-                                            <th className="py-1 pr-2">Time</th>
-                                            <th className="py-1 pr-2">Alliance</th>
-                                            <th className="py-1 pr-2">Partners</th>
-                                            <th className="py-1">Opponents</th>
+                return (
+                    <ReportRow key={team.id} className="break-after-page">
+                        <h3 className={cn(bs.h3, 'w-full text-center')}>
+                            Team {team.number} {team.name}
+                        </h3>
+                        <table className={cn(bs.table, bs.tableStriped, 'text-center')}>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Match</th>
+                                    <th scope="col">Start Time</th>
+                                    <th scope="col">Alliance</th>
+                                    <th scope="col">Partners</th>
+                                    <th scope="col">Opponents</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {teamMatches.map((match) => {
+                                    const colors = allianceColorsOf(match);
+                                    const ownColor =
+                                        match.match_alliances.find((matchAlliance) => matchAlliance.team?.id === team.id)?.alliance.color ?? '';
+
+                                    return (
+                                        <tr key={match.id}>
+                                            <td>{getMatchTitle(match)}</td>
+                                            <td>
+                                                {[formatMatchTime(match.start_time, event?.timezone), getFieldLabel(match, event?.field_count ?? 1)]
+                                                    .filter(Boolean)
+                                                    .join(' ')}
+                                            </td>
+                                            <td className="capitalize">{ownColor}</td>
+                                            <td>{teamNumbers(match, ownColor, team.id)}</td>
+                                            <td>
+                                                {colors
+                                                    .filter((color) => color !== ownColor)
+                                                    .map((color) => teamNumbers(match, color, team.id))
+                                                    .join(' / ')}
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {teamMatches.map((match) => {
-                                            const colors = allianceColorsOf(match);
-                                            const ownColor =
-                                                match.match_alliances.find((matchAlliance) => matchAlliance.team?.id === team.id)?.alliance.color ??
-                                                '';
-
-                                            return (
-                                                <tr key={match.id} className="border-b">
-                                                    <td className="py-1.5 pr-2">{getMatchTitle(match)}</td>
-                                                    <td className="py-1.5 pr-2 tabular-nums">
-                                                        {[
-                                                            formatMatchTime(match.start_time, event?.timezone),
-                                                            getFieldLabel(match, event?.field_count ?? 1),
-                                                        ]
-                                                            .filter(Boolean)
-                                                            .join(' · ')}
-                                                    </td>
-                                                    <td
-                                                        className={cn('py-1.5 pr-2 font-semibold capitalize', getAllianceColorClasses(ownColor).text)}
-                                                    >
-                                                        {ownColor}
-                                                    </td>
-                                                    <td className="py-1.5 pr-2 font-mono">{teamNumbers(match, ownColor, team.id)}</td>
-                                                    <td className="py-1.5 font-mono">
-                                                        {colors
-                                                            .filter((color) => color !== ownColor)
-                                                            .map((color) => teamNumbers(match, color, team.id))
-                                                            .join(' / ')}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            )}
-                        </section>
-                    );
-                })}
-            </div>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </ReportRow>
+                );
+            })}
         </PrintLayout>
     );
 }

@@ -1,11 +1,10 @@
-import { TeamCardBadge } from '@/components/team-card-badge';
-import { useChangedAt } from '@/hooks/use-changed-at';
-import EventPageLayout from '@/layouts/event-page-layout';
-import { formatMatchTime, getAllianceColorClasses, getAllianceMembers, getAllianceScore, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
+import AppLayout from '@/layouts/app-layout';
+import { bs } from '@/lib/bootstrap';
+import { getAllianceMembers, getAllianceScore, getMatchTitle } from '@/lib/match-utils';
 import { allianceColorsOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
-import { type CompetitionMatch, type Group, type ScoreType, type SharedData } from '@/types';
-import { Head, Link, usePage, useProp } from '@inertiajs/react';
+import { type BreadcrumbItem, type CompetitionMatch, type Group, type ScoreType } from '@/types';
+import { Head, usePage, useProp } from '@inertiajs/react';
 
 type SheetScoreType = Pick<ScoreType, 'id' | 'name' | 'points' | 'group_id' | 'awarded_to' | 'target'>;
 
@@ -21,6 +20,25 @@ interface SheetSection {
     title: string;
     lines: SheetLine[];
     points: number;
+}
+
+const ALLIANCE_BACKGROUNDS: Record<string, string> = {
+    red: 'bg-[#ED1C24]',
+    blue: 'bg-[#0066B3]',
+};
+
+const UNDERLINED = 'inline-block min-w-[3em] border-b-[3px] border-black';
+
+function shortMatchName(match: CompetitionMatch): string {
+    if (match.type === 'practice') {
+        return `P${match.number}`;
+    }
+
+    if (match.type === 'qualification') {
+        return `Q${match.number}`;
+    }
+
+    return getMatchTitle(match);
 }
 
 function buildSections(match: CompetitionMatch, color: string, scoreTypes: Map<number, SheetScoreType>, groups: Group[]): SheetSection[] {
@@ -89,112 +107,77 @@ function AllianceSheet({
     scoreTypes: Map<number, SheetScoreType>;
     groups: Group[];
 }) {
-    const classes = getAllianceColorClasses(color);
     const sections = buildSections(match, color, scoreTypes, groups);
-    const total = getAllianceScore(match, color);
 
     return (
-        <section className={cn('break-inside-avoid overflow-hidden rounded-lg border-2', classes.border)}>
-            <header className={cn('flex items-center justify-between px-4 py-3 text-white', classes.bg)}>
-                <div>
-                    <div className="text-xs font-semibold tracking-wide uppercase opacity-80">{color} alliance</div>
-                    <div className="flex flex-wrap items-center gap-x-3 font-mono text-lg font-semibold">
-                        {getAllianceMembers(match, color).map((matchAlliance) => (
-                            <span key={matchAlliance.id} className="flex items-center gap-1">
-                                {matchAlliance.team?.number}
-                                <TeamCardBadge card={matchAlliance.card} className="font-sans" />
-                            </span>
-                        ))}
-                    </div>
+        <div className="w-full break-inside-avoid px-3 lg:w-6/12">
+            <div
+                className={cn(
+                    'mb-2 p-[0.25em] text-center text-[200%] font-bold text-[#F5FEFD] capitalize',
+                    ALLIANCE_BACKGROUNDS[color] ?? 'bg-[#6c757d]',
+                )}
+            >
+                {color} Alliance
+            </div>
+            <div className={cn(bs.h5, 'text-center font-bold')}>
+                <span className="whitespace-nowrap">
+                    Match:&nbsp;<span className={UNDERLINED}>{shortMatchName(match)}</span>
+                </span>
+                &nbsp;
+                <span className="whitespace-nowrap">
+                    Field:&nbsp;<span className={UNDERLINED}>{match.field}</span>
+                </span>
+                &nbsp;
+            </div>
+            {sections.map((section) => (
+                <div key={section.title}>
+                    <div className={cn(bs.h5, 'bg-[#bfbfbf] text-center font-bold')}>{section.title}</div>
+                    <table className="mb-2 w-full text-center">
+                        <tbody>
+                            {section.lines.map((line) => (
+                                <tr key={line.key}>
+                                    <th className="w-2/3 text-center font-bold">
+                                        {line.label}
+                                        {line.count > 1 && ` × ${line.count}`}
+                                        {line.detail && ` (${line.detail})`}
+                                    </th>
+                                    <td>
+                                        <div className="border-b-[3px] border-black">{line.points}</div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-                <div className="text-4xl font-black tabular-nums">{total}</div>
-            </header>
-            {sections.length === 0 ? (
-                <p className="text-muted-foreground px-4 py-6 text-center text-sm">No points yet.</p>
-            ) : (
-                <div className="divide-y">
-                    {sections.map((section) => (
-                        <div key={section.title} className="px-4 py-2">
-                            <div className="text-muted-foreground flex justify-between py-1 text-xs font-semibold uppercase">
-                                <span>{section.title}</span>
-                                <span className="tabular-nums">{section.points}</span>
-                            </div>
-                            <ul className="text-sm">
-                                {section.lines.map((line) => (
-                                    <li key={line.key} className="flex items-baseline justify-between gap-3 py-0.5">
-                                        <span>
-                                            {line.label}
-                                            {line.count > 1 && <span className="text-muted-foreground"> × {line.count}</span>}
-                                            {line.detail && <span className="text-muted-foreground block text-xs">{line.detail}</span>}
-                                        </span>
-                                        <span className="font-medium tabular-nums">{line.points}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </section>
+            ))}
+        </div>
     );
 }
 
-const STATUS_LABELS: Record<string, string> = {
-    upcoming: 'Not played yet',
-    ongoing: 'On the field now — scores are still coming in',
-    completed: 'Final',
-    cancelled: 'Cancelled',
-};
-
-/**
- * One match's scoresheet: every point by alliance and group (FTC Live's
- * Scoresheet page). It updates live while the match is scored.
- */
 export default function MatchSheet() {
-    const { event, scoreTypes, groups } = usePage<SharedData & { scoreTypes: SheetScoreType[]; groups: Group[] }>().props;
+    const { scoreTypes, groups } = usePage<{ scoreTypes: SheetScoreType[]; groups: Group[] }>().props;
     const { value: match } = useProp<CompetitionMatch>('match');
-    const updatedAt = useChangedAt(match);
     const scoreTypesById = new Map(scoreTypes.map((scoreType) => [scoreType.id, scoreType]));
 
     if (!match) {
         return null;
     }
 
-    const colors = allianceColorsOf(match);
-    const totals = colors.map((color) => getAllianceScore(match, color));
-    const best = Math.max(...totals);
-    const winners = colors.filter((_, index) => totals.at(index) === best);
     const title = getMatchTitle(match);
+    const breadcrumbs: BreadcrumbItem[] = [
+        { title: 'Match Results', href: '/schedule?view=results' },
+        { title, href: `/matches/${match.id}` },
+    ];
 
     return (
-        <EventPageLayout title={title} updatedAt={updatedAt}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={title} />
 
-            <div className="text-muted-foreground mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span>
-                    {[formatMatchTime(match.start_time, event?.timezone), getFieldLabel(match, event?.field_count ?? 1)].filter(Boolean).join(' · ')}
-                </span>
-                <span className={cn('font-medium', match.status === 'completed' && 'text-foreground')}>
-                    {STATUS_LABELS[match.status] ?? match.status}
-                </span>
-                {match.status === 'completed' && (
-                    <span className="text-foreground font-semibold">
-                        {winners.length === 1 ? <span className="capitalize">{winners.at(0)} wins</span> : 'Tie'}
-                    </span>
-                )}
-                <Link
-                    href={`/event/${event?.code}/matches/${match.id}/history`}
-                    className="text-muted-foreground ml-auto text-xs hover:underline print:hidden"
-                >
-                    Change history (head referee)
-                </Link>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-                {colors.map((color) => (
+            <div className="-mx-3 flex flex-wrap">
+                {[...allianceColorsOf(match)].reverse().map((color) => (
                     <AllianceSheet key={color} match={match} color={color} scoreTypes={scoreTypesById} groups={groups} />
                 ))}
             </div>
-        </EventPageLayout>
+        </AppLayout>
     );
 }

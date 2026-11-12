@@ -24,9 +24,13 @@ function backLink(breadcrumbs: BreadcrumbItem[], eventCode: string | null, url: 
     return { title: 'Event Home', href: eventHome };
 }
 
-export function TopNavPage({ breadcrumbs = [], children }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
+export function TopNavPage({
+    breadcrumbs = [],
+    hideBack = false,
+    children,
+}: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[]; hideBack?: boolean }>) {
     const { props, url } = usePage<SharedData>();
-    const back = backLink(breadcrumbs, props.event?.code ?? null, url);
+    const back = hideBack ? null : backLink(breadcrumbs, props.event?.code ?? null, url);
 
     return (
         <div className="bg-background text-foreground min-h-screen">
@@ -34,7 +38,7 @@ export function TopNavPage({ breadcrumbs = [], children }: PropsWithChildren<{ b
                 <TopNavbar />
                 <hr className="my-4 border-t border-black/25 print:hidden" />
                 {back && (
-                    <Link href={back.href} className="mb-2 inline-block text-[#0d6efd] underline print:hidden">
+                    <Link href={back.href} className="inline-block text-[#0d6efd] underline print:hidden">
                         &lt;&lt; Back to {back.title}
                     </Link>
                 )}
@@ -44,6 +48,14 @@ export function TopNavPage({ breadcrumbs = [], children }: PropsWithChildren<{ b
     );
 }
 
-export default function AppTopNavLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
-    return <TopNavPage breadcrumbs={breadcrumbs}>{children}</TopNavPage>;
+export default function AppTopNavLayout({
+    children,
+    breadcrumbs = [],
+    hideBack = false,
+}: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[]; hideBack?: boolean }>) {
+    return (
+        <TopNavPage breadcrumbs={breadcrumbs} hideBack={hideBack}>
+            {children}
+        </TopNavPage>
+    );
 }

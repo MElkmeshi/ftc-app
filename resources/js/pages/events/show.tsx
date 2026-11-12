@@ -17,41 +17,49 @@ function eventSections(base: string): { title: string; entries: MenuEntry[] }[] 
         {
             title: 'Event Info',
             entries: [
-                { label: 'Inspection Status', href: `${base}/inspection/status` },
-                { label: 'Practice', children: [{ label: 'Schedule', href: `${base}/schedule` }] },
+                { label: 'Judging & Inspection Status', href: `${base}/inspection/status` },
+                { label: 'Practice', children: [{ label: 'Schedule', href: `${base}/schedule?view=practice` }] },
                 {
                     label: 'Qualification',
                     children: [
-                        { label: 'Schedule', href: `${base}/schedule` },
+                        { label: 'Schedule', href: `${base}/schedule?view=qualification` },
                         { label: 'Rankings', href: `${base}/rankings` },
                     ],
                 },
-                { label: 'Playoff', children: [{ label: 'Bracket', href: `${base}/elimination/bracket` }] },
-                { label: 'Match Results', href: `${base}/schedule` },
+                {
+                    label: 'Playoff',
+                    children: [
+                        { label: 'Schedule', href: `${base}/schedule?view=playoff` },
+                        { label: 'Bracket', href: `${base}/elimination/bracket` },
+                    ],
+                },
+                { label: 'Match Results', href: `${base}/schedule?view=results` },
                 { label: 'Pit Display', href: `${base}/display?type=pit` },
-                { label: 'Pit Map', href: `${base}/pit-map` },
                 { label: 'Event Reports', href: `${base}/reports`, ability: 'controlMatches' },
             ],
         },
         { title: 'Inspection', entries: [{ label: 'Robot Inspection', href: `${base}/inspection`, ability: 'inspectRobots' }] },
         {
-            title: 'Referee',
+            title: 'Official Scorer',
             entries: [
                 { label: 'Red Alliance Wall Scorer', href: `${base}/referee/scoring?alliance=red&role=scoring`, ability: 'scoreMatches' },
                 { label: 'Blue Alliance Wall Scorer', href: `${base}/referee/scoring?alliance=blue&role=scoring`, ability: 'scoreMatches' },
-                { label: 'Red Referee (Fouls)', href: `${base}/referee/scoring?alliance=red&role=penalty`, ability: 'scoreMatches' },
-                { label: 'Blue Referee (Fouls)', href: `${base}/referee/scoring?alliance=blue&role=penalty`, ability: 'scoreMatches' },
+            ],
+        },
+        {
+            title: 'Referee',
+            entries: [
+                { label: 'Red Alliance Referee', href: `${base}/referee/scoring?alliance=red&role=penalty`, ability: 'scoreMatches' },
+                { label: 'Blue Alliance Referee', href: `${base}/referee/scoring?alliance=blue&role=penalty`, ability: 'scoreMatches' },
                 { label: 'Head Referee', href: `${base}/head-referee`, ability: 'controlMatches' },
             ],
         },
-        { title: 'FTA/CSA Tools', entries: [{ label: 'Field Notes', href: `${base}/reports/field-notes`, ability: 'controlMatches' }] },
+        { title: 'FTA/CSA Tools', entries: [{ label: 'FTA Notepad', href: `${base}/reports/field-notes`, ability: 'controlMatches' }] },
         {
             title: 'Displays',
             entries: [
                 { label: 'Scoring/Timing Displays', href: `${base}/display` },
                 { label: 'Pit Display', href: `${base}/display?type=pit` },
-                { label: 'Rankings Display', href: `${base}/referee/display` },
-                { label: 'Alliance Selection Display', href: `${base}/alliance-selection/display` },
             ],
         },
         { title: 'Judging', entries: [{ label: 'Manage Awards', href: `${base}/admin/awards`, ability: 'manageCompetition' }] },
@@ -59,7 +67,7 @@ function eventSections(base: string): { title: string; entries: MenuEntry[] }[] 
             title: 'GA/Emcee',
             entries: [
                 { label: 'Opening Ceremony Script', href: `${base}/scripts?tab=opening`, ability: 'controlMatches' },
-                { label: 'Announcer Report', href: `${base}/reports/announcer`, ability: 'controlMatches' },
+                { label: 'Announcer Reports', href: `${base}/reports/announcer`, ability: 'controlMatches' },
                 { label: 'Alliance Selection', href: `${base}/scripts?tab=selection`, ability: 'controlMatches' },
                 { label: 'Closing Ceremony Script', href: `${base}/scripts?tab=closing`, ability: 'controlMatches' },
             ],
@@ -69,7 +77,6 @@ function eventSections(base: string): { title: string; entries: MenuEntry[] }[] 
             entries: [
                 { label: 'Event Dashboard', href: `${base}/dashboard`, ability: 'manageCompetition' },
                 { label: 'Match Control Page', href: `${base}/match-control`, ability: 'controlMatches' },
-                { label: 'Connect Devices', href: `${base}/connect`, ability: 'controlMatches' },
             ],
         },
     ];

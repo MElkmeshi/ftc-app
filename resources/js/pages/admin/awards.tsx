@@ -1,14 +1,11 @@
 import InputError from '@/components/input-error';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { placeLabel } from '@/lib/award-utils';
+import { bs } from '@/lib/bootstrap';
+import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type SharedData, type Team } from '@/types';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Lock, LockOpen, MonitorUp, Plus, Trash2 } from 'lucide-react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { type FormEventHandler, useState } from 'react';
 
 interface AwardWinnerRow {
@@ -38,9 +35,20 @@ interface PlaceEntry {
     recipient: string;
 }
 
+type AwardsTab = 'manage' | 'enter' | 'present';
+
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Awards', href: '/admin/awards' }];
 
-const selectClassName = 'border-input bg-background h-9 rounded-md border px-2 text-sm';
+const TABS: { key: AwardsTab; label: string }[] = [
+    { key: 'manage', label: 'Manage Awards' },
+    { key: 'enter', label: 'Enter Awards' },
+    { key: 'present', label: 'Present Awards' },
+];
+
+const card = 'mb-2 rounded-md border border-black/[0.175] bg-white';
+const cardHeader = 'flex items-center justify-between rounded-t-md border-b border-black/[0.175] bg-black/[0.03] px-4 py-2';
+const listItem = 'block w-full cursor-pointer border border-t-0 px-4 py-2 text-left first:rounded-t-md first:border-t last:rounded-b-md';
+const modalContent = 'top-7 translate-y-0 gap-0 rounded-lg border-black/20 bg-white p-0 text-base text-[#212529] sm:max-w-[500px]';
 
 function placeEntries(award: AwardRow | null): PlaceEntry[] {
     return Array.from({ length: 3 }, (_, index) => {
@@ -64,14 +72,20 @@ function parseTeamNumbers(text: string): number[] {
         .map((part) => Number(part));
 }
 
-function AwardEditor({ award, base, onDone }: { award: AwardRow | null; base: string; onDone?: () => void }) {
+function winnersText(award: AwardRow, place: number): string {
+    return award.winners
+        .filter((winner) => winner.place === place)
+        .map((winner) => [winner.team ? `${winner.team.number} ${winner.team.name}` : null, winner.recipient].filter(Boolean).join(' - '))
+        .join(', ');
+}
+
+function useAwardForm(award: AwardRow | null, base: string, onDone?: () => void) {
     const form = useForm({
         name: award?.name ?? '',
         description: award?.description ?? '',
         places: award?.places ?? 1,
         entries: placeEntries(award),
     });
-    const [confirmingDelete, setConfirmingDelete] = useState(false);
 
     form.transform((data) => ({
         name: data.name,
@@ -86,15 +100,7 @@ function AwardEditor({ award, base, onDone }: { award: AwardRow | null; base: st
 
     const submit: FormEventHandler = (submitEvent) => {
         submitEvent.preventDefault();
-        const options = {
-            preserveScroll: true,
-            onSuccess: () => {
-                if (!award) {
-                    form.reset();
-                }
-                onDone?.();
-            },
-        };
+        const options = { preserveScroll: true, onSuccess: () => onDone?.() };
 
         if (award) {
             form.put(`${base}/awards/${award.id}`, options);
@@ -102,6 +108,131 @@ function AwardEditor({ award, base, onDone }: { award: AwardRow | null; base: st
             form.post(`${base}/awards`, options);
         }
     };
+
+    return { form, submit };
+}
+
+function AwardDetailsModal({ award, base, onClose }: { award: AwardRow | null; base: string; onClose: () => void }) {
+    const { form, submit } = useAwardForm(award, base, onClose);
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+    return (
+        <Dialog open onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className={modalContent}>
+                <form onSubmit={submit}>
+                    <div className="border-b border-[#dee2e6] p-4">
+                        <DialogTitle className="text-xl leading-normal font-medium">{award ? 'Edit Award' : 'Create New Award'}</DialogTitle>
+                        <DialogDescription className="sr-only">{award ? 'Edit Award' : 'Create New Award'}</DialogDescription>
+                    </div>
+                    <div className="p-4">
+                        <div className="mb-2">
+                            <label htmlFor="awardNameInput" className={bs.formLabel}>
+                                Award Name:
+                            </label>
+                            <input
+                                id="awardNameInput"
+                                type="text"
+                                className={bs.formControl}
+                                value={form.data.name}
+                                onChange={(changeEvent) => form.setData('name', changeEvent.target.value)}
+                                required
+                            />
+                            <InputError message={form.errors.name} />
+                        </div>
+                        <div className="mb-2">
+                            <label htmlFor="awardPlacesInput" className={bs.formLabel}>
+                                Places:
+                            </label>
+                            <select
+                                id="awardPlacesInput"
+                                className={bs.formSelect}
+                                value={form.data.places}
+                                onChange={(changeEvent) => form.setData('places', Number(changeEvent.target.value))}
+                            >
+                                <option value={1}>Winner only</option>
+                                <option value={2}>1st and 2nd</option>
+                                <option value={3}>1st to 3rd</option>
+                            </select>
+                        </div>
+                        <div className="mb-2">
+                            <label htmlFor="awardDescriptionInput" className={bs.formLabel}>
+                                Description:
+                            </label>
+                            <textarea
+                                id="awardDescriptionInput"
+                                rows={4}
+                                className={bs.formControl}
+                                value={form.data.description}
+                                onChange={(changeEvent) => form.setData('description', changeEvent.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2 border-t border-[#dee2e6] p-3">
+                        {award &&
+                            (confirmingDelete ? (
+                                <button
+                                    type="button"
+                                    className={`${bs.btnDanger} mr-auto`}
+                                    onClick={() => router.delete(`${base}/awards/${award.id}`, { preserveScroll: true, onSuccess: onClose })}
+                                >
+                                    Confirm Delete
+                                </button>
+                            ) : (
+                                <button type="button" className={`${bs.btnDanger} mr-auto`} onClick={() => setConfirmingDelete(true)}>
+                                    Delete
+                                </button>
+                            ))}
+                        <button type="button" className={bs.btnSecondary} onClick={onClose}>
+                            Cancel
+                        </button>
+                        <button type="submit" className={bs.btnPrimary} disabled={form.processing}>
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ManageAwards({ awards, base, locked }: { awards: AwardRow[]; base: string; locked: boolean }) {
+    const [editing, setEditing] = useState<AwardRow | 'new' | null>(null);
+
+    return (
+        <div>
+            <h2 className={bs.h2}>Manage Awards</h2>
+            Presented in order listed.
+            <br />
+            <button type="button" className={`${bs.btnPrimary} mb-4`} disabled={locked} onClick={() => setEditing('new')}>
+                Create New Award
+            </button>
+            {awards.map((award) => (
+                <div key={award.id} className={card}>
+                    <div className={cardHeader}>
+                        <span>{award.name}</span>
+                        <button type="button" className={bs.btnPrimary} disabled={locked} onClick={() => setEditing(award)}>
+                            Edit
+                        </button>
+                    </div>
+                    <div className="p-4">
+                        <textarea rows={4} readOnly className={bs.formControl} value={award.description ?? ''} />
+                    </div>
+                </div>
+            ))}
+            {editing && (
+                <AwardDetailsModal
+                    key={editing === 'new' ? 'new' : editing.id}
+                    award={editing === 'new' ? null : editing}
+                    base={base}
+                    onClose={() => setEditing(null)}
+                />
+            )}
+        </div>
+    );
+}
+
+function AwardWinnersForm({ award, base, locked }: { award: AwardRow; base: string; locked: boolean }) {
+    const { form, submit } = useAwardForm(award, base);
 
     const placeError = (index: number): string | undefined =>
         Object.entries(form.errors as Record<string, string>).find(([key]) => key.startsWith(`winners.${index}.`))?.[1];
@@ -113,120 +244,110 @@ function AwardEditor({ award, base, onDone }: { award: AwardRow | null; base: st
         );
 
     return (
-        <form onSubmit={submit} className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
-                <div className="grid gap-1.5">
-                    <Label htmlFor={`name-${award?.id ?? 'new'}`}>Award</Label>
-                    <Input
-                        id={`name-${award?.id ?? 'new'}`}
-                        value={form.data.name}
-                        onChange={(changeEvent) => form.setData('name', changeEvent.target.value)}
-                        placeholder="e.g. Best Design"
-                        required
-                    />
-                    <InputError message={form.errors.name} />
-                </div>
-                <div className="grid gap-1.5">
-                    <Label htmlFor={`places-${award?.id ?? 'new'}`}>Places</Label>
-                    <select
-                        id={`places-${award?.id ?? 'new'}`}
-                        className={selectClassName}
-                        value={form.data.places}
-                        onChange={(changeEvent) => form.setData('places', Number(changeEvent.target.value))}
-                    >
-                        <option value={1}>Winner only</option>
-                        <option value={2}>1st and 2nd</option>
-                        <option value={3}>1st to 3rd</option>
-                    </select>
-                </div>
-            </div>
-            <div className="grid gap-1.5">
-                <Label htmlFor={`description-${award?.id ?? 'new'}`}>What it is for (read before the winner is revealed)</Label>
-                <Input
-                    id={`description-${award?.id ?? 'new'}`}
-                    value={form.data.description}
-                    onChange={(changeEvent) => form.setData('description', changeEvent.target.value)}
-                />
-            </div>
-
-            <div className="space-y-2">
-                {form.data.entries.slice(0, form.data.places).map((entry, index) => (
-                    <div key={index} className="grid gap-2 sm:grid-cols-[6rem_1fr_1fr] sm:items-center">
-                        <span className="text-sm font-medium">{placeLabel(index + 1, form.data.places)}</span>
-                        <Input
-                            aria-label={`${placeLabel(index + 1, form.data.places)} team numbers`}
+        <form onSubmit={submit}>
+            <h4 className={bs.h4}>{award.name}</h4>
+            {award.description && <p className="mb-4">{award.description}</p>}
+            {form.data.entries.slice(0, form.data.places).map((entry, index) => (
+                <div key={index} className="mb-2">
+                    <label htmlFor={`place-${award.id}-${index}`} className={bs.formLabel}>
+                        {placeLabel(index + 1, form.data.places)}:
+                    </label>
+                    <div className="flex gap-2">
+                        <input
+                            id={`place-${award.id}-${index}`}
+                            type="text"
+                            className={`${bs.formControl} disabled:bg-[#e9ecef]`}
                             placeholder="Team numbers, e.g. 1234, 5678"
+                            disabled={locked}
                             value={entry.teams}
                             onChange={(changeEvent) => updateEntry(index, { teams: changeEvent.target.value })}
                         />
-                        <Input
+                        <input
+                            type="text"
                             aria-label={`${placeLabel(index + 1, form.data.places)} person`}
+                            className={`${bs.formControl} disabled:bg-[#e9ecef]`}
                             placeholder="Person (optional)"
+                            disabled={locked}
                             value={entry.recipient}
                             onChange={(changeEvent) => updateEntry(index, { recipient: changeEvent.target.value })}
                         />
-                        <InputError message={placeError(index)} className="sm:col-span-3" />
                     </div>
-                ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-                <Button type="submit" size="sm" disabled={form.processing}>
-                    {award ? (
-                        'Save'
-                    ) : (
-                        <>
-                            <Plus className="mr-1 size-4" /> Add award
-                        </>
-                    )}
-                </Button>
-                {form.recentlySuccessful && <span className="text-muted-foreground text-sm">Saved</span>}
-                {award &&
-                    (confirmingDelete ? (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => router.delete(`${base}/awards/${award.id}`, { preserveScroll: true })}
-                        >
-                            Confirm delete
-                        </Button>
-                    ) : (
-                        <Button type="button" size="sm" variant="ghost" aria-label={`Delete ${award.name}`} onClick={() => setConfirmingDelete(true)}>
-                            <Trash2 className="size-4" />
-                        </Button>
-                    ))}
-            </div>
+                    <InputError message={placeError(index)} />
+                </div>
+            ))}
+            {!locked && (
+                <button type="submit" className={bs.btnPrimary} disabled={form.processing}>
+                    Save
+                </button>
+            )}
         </form>
     );
 }
 
-function WinnerSummary({ award }: { award: AwardRow }) {
-    return (
-        <ul className="space-y-1 text-sm">
-            {Array.from({ length: award.places }, (_, index) => {
-                const winners = award.winners.filter((winner) => winner.place === index + 1);
+function EnterAwards({ awards, base, locked, hasTeams }: { awards: AwardRow[]; base: string; locked: boolean; hasTeams: boolean }) {
+    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const selected = awards.find((award) => award.id === selectedId) ?? null;
 
-                return (
-                    <li key={index} className="flex gap-2">
-                        <span className="text-muted-foreground w-20 shrink-0">{placeLabel(index + 1, award.places)}</span>
-                        <span>
-                            {winners.length === 0 ? (
-                                <span className="text-amber-600">Not entered</span>
-                            ) : (
-                                winners
-                                    .map((winner) =>
-                                        [winner.team ? `${winner.team.number} ${winner.team.name}` : null, winner.recipient]
-                                            .filter(Boolean)
-                                            .join(' · '),
-                                    )
-                                    .join(', ')
-                            )}
-                        </span>
-                    </li>
-                );
-            })}
-        </ul>
+    return (
+        <div>
+            <div className="flex flex-wrap items-start justify-between gap-x-6">
+                <h2 className={bs.h2}>Enter Awards</h2>
+                <button
+                    type="button"
+                    className={`${bs.btnDanger} mb-2 sm:max-w-[16.667%]`}
+                    disabled={awards.length === 0}
+                    onClick={() => router.put(`${base}/awards/lock`, { locked: !locked }, { preserveScroll: true })}
+                >
+                    {locked ? 'Unlock Awards for Editing' : 'Finalize Awards for Presentation'}
+                </button>
+            </div>
+            {!hasTeams && !locked && <p className="mb-4">Add teams to the event before entering winners.</p>}
+            <div className="flex flex-col gap-6 lg:flex-row">
+                <div className="lg:w-1/3">
+                    {awards.map((award) => {
+                        const active = award.id === selectedId;
+                        const given = award.winners.length > 0;
+
+                        return (
+                            <button
+                                key={award.id}
+                                type="button"
+                                className={`${listItem} ${
+                                    active
+                                        ? 'border-[#052c65] bg-[#052c65] text-white'
+                                        : 'border-[#9ec5fe] bg-[#cfe2ff] text-[#052c65] hover:bg-[#bacbe6]'
+                                }`}
+                                onClick={() => setSelectedId(award.id)}
+                            >
+                                <span>{award.name}</span>
+                                <br />
+                                {given
+                                    ? Array.from({ length: award.places }, (_, index) => (
+                                          <span key={index}>
+                                              {award.places > 1 && `${placeLabel(index + 1, award.places)}: `}
+                                              {winnersText(award, index + 1) || 'NOT GIVEN'}
+                                              <br />
+                                          </span>
+                                      ))
+                                    : 'NOT GIVEN'}
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="lg:w-2/3">
+                    {selected ? (
+                        <AwardWinnersForm
+                            key={`${selected.id}-${selected.places}-${selected.winners.length}`}
+                            award={selected}
+                            base={base}
+                            locked={locked}
+                        />
+                    ) : (
+                        <div>Select an award to edit</div>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -237,112 +358,123 @@ function PresentControls({ award, base, presenting }: { award: AwardRow; base: s
     const present = (count: number) => router.post(`${base}/awards/${award.id}/present`, { revealed: count }, { preserveScroll: true });
 
     return (
-        <div className="flex flex-wrap items-center gap-2">
-            {isShowing && <Badge>On display</Badge>}
+        <div className="flex flex-wrap items-center justify-end gap-2">
             {!isShowing && (
-                <Button size="sm" variant="outline" onClick={() => present(0)}>
-                    <MonitorUp className="mr-1 size-4" /> Show award
-                </Button>
+                <button type="button" className={bs.btnPrimary} onClick={() => present(0)}>
+                    Show Award
+                </button>
             )}
             {isShowing && nextPlace >= 1 && (
-                <Button size="sm" onClick={() => present(revealed + 1)}>
-                    Reveal {placeLabel(nextPlace, award.places).toLowerCase()}
-                </Button>
+                <button type="button" className={bs.btnPrimary} onClick={() => present(revealed + 1)}>
+                    Reveal {placeLabel(nextPlace, award.places)}
+                </button>
             )}
             {isShowing && revealed > 0 && (
-                <Button size="sm" variant="ghost" onClick={() => present(revealed - 1)}>
-                    Undo reveal
-                </Button>
+                <button type="button" className={bs.btnSecondary} onClick={() => present(revealed - 1)}>
+                    Undo Reveal
+                </button>
             )}
         </div>
     );
 }
 
-/**
- * The event's awards (FTC Live's award setup and Give Awards pages): add
- * awards, enter who won each place, lock the results, then reveal them on
- * the audience display one place at a time, lowest place first.
- */
+function PresentAwards({
+    awards,
+    base,
+    locked,
+    presenting,
+}: {
+    awards: AwardRow[];
+    base: string;
+    locked: boolean;
+    presenting: AwardsProps['presenting'];
+}) {
+    return (
+        <div>
+            <div className="flex flex-wrap items-start justify-between gap-x-6">
+                <h2 className={bs.h2}>Present Awards</h2>
+                {presenting && (
+                    <button
+                        type="button"
+                        className={`${bs.btnSecondary} mb-2`}
+                        onClick={() => router.delete(`${base}/awards/presenting`, { preserveScroll: true })}
+                    >
+                        Clear Display
+                    </button>
+                )}
+            </div>
+            {locked ? (
+                <table className={`${bs.table} ${bs.tableStriped}`}>
+                    <tbody>
+                        {awards.map((award) => (
+                            <tr key={award.id}>
+                                <td>{award.name}</td>
+                                <td>
+                                    {Array.from({ length: award.places }, (_, index) => (
+                                        <div key={index}>
+                                            {award.places > 1 && `${placeLabel(index + 1, award.places)}: `}
+                                            {winnersText(award, index + 1) || 'NOT GIVEN'}
+                                        </div>
+                                    ))}
+                                </td>
+                                <td>
+                                    <PresentControls award={award} base={base} presenting={presenting} />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            ) : (
+                <div>Awards must be finalized before they can be presented.</div>
+            )}
+        </div>
+    );
+}
+
 export default function Awards() {
     const { event, awards, teams, locked, presenting, errors } = usePage<AwardsProps>().props;
+    const [tab, setTab] = useState<AwardsTab>('enter');
     const base = `/event/${event?.code}`;
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs} hideBack>
             <Head title="Awards" />
 
-            <div className="space-y-6 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold">Awards</h1>
-                        <p className="text-muted-foreground">
-                            {locked
-                                ? 'Results are locked. Show an award on the audience display, then reveal its places one at a time.'
-                                : 'Add the awards and enter who won. Lock the results when they are final to present them.'}
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        {presenting && (
-                            <Button variant="outline" onClick={() => router.delete(`${base}/awards/presenting`, { preserveScroll: true })}>
-                                Clear display
-                            </Button>
-                        )}
-                        <Button
-                            variant={locked ? 'outline' : 'default'}
-                            disabled={awards.length === 0}
-                            onClick={() => router.put(`${base}/awards/lock`, { locked: !locked }, { preserveScroll: true })}
-                        >
-                            {locked ? (
-                                <>
-                                    <LockOpen className="mr-1 size-4" /> Unlock to edit
-                                </>
-                            ) : (
-                                <>
-                                    <Lock className="mr-1 size-4" /> Lock results
-                                </>
+            <div>
+                <div className="text-center print:hidden">
+                    <h1 className={bs.h1}>Awards Manager</h1>
+                    <h5 className={bs.h5}>
+                        [{event?.code}] {event?.name}
+                    </h5>
+                    <br />
+                    <div className="mb-6 flex flex-wrap">
+                        <Link
+                            href={base}
+                            className={cn(
+                                bs.btnLight,
+                                'mr-2 border-[#212529] bg-[#212529] text-white no-underline hover:border-[#373b3e] hover:bg-[#424649]',
                             )}
-                        </Button>
+                        >
+                            Exit
+                        </Link>
+                        {TABS.map((entry) => (
+                            <button
+                                key={entry.key}
+                                type="button"
+                                className={`cursor-pointer rounded-md px-4 py-2 ${tab === entry.key ? 'bg-[#0d6efd] text-white' : 'text-[#0d6efd] hover:text-[#0a58ca]'}`}
+                                onClick={() => setTab(entry.key)}
+                            >
+                                {entry.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
                 <InputError message={(errors as Record<string, string>).awards} />
 
-                {teams.length === 0 && !locked && <p className="text-muted-foreground text-sm">Add teams to the event before entering winners.</p>}
-
-                <div className="grid gap-4 xl:grid-cols-2">
-                    {awards.map((award) => (
-                        <Card key={award.id}>
-                            <CardHeader>
-                                <CardTitle>{award.name}</CardTitle>
-                                {award.description && <CardDescription>{award.description}</CardDescription>}
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {locked ? (
-                                    <>
-                                        <WinnerSummary award={award} />
-                                        <PresentControls award={award} base={base} presenting={presenting} />
-                                    </>
-                                ) : (
-                                    <AwardEditor key={`${award.id}-${award.places}-${award.winners.length}`} award={award} base={base} />
-                                )}
-                            </CardContent>
-                        </Card>
-                    ))}
-
-                    {!locked && (
-                        <Card className="border-dashed">
-                            <CardHeader>
-                                <CardTitle>New award</CardTitle>
-                                <CardDescription>
-                                    Winners can be entered now or later. Use several team numbers for an alliance award.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <AwardEditor award={null} base={base} />
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
+                {tab === 'manage' && <ManageAwards awards={awards} base={base} locked={locked} />}
+                {tab === 'enter' && <EnterAwards awards={awards} base={base} locked={locked} hasTeams={teams.length > 0} />}
+                {tab === 'present' && <PresentAwards awards={awards} base={base} locked={locked} presenting={presenting} />}
             </div>
         </AppLayout>
     );
