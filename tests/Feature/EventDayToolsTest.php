@@ -64,6 +64,12 @@ it('keeps event-day tools to the head referee and admins', function (string $uri
     $this->actingAs(User::factory()->create(['role' => UserRole::HeadReferee]))->get($uri)->assertOk();
 })->with([
     'connect devices' => ['/event/testevent/connect'],
+    'emcee scripts' => ['/event/testevent/scripts'],
+]);
+
+it('opens the reports to everyone, like FTC Live', function (string $uri) {
+    $this->get($uri)->assertOk();
+})->with([
     'reports' => ['/event/testevent/reports'],
     'cycle times' => ['/event/testevent/reports/cycle'],
     'announcer sheet' => ['/event/testevent/reports/announcer'],
@@ -76,7 +82,26 @@ it('keeps event-day tools to the head referee and admins', function (string $uri
     'judge observer sheets' => ['/event/testevent/reports/judge'],
     'team list' => ['/event/testevent/reports/team-list'],
     'field notes' => ['/event/testevent/reports/field-notes'],
-    'emcee scripts' => ['/event/testevent/scripts'],
+]);
+
+it('gives each FTC Live role its own pages and nothing else', function (UserRole $role, array $allowed) {
+    $this->actingAs(User::factory()->create(['role' => $role]));
+
+    foreach ([
+        'match-control', 'head-referee', 'scripts', 'admin/awards', 'inspection', 'inspection/override', 'referee/scoring', 'dashboard',
+    ] as $page) {
+        $response = $this->get("/event/testevent/{$page}");
+
+        in_array($page, $allowed, true) ? $response->assertOk() : $response->assertForbidden();
+    }
+})->with([
+    'FTA' => [UserRole::Fta, ['match-control', 'head-referee', 'scripts', 'inspection']],
+    'FTAA / CSA' => [UserRole::FtaaCsa, []],
+    'official scorer' => [UserRole::Scorer, ['referee/scoring']],
+    'lead inspector' => [UserRole::LeadInspector, ['inspection', 'inspection/override']],
+    'inspector' => [UserRole::Inspector, ['inspection']],
+    'judge' => [UserRole::Judge, ['admin/awards']],
+    'emcee' => [UserRole::Emcee, ['scripts']],
 ]);
 
 it('reports the time between match starts and how far each ran from the schedule', function () {

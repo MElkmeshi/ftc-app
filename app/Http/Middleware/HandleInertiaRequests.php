@@ -61,6 +61,10 @@ class HandleInertiaRequests extends Middleware
                     'controlMatches' => $request->user()?->can('control-matches') ?? false,
                     'inspectRobots' => $request->user()?->can('inspect-robots') ?? false,
                     'scoreMatches' => $request->user()?->can('score-matches') ?? false,
+                    'overrideInspection' => $request->user()?->can('override-inspection') ?? false,
+                    'manageAwards' => $request->user()?->can('manage-awards') ?? false,
+                    'viewScripts' => $request->user()?->can('view-scripts') ?? false,
+                    'useFtaTools' => $request->user()?->can('use-fta-tools') ?? false,
                 ],
             ],
             'ziggy' => fn (): array => [

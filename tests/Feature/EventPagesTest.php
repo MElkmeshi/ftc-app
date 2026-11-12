@@ -57,11 +57,15 @@ it('keeps the session on pages that can sign people in', function () {
 it('tells the event home what the visitor may open', function () {
     $this->get('/event/testevent')->assertInertia(fn ($page) => $page
         ->where('auth.role', null)
-        ->where('auth.can', ['manageCompetition' => false, 'controlMatches' => false, 'inspectRobots' => false, 'scoreMatches' => false])
+        ->where('auth.can.manageCompetition', false)
+        ->where('auth.can.inspectRobots', false)
+        ->where('auth.can.manageAwards', false)
     );
 
     $this->actingAs(User::factory()->create(['role' => UserRole::Inspector]))->get('/event/testevent')->assertInertia(fn ($page) => $page
         ->where('auth.role', 'Inspector')
-        ->where('auth.can', ['manageCompetition' => false, 'controlMatches' => false, 'inspectRobots' => true, 'scoreMatches' => false])
+        ->where('auth.can.inspectRobots', true)
+        ->where('auth.can.overrideInspection', false)
+        ->where('auth.can.controlMatches', false)
     );
 });

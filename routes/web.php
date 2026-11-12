@@ -129,8 +129,8 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         Route::get('inspection', [InspectionController::class, 'index'])->name('inspection.index');
         Route::put('inspection/checklist', [InspectionController::class, 'updateChecklist'])->middleware('can:manage-competition')->name('inspection.checklist');
         Route::get('inspection/notes', [InspectionController::class, 'notes'])->name('inspection.notes');
-        Route::get('inspection/override', [InspectionController::class, 'override'])->middleware('can:manage-competition')->name('inspection.override');
-        Route::put('inspection/{team}/status', [InspectionController::class, 'overrideStatus'])->whereNumber('team')->middleware('can:manage-competition')->name('inspection.override-status');
+        Route::get('inspection/override', [InspectionController::class, 'override'])->middleware('can:override-inspection')->name('inspection.override');
+        Route::put('inspection/{team}/status', [InspectionController::class, 'overrideStatus'])->whereNumber('team')->middleware('can:override-inspection')->name('inspection.override-status');
         Route::get('inspection/{team}', [InspectionController::class, 'show'])->whereNumber('team')->name('inspection.show');
         Route::put('inspection/{team}', [InspectionController::class, 'update'])->whereNumber('team')->name('inspection.update');
     });
@@ -138,21 +138,23 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
     Route::middleware(['auth', 'can:control-matches'])->group(function () {
         Route::get('matches/{match}/history', [MatchSheetController::class, 'history'])->whereNumber('match')->name('matches.history');
         Route::get('connect', fn () => Inertia::render('events/connect'))->name('events.connect');
-        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-        Route::get('reports/cycle', [ReportController::class, 'cycle'])->name('reports.cycle');
-        Route::get('reports/announcer', [ReportController::class, 'announcer'])->name('reports.announcer');
-        Route::get('reports/placards', [ReportController::class, 'placards'])->name('reports.placards');
-        Route::get('reports/team-schedules', [ReportController::class, 'teamSchedules'])->name('reports.team-schedules');
-        Route::get('reports/scoresheets', [ReportController::class, 'scoresheets'])->name('reports.scoresheets');
-        Route::get('reports/notes', [ReportController::class, 'notes'])->name('reports.notes');
-        Route::get('reports/cards', [ReportController::class, 'cards'])->name('reports.cards');
-        Route::get('reports/practice', [ReportController::class, 'practice'])->name('reports.practice');
-        Route::get('reports/judge', [ReportController::class, 'judge'])->name('reports.judge');
-        Route::get('reports/team-list', [ReportController::class, 'teamList'])->name('reports.team-list');
-        Route::get('reports/field-notes', [ReportController::class, 'fieldNotes'])->name('reports.field-notes');
-        Route::get('scripts', [ScriptController::class, 'index'])->name('scripts.index');
-        Route::put('scripts/{kind}', [ScriptController::class, 'update'])->middleware('can:manage-competition')->name('scripts.update');
     });
+
+    Route::get('scripts', [ScriptController::class, 'index'])->middleware(['auth', 'can:view-scripts'])->name('scripts.index');
+    Route::put('scripts/{kind}', [ScriptController::class, 'update'])->middleware(['auth', 'can:manage-competition'])->name('scripts.update');
+
+    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('reports/cycle', [ReportController::class, 'cycle'])->name('reports.cycle');
+    Route::get('reports/announcer', [ReportController::class, 'announcer'])->name('reports.announcer');
+    Route::get('reports/placards', [ReportController::class, 'placards'])->name('reports.placards');
+    Route::get('reports/team-schedules', [ReportController::class, 'teamSchedules'])->name('reports.team-schedules');
+    Route::get('reports/scoresheets', [ReportController::class, 'scoresheets'])->name('reports.scoresheets');
+    Route::get('reports/notes', [ReportController::class, 'notes'])->name('reports.notes');
+    Route::get('reports/cards', [ReportController::class, 'cards'])->name('reports.cards');
+    Route::get('reports/practice', [ReportController::class, 'practice'])->name('reports.practice');
+    Route::get('reports/judge', [ReportController::class, 'judge'])->name('reports.judge');
+    Route::get('reports/team-list', [ReportController::class, 'teamList'])->name('reports.team-list');
+    Route::get('reports/field-notes', [ReportController::class, 'fieldNotes'])->name('reports.field-notes');
 
     Route::get('match-control', function (EventLiveProps $live) {
         return Inertia::render('match-control/index', [
@@ -231,6 +233,9 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
             Route::post('sponsors/{sponsor}', [SponsorController::class, 'update'])->whereNumber('sponsor')->name('sponsors.update');
             Route::put('sponsors/{sponsor}/move', [SponsorController::class, 'move'])->whereNumber('sponsor')->name('sponsors.move');
             Route::delete('sponsors/{sponsor}', [SponsorController::class, 'destroy'])->whereNumber('sponsor')->name('sponsors.destroy');
+        });
+
+        Route::middleware('can:manage-awards')->group(function () {
             Route::get('admin/awards', [AwardController::class, 'index'])->name('awards.index');
             Route::post('awards', [AwardController::class, 'store'])->name('awards.store');
             Route::put('awards/lock', [AwardController::class, 'lock'])->name('awards.lock');

@@ -20,7 +20,7 @@ it('signs a device in as the chosen default user without a password', function (
     config(['competition.local_sign_in' => true]);
 
     $this->get('/login')->assertInertia(fn ($page) => $page->where('localSignIn', true));
-    $this->get('/login/local')->assertOk()->assertInertia(fn ($page) => $page->component('auth/local-sign-in')->has('roles', 4));
+    $this->get('/login/local')->assertOk()->assertInertia(fn ($page) => $page->component('auth/local-sign-in')->has('roles', 10));
 
     $this->post('/login/local', ['role' => 'referee'])->assertRedirect(route('home'));
 

@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\CurrentEvent;
 use App\Services\CurrentGame;
@@ -26,10 +25,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('manage-competition', fn (User $user): bool => $user->role === UserRole::Admin);
-        Gate::define('control-matches', fn (User $user): bool => in_array($user->role, [UserRole::Admin, UserRole::HeadReferee], true));
-        Gate::define('inspect-robots', fn (User $user): bool => in_array($user->role, [UserRole::Admin, UserRole::Inspector], true));
-        Gate::define('score-matches', fn (User $user): bool => in_array($user->role, [UserRole::Admin, UserRole::HeadReferee, UserRole::Referee], true));
+        foreach (['manage-competition', 'control-matches', 'inspect-robots', 'override-inspection', 'score-matches', 'manage-awards', 'view-scripts', 'use-fta-tools'] as $ability) {
+            Gate::define($ability, fn (User $user): bool => in_array($ability, $user->role?->abilities() ?? [], true));
+        }
 
         // Force https URLs in production, but only when the app is actually served
         // over https (APP_URL reflects that) -- otherwise this generates https://

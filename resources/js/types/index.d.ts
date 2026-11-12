@@ -3,7 +3,28 @@ import { type DisplayConfig } from '@/lib/display-config';
 import { LucideIcon } from 'lucide-react';
 import type { Config } from 'ziggy-js';
 
-export type Ability = 'manageCompetition' | 'controlMatches' | 'inspectRobots' | 'scoreMatches';
+export type Ability =
+    | 'manageCompetition'
+    | 'controlMatches'
+    | 'inspectRobots'
+    | 'scoreMatches'
+    | 'overrideInspection'
+    | 'manageAwards'
+    | 'viewScripts'
+    | 'useFtaTools';
+
+export type UserRoleValue =
+    | 'admin'
+    | 'fta'
+    | 'ftaa_csa'
+    | 'head_referee'
+    | 'referee'
+    | 'scorer'
+    | 'lead_inspector'
+    | 'inspector'
+    | 'judge'
+    | 'emcee'
+    | 'viewer';
 
 export interface Auth {
     user: User;
@@ -147,7 +168,7 @@ export interface User {
     id: number;
     name: string;
     email: string;
-    role?: 'admin' | 'head_referee' | 'referee' | 'inspector' | 'viewer';
+    role?: UserRoleValue;
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;

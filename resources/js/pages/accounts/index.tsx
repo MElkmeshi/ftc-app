@@ -4,13 +4,13 @@ import { useServerAddress } from '@/hooks/use-server-address';
 import AppLayout from '@/layouts/app-layout';
 import { bs } from '@/lib/bootstrap';
 import { cn } from '@/lib/utils';
-import { type BreadcrumbItem, type SharedData } from '@/types';
+import { type BreadcrumbItem, type SharedData, type UserRoleValue } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { type FormEventHandler, useState } from 'react';
 
-type RoleValue = 'admin' | 'head_referee' | 'referee' | 'inspector' | 'viewer';
+type RoleValue = UserRoleValue;
 
 interface Account {
     id: number;

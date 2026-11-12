@@ -59,7 +59,7 @@ export default function Inspection() {
 
             <div>
                 <div className="-mt-6 text-right">
-                    {auth.user?.role === 'admin' && (
+                    {auth.can?.overrideInspection && (
                         <>
                             <Link href={`${base}/inspection/override`} className={bs.link}>
                                 Lead Inspector Override

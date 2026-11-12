@@ -3,16 +3,8 @@ import { bs } from '@/lib/bootstrap';
 import { type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 
-const ROLE_LABELS: Record<string, string> = {
-    admin: 'Event Admin',
-    head_referee: 'Head Referee',
-    referee: 'Referee',
-    inspector: 'Inspector',
-};
-
 export default function Profile() {
     const { auth } = usePage<SharedData>().props;
-    const roleLabel = auth.user.role ? ROLE_LABELS[auth.user.role] : undefined;
 
     return (
         <PublicLayout>
@@ -28,7 +20,7 @@ export default function Profile() {
                         <h4 className={bs.h4}>Roles:</h4>
                     </div>
                     <div className="w-full lg:w-2/3">
-                        <ul className="mb-4 list-disc pl-8">{roleLabel && <li>{roleLabel}</li>}</ul>
+                        <ul className="mb-4 list-disc pl-8">{auth.role && <li>{auth.role}</li>}</ul>
                     </div>
                     <div className="mx-auto w-full md:w-2/3 lg:w-1/2">
                         <Link href={route('logout')} method="post" as="button" className={`${bs.btnDanger} w-full`} onClick={() => router.flushAll()}>

@@ -35,7 +35,7 @@ function eventSections(base: string): { title: string; entries: MenuEntry[] }[] 
                 },
                 { label: 'Match Results', href: `${base}/schedule?view=results` },
                 { label: 'Pit Display', href: `${base}/display?type=pit` },
-                { label: 'Event Reports', href: `${base}/reports`, ability: 'controlMatches' },
+                { label: 'Event Reports', href: `${base}/reports` },
             ],
         },
         { title: 'Inspection', entries: [{ label: 'Robot Inspection', href: `${base}/inspection`, ability: 'inspectRobots' }] },
@@ -54,7 +54,7 @@ function eventSections(base: string): { title: string; entries: MenuEntry[] }[] 
                 { label: 'Head Referee', href: `${base}/head-referee`, ability: 'controlMatches' },
             ],
         },
-        { title: 'FTA/CSA Tools', entries: [{ label: 'FTA Notepad', href: `${base}/reports/field-notes`, ability: 'controlMatches' }] },
+        { title: 'FTA/CSA Tools', entries: [{ label: 'FTA Notepad', href: `${base}/reports/field-notes`, ability: 'useFtaTools' }] },
         {
             title: 'Displays',
             entries: [
@@ -62,14 +62,14 @@ function eventSections(base: string): { title: string; entries: MenuEntry[] }[] 
                 { label: 'Pit Display', href: `${base}/display?type=pit` },
             ],
         },
-        { title: 'Judging', entries: [{ label: 'Manage Awards', href: `${base}/admin/awards`, ability: 'manageCompetition' }] },
+        { title: 'Judging', entries: [{ label: 'Manage Awards', href: `${base}/admin/awards`, ability: 'manageAwards' }] },
         {
             title: 'GA/Emcee',
             entries: [
-                { label: 'Opening Ceremony Script', href: `${base}/scripts?tab=opening`, ability: 'controlMatches' },
-                { label: 'Announcer Reports', href: `${base}/reports/announcer`, ability: 'controlMatches' },
-                { label: 'Alliance Selection', href: `${base}/scripts?tab=selection`, ability: 'controlMatches' },
-                { label: 'Closing Ceremony Script', href: `${base}/scripts?tab=closing`, ability: 'controlMatches' },
+                { label: 'Opening Ceremony Script', href: `${base}/scripts?tab=opening`, ability: 'viewScripts' },
+                { label: 'Announcer Reports', href: `${base}/reports/announcer`, ability: 'viewScripts' },
+                { label: 'Alliance Selection', href: `${base}/scripts?tab=selection`, ability: 'viewScripts' },
+                { label: 'Closing Ceremony Script', href: `${base}/scripts?tab=closing`, ability: 'viewScripts' },
             ],
         },
         {
