@@ -1,8 +1,8 @@
-import { GameBackground } from '@/components/game-look';
+import { EventBar, Stage } from '@/components/display/display-kit';
 import { placeLabel } from '@/lib/award-utils';
 import { cn } from '@/lib/utils';
-import { type AwardRecipient, type PresentedAward, type SharedData } from '@/types';
-import { Head, usePage } from '@inertiajs/react';
+import { type AwardRecipient, type PresentedAward } from '@/types';
+import { Head } from '@inertiajs/react';
 import { Award as AwardIcon } from 'lucide-react';
 
 function Recipients({ winners, large }: { winners: AwardRecipient[]; large: boolean }) {
@@ -36,15 +36,12 @@ function Recipients({ winners, large }: { winners: AwardRecipient[]; large: bool
  * large, with the places announced before it underneath.
  */
 export function AwardScreen({ award }: { award: PresentedAward }) {
-    const { event } = usePage<SharedData>().props;
     const latest = award.revealed.at(-1);
     const earlier = award.revealed.slice(0, -1).reverse();
 
     return (
-        <div className="relative isolate flex h-screen w-screen flex-col items-center justify-center gap-[min(2.5rem,4vh)] overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-16 py-[3vh] text-white">
+        <Stage className="flex flex-col items-center justify-center gap-[min(2.5rem,4vh)] px-16 pt-[3vh] pb-[20vh]">
             <Head title={award.name} />
-            <GameBackground />
-            <p className="text-[min(1.5rem,3vh)] tracking-[0.3em] text-white/50 uppercase">{event?.name}</p>
             <div className="flex flex-col items-center gap-[min(1rem,2vh)] text-center">
                 {latest === undefined && <AwardIcon className="size-[min(5rem,9vh)] text-yellow-400" />}
                 <h1 className="text-[min(4.5rem,10vh)] leading-tight font-black tracking-tight">{award.name}</h1>
@@ -72,6 +69,7 @@ export function AwardScreen({ award }: { award: PresentedAward }) {
                     ))}
                 </div>
             )}
-        </div>
+            <EventBar />
+        </Stage>
     );
 }

@@ -1,42 +1,52 @@
 import { AutoScroll } from '@/components/audience/auto-scroll';
-import { formatMatchTime, getAllianceMembers, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
-import { cn } from '@/lib/utils';
+import { DISPLAY_COLORS, EventBar, Stage, vh, vw } from '@/components/display/display-kit';
+import { determineWinner, getAllianceMembers, getAllianceScore } from '@/lib/match-utils';
 import { type CompetitionMatch, type SharedData, type TeamDisplay } from '@/types';
 import { Head, usePage, useProp } from '@inertiajs/react';
-import { Clock, Trophy } from 'lucide-react';
 
-const UPCOMING_COUNT = 8;
+function shortMatchName(match: CompetitionMatch): string {
+    const prefix = match.type === 'qualification' ? 'Q' : match.type === 'practice' ? 'P' : 'M';
+
+    return `${prefix}${match.number}`;
+}
 
 function RankingsTable({ teams, byRecord }: { teams: TeamDisplay[]; byRecord: boolean }) {
-    if (teams.length === 0) {
-        return <p className="p-8 text-center text-2xl text-white/50">Rankings appear after the first qualification match.</p>;
-    }
+    const columns = byRecord ? ['RP', 'AVG', 'BEST'] : ['TOTAL', 'TEAM', 'ALLIANCE'];
+    const values = (team: TeamDisplay): string[] => {
+        if (team.played === 0) {
+            return ['--', '--', '--'];
+        }
+
+        return byRecord
+            ? [team.ranking_points.toFixed(2), team.average_score.toFixed(2), String(team.highest_score)]
+            : [String(team.total_score), String(team.team_score), String(team.alliance_score)];
+    };
+    const cell = { height: vh(47), fontSize: vh(30) };
 
     return (
-        <table className="w-full text-2xl">
-            <thead className="sticky top-0 bg-slate-900 text-left text-base tracking-wider text-white/50 uppercase">
+        <table className="w-full border-separate text-center text-black" style={{ borderSpacing: `0 ${vh(6)}` }}>
+            <thead className="sticky top-0 text-white" style={{ backgroundColor: DISPLAY_COLORS.background, fontSize: vh(30) }}>
                 <tr>
-                    <th className="px-4 py-3">Rank</th>
-                    <th className="px-4 py-3">Team</th>
-                    <th className="px-4 py-3 text-center">W-L-T</th>
-                    <th className="px-4 py-3 text-right">{byRecord ? 'RP' : 'Points'}</th>
-                    <th className="px-4 py-3 text-right">Played</th>
+                    {['Rank', 'Team', ...columns, 'Plays'].map((heading) => (
+                        <th key={heading} className="leading-none" style={{ height: vh(44) }}>
+                            {heading}
+                        </th>
+                    ))}
                 </tr>
             </thead>
             <tbody>
                 {teams.map((team, index) => (
-                    <tr key={team.team_id} className={cn('border-t border-white/5', index % 2 === 1 && 'bg-white/[0.03]')}>
-                        <td className="px-4 py-2 font-bold tabular-nums">{index + 1}</td>
-                        <td className="px-4 py-2">
-                            <span className="font-bold tabular-nums">{team.team_number}</span> <span className="text-white/70">{team.team_name}</span>
+                    <tr key={team.team_id} className="tabular-nums">
+                        <td style={{ ...cell, backgroundColor: DISPLAY_COLORS.tanDark }}>{index + 1}</td>
+                        <td style={{ ...cell, backgroundColor: DISPLAY_COLORS.tan }}>{team.team_number}</td>
+                        {values(team).map((value, column) => (
+                            <td key={column} className="bg-white" style={cell}>
+                                {value}
+                            </td>
+                        ))}
+                        <td className="bg-white" style={cell}>
+                            {team.played}
                         </td>
-                        <td className="px-4 py-2 text-center tabular-nums">
-                            {team.wins}-{team.losses}-{team.ties}
-                        </td>
-                        <td className="px-4 py-2 text-right font-bold tabular-nums">
-                            {byRecord ? team.ranking_points.toFixed(2) : team.total_score}
-                        </td>
-                        <td className="px-4 py-2 text-right text-white/60 tabular-nums">{team.played}</td>
                     </tr>
                 ))}
             </tbody>
@@ -44,80 +54,82 @@ function RankingsTable({ teams, byRecord }: { teams: TeamDisplay[]; byRecord: bo
     );
 }
 
-function MatchRow({ match, timeZone, live, fieldCount }: { match: CompetitionMatch; timeZone?: string; live?: boolean; fieldCount: number }) {
-    const field = getFieldLabel(match, fieldCount);
+function ResultRow({ match }: { match: CompetitionMatch }) {
+    const winner = determineWinner(match);
+    const teams = (color: 'red' | 'blue') => (
+        <div
+            className="flex flex-col items-center justify-center leading-none"
+            style={{ width: vw(100), fontSize: vh(24), backgroundColor: color === 'red' ? DISPLAY_COLORS.redDark : DISPLAY_COLORS.blueDark }}
+        >
+            {getAllianceMembers(match, color).map((member) => (
+                <span key={member.id}>{member.team.number}</span>
+            ))}
+        </div>
+    );
+    const score = (color: 'red' | 'blue') => (
+        <div
+            className="flex items-center justify-center tabular-nums"
+            style={{
+                width: vw(66),
+                fontSize: vh(30),
+                backgroundColor: winner === color || winner === 'tie' ? DISPLAY_COLORS[color] : '#ffffff',
+                color: winner === color || winner === 'tie' ? '#ffffff' : '#000000',
+            }}
+        >
+            {getAllianceScore(match, color)}
+        </div>
+    );
 
     return (
-        <div className={cn('rounded-xl border p-3', live ? 'border-emerald-400 bg-emerald-500/10' : 'border-white/10 bg-white/5')}>
-            <div className="mb-1 flex items-baseline justify-between">
-                <span className="text-xl font-bold">
-                    {getMatchTitle(match)}
-                    {field && <span className="ml-2 text-base font-medium text-sky-300">{field}</span>}
-                </span>
-                <span className={cn('text-lg tabular-nums', live ? 'font-bold text-emerald-300' : 'text-white/60')}>
-                    {live ? 'ON FIELD' : formatMatchTime(match.start_time, timeZone)}
-                </span>
+        <div className="flex justify-end" style={{ height: vh(76), marginBottom: vh(8) }}>
+            <div className="flex items-center justify-center bg-black font-normal" style={{ width: vw(76), fontSize: vh(30) }}>
+                {shortMatchName(match)}
             </div>
-            <div className="grid grid-cols-2 gap-2 text-xl font-semibold tabular-nums">
-                <span className="rounded bg-red-500/20 px-2 py-1 text-red-200">
-                    {getAllianceMembers(match, 'red')
-                        .map((member) => member.team.number)
-                        .join(' · ')}
-                </span>
-                <span className="rounded bg-blue-500/20 px-2 py-1 text-blue-200">
-                    {getAllianceMembers(match, 'blue')
-                        .map((member) => member.team.number)
-                        .join(' · ')}
-                </span>
-            </div>
+            {score('red')}
+            {teams('red')}
+            {teams('blue')}
+            {score('blue')}
         </div>
     );
 }
 
-/**
- * The TV in the pits: rankings scroll on their own on the left, and the
- * match on the field plus what's coming up sit on the right, so teams know
- * when to queue.
- */
-export function PitScreen() {
-    const { event, rankingMethod } = usePage<SharedData & { rankingMethod?: string }>().props;
+export function RankingsBoard({ title }: { title: string }) {
+    const { rankingMethod } = usePage<SharedData & { rankingMethod?: string }>().props;
     const { value: teams = [] } = useProp<TeamDisplay[]>('rankings');
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
-    const fieldCount = Math.max(1, event?.field_count ?? 1);
-
-    const onField = matches.find((match) => match.status === 'ongoing');
-    const upcoming = matches.filter((match) => match.status === 'upcoming').slice(0, UPCOMING_COUNT);
+    const qualifications = matches.filter((match) => match.type === 'qualification' && match.status !== 'cancelled');
+    const played = matches.filter((match) => match.status === 'completed');
+    const playedQualifications = qualifications.filter((match) => match.status === 'completed').length;
+    const seats = qualifications.flatMap((match) => (match.match_alliances ?? []).map((member) => member.team.id));
+    const matchesPerTeam = seats.length > 0 ? Math.round(seats.length / new Set(seats).size) : 0;
 
     return (
-        <div className="flex h-screen w-screen flex-col overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white">
-            <Head title="Pit Display" />
-
-            <header className="flex items-center justify-between border-b border-white/10 bg-white/5 px-8 py-4">
-                <h1 className="text-3xl font-black">{event?.name}</h1>
-                <span className="text-xl text-white/50">Pit display</span>
-            </header>
-
-            <div className="grid min-h-0 flex-1 grid-cols-[3fr_2fr] gap-6 p-6">
-                <section className="flex min-h-0 flex-col rounded-2xl border border-white/10 bg-slate-900/60">
-                    <h2 className="flex items-center gap-2 px-6 py-4 text-2xl font-bold">
-                        <Trophy className="size-6 text-yellow-400" /> Rankings
-                    </h2>
-                    <AutoScroll className="min-h-0 flex-1">
-                        <RankingsTable teams={teams} byRecord={rankingMethod === 'record'} />
-                    </AutoScroll>
-                </section>
-
-                <section className="flex min-h-0 flex-col gap-3 overflow-hidden">
-                    <h2 className="flex items-center gap-2 text-2xl font-bold">
-                        <Clock className="size-6 text-sky-300" /> Up next
-                    </h2>
-                    {onField && <MatchRow match={onField} timeZone={event?.timezone} fieldCount={fieldCount} live />}
-                    {upcoming.map((match) => (
-                        <MatchRow key={match.id} match={match} timeZone={event?.timezone} fieldCount={fieldCount} />
-                    ))}
-                    {!onField && upcoming.length === 0 && <p className="text-xl text-white/50">No more scheduled matches.</p>}
-                </section>
+        <Stage>
+            <Head title={title} />
+            <div className="absolute" style={{ left: vw(24), top: 0, width: vw(702), bottom: vh(150) }}>
+                <AutoScroll className="h-full">
+                    <RankingsTable teams={teams} byRecord={rankingMethod === 'record'} />
+                </AutoScroll>
             </div>
-        </div>
+            <div className="absolute overflow-hidden" style={{ right: vw(30), top: vh(24), width: vw(480), bottom: vh(150) }}>
+                {[...played]
+                    .reverse()
+                    .slice(0, 6)
+                    .map((match) => (
+                        <ResultRow key={match.id} match={match} />
+                    ))}
+            </div>
+            <div className="absolute flex justify-between" style={{ left: vw(124), right: vw(124), bottom: vh(126), fontSize: vh(18) }}>
+                <span>{matchesPerTeam > 0 ? `${matchesPerTeam} matches per team` : ''}</span>
+                <span>
+                    {playedQualifications} / {qualifications.length} matches played
+                </span>
+            </div>
+            <EventBar />
+        </Stage>
     );
+}
+
+export function PitScreen() {
+    return <RankingsBoard title="Pit Display" />;
 }

@@ -1,8 +1,8 @@
+import { renderWithQueryClient } from '@/test/mocks';
 import type { AllianceGroup, AllianceSelectionUpdatedEvent, Team } from '@/types';
 import { render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { renderWithQueryClient } from '@/test/mocks';
 
 const echo = vi.hoisted(() => {
     const handlers = new Map<string, (payload: unknown) => void>();
@@ -27,7 +27,10 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-api', () => ({ useApi: () => api }));
-vi.mock('@inertiajs/react', () => ({ Head: () => null }));
+vi.mock('@inertiajs/react', () => ({
+    Head: () => null,
+    usePage: () => ({ props: { name: 'FTC App', event: { name: 'Test Event' }, currentGame: null } }),
+}));
 
 const { default: AllianceSelectionDisplay } = await import('@/pages/alliance-selection/display');
 
@@ -51,7 +54,7 @@ describe('alliance selection display', () => {
         const { Wrapper } = renderWithQueryClient(() => null);
         render(<AllianceSelectionDisplay />, { wrapper: Wrapper });
 
-        await waitFor(() => expect(screen.getByText('Alliance Selection')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Waiting for alliance selection to begin'));
 
         api.getAllianceGroups.mockClear();
 
@@ -67,15 +70,17 @@ describe('alliance selection display', () => {
             echo.emit('event.testevent.alliance-selection', 'AllianceSelectionUpdated', event);
         });
 
-        expect(await screen.findByText(/invited #9999/i)).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Alliance #1 invited #9999'));
+        expect(screen.getByText('9999')).toBeInTheDocument();
         expect(api.getAllianceGroups).not.toHaveBeenCalled();
     });
 
-    it('marks declined teams as out of selection', async () => {
+    it('strikes declined teams out of the team list', async () => {
+        api.getAllianceSelectionRankings.mockResolvedValue([{ team_id: 77, team_number: '7777' }] as never);
         const { Wrapper } = renderWithQueryClient(() => null);
         render(<AllianceSelectionDisplay />, { wrapper: Wrapper });
 
-        await waitFor(() => expect(screen.getByText('Alliance Selection')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Waiting for alliance selection to begin'));
 
         await act(async () => {
             echo.emit('event.testevent.alliance-selection', 'AllianceSelectionUpdated', {
@@ -87,15 +92,14 @@ describe('alliance selection display', () => {
             } satisfies AllianceSelectionUpdatedEvent);
         });
 
-        expect(await screen.findByText(/Declined — out of selection/i)).toBeInTheDocument();
-        expect(screen.getByText('#7777')).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByText('7777')).toHaveClass('line-through'));
     });
 
     it('announces the alliance on the clock in seed order', async () => {
         const { Wrapper } = renderWithQueryClient(() => null);
         render(<AllianceSelectionDisplay />, { wrapper: Wrapper });
 
-        await waitFor(() => expect(screen.getByText('Alliance Selection')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Waiting for alliance selection to begin'));
 
         await act(async () => {
             echo.emit('event.testevent.alliance-selection', 'AllianceSelectionUpdated', {
@@ -107,6 +111,6 @@ describe('alliance selection display', () => {
             } satisfies AllianceSelectionUpdatedEvent);
         });
 
-        expect(await screen.findByText(/Alliance #2 is picking/i)).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Alliance #2 is picking'));
     });
 });

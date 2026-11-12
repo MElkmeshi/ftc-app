@@ -1,20 +1,15 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     useAcceptPick,
     useAllianceGroups,
     useAllianceSelectionEcho,
     useAllianceSelectionRankings,
-    useAvailableTeams,
     useDeclinedTeams,
     useDeclinePick,
     useInviteTeam,
     useResetAllianceSelection,
     useStartAllianceSelection,
 } from '@/hooks/use-alliance-selection';
+import { useApi } from '@/hooks/use-api';
 import {
     useCheckSeriesWinner,
     useEliminationBracket,
@@ -22,18 +17,19 @@ import {
     useGenerateTiebreaker,
     useResetElimination,
 } from '@/hooks/use-elimination';
-import AppLayout from '@/layouts/app-layout';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { type AllianceGroup, type BreadcrumbItem, type CompetitionMatch, type EliminationSeries } from '@/types';
-import { Head } from '@inertiajs/react';
-import { AlertCircle, Ban, RotateCcw, Swords, Trophy, Users } from 'lucide-react';
+import { eventUrl } from '@/lib/event';
+import { cn } from '@/lib/utils';
+import { type AllianceGroup, type CompetitionMatch, type EliminationSeries, type SharedData, type TeamDisplay } from '@/types';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
-/**
- * Every mutation here can fail on a rule the operator can't see coming ("it is
- * alliance #1's turn", "that team declined"). Silence at a live event is worse
- * than the error itself, so surface the server's message verbatim.
- */
+const buttonClass = 'rounded-md border px-3 py-1.5 text-lg leading-tight disabled:opacity-65';
+const greenButtonClass = cn(buttonClass, 'border-[#198754] bg-[#198754] text-white hover:bg-[#157347]');
+const greyButtonClass = cn(buttonClass, 'border-[#adb5bd] bg-[#adb5bd] text-black hover:bg-[#c1c9d0]');
+const smallButtonClass = 'rounded border px-2 py-0.5 text-base leading-tight disabled:opacity-65';
+const tableClass = 'border border-white text-center [&_td]:px-2 [&_td]:py-1 [&_th]:px-2 [&_th]:py-0.5 [&_th]:font-bold';
+
 function ApiError({ error }: { error: unknown }) {
     const message = getApiErrorMessage(error);
 
@@ -41,12 +37,7 @@ function ApiError({ error }: { error: unknown }) {
         return null;
     }
 
-    return (
-        <div className="border-destructive/50 bg-destructive/10 text-destructive flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{message}</span>
-        </div>
-    );
+    return <div className="mx-auto mt-2 w-fit rounded-md border border-[#f1aeb5] bg-[#f8d7da] px-3 py-1.5 text-[#58151c]">{message}</div>;
 }
 
 function getAllianceScore(match: CompetitionMatch, color: string): number {
@@ -61,99 +52,6 @@ function getAllianceScore(match: CompetitionMatch, color: string): number {
     return teamScore + allianceWideScore;
 }
 
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Admin', href: '/admin/alliance-selection' },
-    { title: 'Alliance Selection', href: '/admin/alliance-selection' },
-];
-
-function InviteTeamDialog({ group }: { group: AllianceGroup }) {
-    const [open, setOpen] = useState(false);
-    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
-    const { data: availableTeams = [] } = useAvailableTeams();
-    const inviteTeam = useInviteTeam();
-
-    const handleInvite = () => {
-        if (!selectedTeamId) return;
-        inviteTeam.mutate(
-            { allianceGroupId: group.id, teamId: parseInt(selectedTeamId) },
-            {
-                onSuccess: () => {
-                    setOpen(false);
-                    setSelectedTeamId('');
-                },
-            },
-        );
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button size="sm">Invite Team</Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Invite Team for Alliance #{group.seed}</DialogTitle>
-                    <DialogDescription>
-                        Captain: #{group.captain_team.number} {group.captain_team.name}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                    <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a team..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {availableTeams.map((team) => (
-                                <SelectItem key={team.id} value={String(team.id)}>
-                                    #{team.number} - {team.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                {inviteTeam.isError && (
-                    <div className="pb-2">
-                        <ApiError error={inviteTeam.error} />
-                    </div>
-                )}
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)}>
-                        Cancel
-                    </Button>
-                    <Button onClick={handleInvite} disabled={!selectedTeamId || inviteTeam.isPending}>
-                        {inviteTeam.isPending ? 'Inviting...' : 'Send Invite'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function PendingActions({ group }: { group: AllianceGroup }) {
-    const acceptPick = useAcceptPick();
-    const declinePick = useDeclinePick();
-
-    return (
-        <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-                <Button size="sm" variant="default" onClick={() => acceptPick.mutate(group.id)} disabled={acceptPick.isPending}>
-                    {acceptPick.isPending ? 'Accepting...' : 'Accept'}
-                </Button>
-                <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => declinePick.mutate(group.id)}
-                    disabled={declinePick.isPending}
-                    title="A declining team is out of alliance selection for the rest of the event"
-                >
-                    {declinePick.isPending ? 'Declining...' : 'Decline'}
-                </Button>
-            </div>
-            <ApiError error={acceptPick.error ?? declinePick.error} />
-        </div>
-    );
-}
-
 function getRoundLabel(round: string): string {
     const labels: Record<string, string> = {
         semifinal_1: 'Semifinal 1',
@@ -166,104 +64,204 @@ function getRoundLabel(round: string): string {
     return labels[round] ?? round;
 }
 
-function SeriesCard({ series }: { series: EliminationSeries }) {
-    const checkWinner = useCheckSeriesWinner();
-    const generateTiebreaker = useGenerateTiebreaker();
-
-    const result = series.result;
-    const isTied = result && result.group_1_wins === result.group_2_wins && result.completed_matches >= 2;
-    const allMatchesComplete = result && result.completed_matches === result.total_matches;
+function AllianceTable({ groups }: { groups: AllianceGroup[] }) {
+    const acceptPick = useAcceptPick();
+    const declinePick = useDeclinePick();
 
     return (
-        <Card>
-            <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{getRoundLabel(series.round)}</CardTitle>
-                    <Badge variant={series.status === 'completed' ? 'default' : series.status === 'in_progress' ? 'secondary' : 'outline'}>
-                        {series.status}
-                    </Badge>
-                </div>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">
-                            Alliance #{series.alliance_group1.seed}: #{series.alliance_group1.captain_team.number} & #
-                            {series.alliance_group1.picked_team?.number}
-                        </span>
-                        <Badge variant="outline">{result?.group_1_wins ?? 0} wins</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">
-                            Alliance #{series.alliance_group2.seed}: #{series.alliance_group2.captain_team.number} & #
-                            {series.alliance_group2.picked_team?.number}
-                        </span>
-                        <Badge variant="outline">{result?.group_2_wins ?? 0} wins</Badge>
-                    </div>
-
-                    {/* Match results */}
-                    <div className="border-t pt-2">
-                        {series.matches.map((match) => {
-                            const redScore = getAllianceScore(match, 'red');
-                            const blueScore = getAllianceScore(match, 'blue');
-
-                            return (
-                                <div key={match.id} className="flex items-center justify-between py-1 text-sm">
-                                    <span className="text-muted-foreground">
-                                        Match #{match.number} {match.round?.startsWith('tiebreaker') ? '(TB)' : ''}
+        <>
+            <table className={tableClass}>
+                <thead>
+                    <tr>
+                        <th>Alliance</th>
+                        <th>Captain</th>
+                        <th>Partner</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {groups.map((group) => (
+                        <tr key={group.id}>
+                            <td>{group.seed}</td>
+                            <td>{group.captain_team.number}</td>
+                            <td>
+                                {group.picked_team?.number}
+                                {!group.picked_team && group.pending_team && (
+                                    <span className="flex items-center justify-center gap-1">
+                                        <span className="text-[#ffc107]">{group.pending_team.number}</span>
+                                        <button
+                                            type="button"
+                                            className={cn(smallButtonClass, 'border-[#198754] bg-[#198754] text-white')}
+                                            disabled={acceptPick.isPending}
+                                            onClick={() => acceptPick.mutate(group.id)}
+                                        >
+                                            Accept
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={cn(smallButtonClass, 'border-[#dc3545] bg-[#dc3545] text-white')}
+                                            disabled={declinePick.isPending}
+                                            onClick={() => declinePick.mutate(group.id)}
+                                        >
+                                            Decline
+                                        </button>
                                     </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium text-red-600">{redScore}</span>
-                                        <span className="text-muted-foreground">vs</span>
-                                        <span className="font-medium text-blue-600">{blueScore}</span>
-                                        <Badge variant="outline" className="text-xs">
-                                            {match.status}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            <ApiError error={acceptPick.error ?? declinePick.error} />
+        </>
+    );
+}
 
-                    {/* Actions */}
-                    {series.status !== 'completed' && allMatchesComplete && (
-                        <div className="flex gap-2 border-t pt-2">
-                            <Button size="sm" onClick={() => checkWinner.mutate(series.id)} disabled={checkWinner.isPending}>
-                                {checkWinner.isPending ? 'Checking...' : 'Check Winner'}
-                            </Button>
-                            {isTied && (
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => generateTiebreaker.mutate(series.id)}
-                                    disabled={generateTiebreaker.isPending}
-                                >
-                                    {generateTiebreaker.isPending ? 'Generating...' : 'Add Tiebreaker'}
-                                </Button>
-                            )}
-                        </div>
-                    )}
+function TeamTable({ rankings, groups, declinedIds }: { rankings: TeamDisplay[]; groups: AllianceGroup[]; declinedIds: Set<number> }) {
+    const inviteTeam = useInviteTeam();
+    const acceptPick = useAcceptPick();
+    const declinePick = useDeclinePick();
+    const picking = groups.find((group) => group.picked_team === null);
+    const canPick = !!picking && !picking.pending_team;
+    const takenIds = new Set(groups.flatMap((group) => [group.captain_team.id, group.picked_team?.id, group.pending_team?.id]));
+    const isBusy = inviteTeam.isPending || acceptPick.isPending || declinePick.isPending;
 
-                    {series.winner && (
-                        <div className="flex items-center gap-2 border-t pt-2">
-                            <Trophy className="h-4 w-4 text-yellow-500" />
-                            <span className="text-sm font-medium">
-                                Winner: Alliance #{series.winner.seed} (#{series.winner.captain_team.number} & #{series.winner.picked_team?.number})
-                            </span>
-                        </div>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
+    const answer = (teamId: number, accepted: boolean) => {
+        if (!picking) {
+            return;
+        }
+
+        inviteTeam.mutate({ allianceGroupId: picking.id, teamId }, { onSuccess: () => (accepted ? acceptPick : declinePick).mutate(picking.id) });
+    };
+
+    return (
+        <>
+            <table className={tableClass}>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Number</th>
+                        <th>Name</th>
+                        <th>Select</th>
+                        <th>Decline</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rankings.map((team, index) => {
+                        const isAvailable = !takenIds.has(team.team_id) && !declinedIds.has(team.team_id);
+
+                        return (
+                            <tr key={team.team_id} className={cn(!isAvailable && 'text-white/40 line-through')}>
+                                <td>{index + 1}</td>
+                                <td>{team.team_number}</td>
+                                <td className="text-left">{team.team_name}</td>
+                                <td>
+                                    {isAvailable && groups.length > 0 && (
+                                        <button
+                                            type="button"
+                                            className={cn(smallButtonClass, 'border-[#198754] bg-[#198754] text-white')}
+                                            disabled={!canPick || isBusy}
+                                            onClick={() => answer(team.team_id, true)}
+                                        >
+                                            Select
+                                        </button>
+                                    )}
+                                </td>
+                                <td>
+                                    {isAvailable && groups.length > 0 && (
+                                        <button
+                                            type="button"
+                                            className={cn(smallButtonClass, 'border-[#dc3545] bg-[#dc3545] text-white')}
+                                            disabled={!canPick || isBusy}
+                                            onClick={() => answer(team.team_id, false)}
+                                        >
+                                            Decline
+                                        </button>
+                                    )}
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+            <ApiError error={inviteTeam.error ?? acceptPick.error ?? declinePick.error} />
+        </>
+    );
+}
+
+function SeriesTable({ series }: { series: EliminationSeries[] }) {
+    const checkWinner = useCheckSeriesWinner();
+    const generateTiebreaker = useGenerateTiebreaker();
+    const alliance = (group: AllianceGroup) => `${group.seed}: ${group.captain_team.number}, ${group.picked_team?.number ?? ''}`;
+
+    return (
+        <table className={cn(tableClass, 'mx-auto mt-4')}>
+            <thead>
+                <tr>
+                    <th>Series</th>
+                    <th>Alliance</th>
+                    <th>Wins</th>
+                    <th>Alliance</th>
+                    <th>Wins</th>
+                    <th>Matches</th>
+                    <th>Winner</th>
+                    <th />
+                </tr>
+            </thead>
+            <tbody>
+                {series.map((item) => {
+                    const result = item.result;
+                    const isComplete = !!result && result.completed_matches === result.total_matches;
+                    const isTied = !!result && result.group_1_wins === result.group_2_wins && result.completed_matches >= 2;
+
+                    return (
+                        <tr key={item.id}>
+                            <td>{getRoundLabel(item.round)}</td>
+                            <td>{alliance(item.alliance_group1)}</td>
+                            <td>{result?.group_1_wins ?? 0}</td>
+                            <td>{alliance(item.alliance_group2)}</td>
+                            <td>{result?.group_2_wins ?? 0}</td>
+                            <td>{item.matches.map((match) => `${getAllianceScore(match, 'red')}-${getAllianceScore(match, 'blue')}`).join(', ')}</td>
+                            <td>{item.winner ? item.winner.seed : ''}</td>
+                            <td>
+                                {item.status !== 'completed' && isComplete && (
+                                    <span className="flex gap-1">
+                                        <button
+                                            type="button"
+                                            className={cn(smallButtonClass, 'border-[#198754] bg-[#198754] text-white')}
+                                            disabled={checkWinner.isPending}
+                                            onClick={() => checkWinner.mutate(item.id)}
+                                        >
+                                            Check Winner
+                                        </button>
+                                        {isTied && (
+                                            <button
+                                                type="button"
+                                                className={cn(smallButtonClass, 'border-[#adb5bd] bg-[#adb5bd] text-black')}
+                                                disabled={generateTiebreaker.isPending}
+                                                onClick={() => generateTiebreaker.mutate(item.id)}
+                                            >
+                                                Add Tiebreaker
+                                            </button>
+                                        )}
+                                    </span>
+                                )}
+                            </td>
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
     );
 }
 
 export default function AllianceSelectionPage() {
     useAllianceSelectionEcho();
 
-    const [numberOfAlliances, setNumberOfAlliances] = useState<string>('2');
-    const { data: rankings = [], isLoading: rankingsLoading } = useAllianceSelectionRankings(30000);
-    const { data: groups = [], isLoading: groupsLoading } = useAllianceGroups(15000);
+    const { event, name } = usePage<SharedData>().props;
+    const api = useApi();
+    const [numberOfAlliances, setNumberOfAlliances] = useState('2');
+    const { data: rankings = [] } = useAllianceSelectionRankings(30000);
+    const { data: groups = [] } = useAllianceGroups(15000);
     const { data: declinedTeams = [] } = useDeclinedTeams();
     const { data: bracket } = useEliminationBracket(3000);
     const startSelection = useStartAllianceSelection();
@@ -272,222 +270,97 @@ export default function AllianceSelectionPage() {
     const resetElimination = useResetElimination();
 
     const hasGroups = groups.length > 0;
-    const allPicked = hasGroups && groups.every((g) => g.picked_team !== null);
-    const hasBracket = bracket && bracket.series.length > 0;
-
-    // Picking runs strictly in seed order — only the alliance on the clock may invite.
-    const currentPickGroupId = groups.find((g) => g.picked_team === null)?.id ?? null;
+    const allPicked = hasGroups && groups.every((group) => group.picked_team !== null);
+    const hasBracket = !!bracket && bracket.series.length > 0;
     const maxAlliances = rankings.length >= 8 ? 8 : rankings.length >= 4 ? 4 : 2;
 
+    const undo = () => {
+        if (hasBracket) {
+            if (confirm('This deletes the playoff matches. Continue?')) {
+                resetElimination.mutate();
+            }
+
+            return;
+        }
+
+        resetSelection.mutate();
+    };
+
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <div className="min-h-screen bg-[#354a54] text-lg text-white">
             <Head title="Alliance Selection" />
 
-            <div className="space-y-6">
-                {/* Rankings */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                            <Trophy className="h-5 w-5" />
-                            Qualification Rankings
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {rankingsLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                                <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-r-transparent" />
-                            </div>
-                        ) : rankings.length === 0 ? (
-                            <p className="text-muted-foreground py-4 text-center">No completed qualification matches yet.</p>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full border-collapse">
-                                    <thead>
-                                        <tr className="border-b">
-                                            <th className="px-4 py-2 text-left font-medium">Rank</th>
-                                            <th className="px-4 py-2 text-left font-medium">Team</th>
-                                            <th className="px-4 py-2 text-right font-medium">Total Score</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {rankings.map((team, index) => (
-                                            <tr key={team.team_id} className="hover:bg-muted/50 border-b">
-                                                <td className="px-4 py-2 font-bold">{index + 1}</td>
-                                                <td className="px-4 py-2">
-                                                    #{team.team_number} - {team.team_name}
-                                                </td>
-                                                <td className="px-4 py-2 text-right font-semibold">{team.total_score}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Alliance Selection */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5" />
-                            Alliance Selection
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                            {!hasGroups && rankings.length >= 2 && (
-                                <div className="flex items-center gap-2">
-                                    <Select value={numberOfAlliances} onValueChange={setNumberOfAlliances}>
-                                        <SelectTrigger className="w-32">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {[2, 4, 8]
-                                                .filter((count) => count <= maxAlliances)
-                                                .map((count) => (
-                                                    <SelectItem key={count} value={String(count)}>
-                                                        {count} Alliances
-                                                    </SelectItem>
-                                                ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button onClick={() => startSelection.mutate(parseInt(numberOfAlliances))} disabled={startSelection.isPending}>
-                                        {startSelection.isPending ? 'Starting...' : 'Start Selection'}
-                                    </Button>
-                                </div>
-                            )}
-                            {hasGroups && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                        if (
-                                            hasBracket &&
-                                            !confirm('Resetting alliance selection also deletes the elimination bracket and its matches. Continue?')
-                                        ) {
-                                            return;
-                                        }
-                                        resetSelection.mutate();
-                                    }}
-                                    disabled={resetSelection.isPending}
-                                >
-                                    <RotateCcw className="mr-1 h-4 w-4" />
-                                    {resetSelection.isPending ? 'Resetting...' : 'Reset'}
-                                </Button>
-                            )}
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        {groupsLoading ? (
-                            <div className="flex items-center justify-center py-8">
-                                <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-r-transparent" />
-                            </div>
-                        ) : !hasGroups ? (
-                            <p className="text-muted-foreground py-4 text-center">Start alliance selection to assign captains and pick teams.</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {groups.map((group) => (
-                                    <div key={group.id} className="flex items-center justify-between rounded-lg border p-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-400 font-bold text-slate-900">
-                                                {group.seed}
-                                            </div>
-                                            <div>
-                                                <div className="font-medium">
-                                                    Captain: #{group.captain_team.number} - {group.captain_team.name}
-                                                </div>
-                                                {group.picked_team ? (
-                                                    <div className="text-muted-foreground text-sm">
-                                                        Pick: #{group.picked_team.number} - {group.picked_team.name}
-                                                    </div>
-                                                ) : group.pending_team ? (
-                                                    <div className="text-sm text-amber-600">
-                                                        Invited: #{group.pending_team.number} - {group.pending_team.name} — Awaiting response...
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-sm text-amber-600">Waiting for invite...</div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {group.picked_team && <Badge>Complete</Badge>}
-                                        {!group.picked_team && group.pending_team && <PendingActions group={group} />}
-                                        {!group.picked_team && !group.pending_team && group.id === currentPickGroupId && (
-                                            <InviteTeamDialog group={group} />
-                                        )}
-                                        {!group.picked_team && !group.pending_team && group.id !== currentPickGroupId && (
-                                            <Badge variant="outline">Waiting for earlier seeds</Badge>
-                                        )}
-                                    </div>
-                                ))}
-
-                                {declinedTeams.length > 0 && (
-                                    <div className="border-destructive/40 bg-destructive/5 rounded-lg border p-4">
-                                        <div className="text-destructive mb-2 flex items-center gap-2 text-sm font-medium">
-                                            <Ban className="h-4 w-4" />
-                                            Declined — out of selection
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {declinedTeams.map((team) => (
-                                                <Badge key={team.id} variant="outline">
-                                                    #{team.number} - {team.name}
-                                                </Badge>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {(startSelection.isError || resetSelection.isError) && (
-                            <div className="mt-4">
-                                <ApiError error={startSelection.error ?? resetSelection.error} />
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Elimination Bracket */}
-                {allPicked ? (
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="flex items-center gap-2">
-                                <Swords className="h-5 w-5" />
-                                Elimination Bracket
-                            </CardTitle>
-                            <div className="flex items-center gap-2">
-                                {!hasBracket ? (
-                                    <Button onClick={() => generateElimination.mutate()} disabled={generateElimination.isPending}>
-                                        {generateElimination.isPending ? 'Generating...' : 'Generate Bracket'}
-                                    </Button>
-                                ) : null}
-                                {hasBracket ? (
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => resetElimination.mutate()}
-                                        disabled={resetElimination.isPending}
-                                    >
-                                        <RotateCcw className="mr-1 h-4 w-4" />
-                                        Reset Bracket
-                                    </Button>
-                                ) : null}
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            {!hasBracket ? (
-                                <p className="text-muted-foreground py-4 text-center">
-                                    All teams picked. Generate the elimination bracket to start playoffs.
-                                </p>
-                            ) : (
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    {bracket.series.map((series) => (
-                                        <SeriesCard key={series.id} series={series} />
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                ) : null}
+            <div className="bg-gradient-to-b from-[#2b424d] to-[#263840] px-2 pt-2 pb-3">
+                <div className="flex items-start justify-between">
+                    <Link href={eventUrl('/match-control')} className="rounded-md border border-white bg-white px-2 py-1 text-base text-black">
+                        Exit
+                    </Link>
+                    <span>
+                        <span className="font-mono font-bold">{event?.code}</span> - <span className="italic">{name}</span>
+                    </span>
+                </div>
+                <h1 className="-mt-2 text-center text-[2rem] leading-tight font-bold">Alliance Selection</h1>
             </div>
-        </AppLayout>
+
+            <div className="flex flex-wrap items-center justify-center gap-4 py-2">
+                {!hasGroups && (
+                    <select
+                        aria-label="Number of alliances"
+                        className="rounded-md border border-white bg-white px-2 py-1.5 text-black"
+                        value={numberOfAlliances}
+                        onChange={(e) => setNumberOfAlliances(e.target.value)}
+                    >
+                        {[2, 4, 8]
+                            .filter((count) => count <= maxAlliances)
+                            .map((count) => (
+                                <option key={count} value={count}>
+                                    {count} Alliances
+                                </option>
+                            ))}
+                    </select>
+                )}
+                <button
+                    type="button"
+                    className={greenButtonClass}
+                    disabled={hasGroups || rankings.length < 2 || startSelection.isPending}
+                    onClick={() => startSelection.mutate(parseInt(numberOfAlliances))}
+                >
+                    Start Alliance Selection
+                </button>
+                <button type="button" className={greenButtonClass} onClick={() => api.setAudienceDisplay('alliance_selection')}>
+                    Set Audience Display
+                </button>
+            </div>
+            <ApiError error={startSelection.error ?? resetSelection.error ?? generateElimination.error ?? resetElimination.error} />
+
+            <div className="mx-auto flex max-w-[1180px] flex-wrap items-start justify-between gap-6 px-4 pt-2">
+                <div>
+                    <AllianceTable groups={groups} />
+                    <div className="mt-2 flex gap-4">
+                        <button
+                            type="button"
+                            className={greyButtonClass}
+                            disabled={!hasGroups || resetSelection.isPending || resetElimination.isPending}
+                            onClick={undo}
+                        >
+                            Undo
+                        </button>
+                        <button
+                            type="button"
+                            className={greyButtonClass}
+                            disabled={!allPicked || hasBracket || generateElimination.isPending}
+                            onClick={() => generateElimination.mutate()}
+                        >
+                            Generate Matches
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <TeamTable rankings={rankings} groups={groups} declinedIds={new Set(declinedTeams.map((team) => team.id))} />
+                </div>
+            </div>
+
+            {hasBracket && <SeriesTable series={bracket.series} />}
+        </div>
     );
 }
