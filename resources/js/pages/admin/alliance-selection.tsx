@@ -1,3 +1,4 @@
+import { MatchControlTabs } from '@/components/match-control-tabs';
 import {
     useAcceptPick,
     useAllianceGroups,
@@ -301,6 +302,8 @@ export default function AllianceSelectionPage() {
                 </div>
                 <h1 className="-mt-2 text-center text-[2rem] leading-tight font-bold">Alliance Selection</h1>
             </div>
+
+            <MatchControlTabs active="alliance-selection" />
 
             <div className="flex flex-wrap items-center justify-center gap-4 py-2">
                 {!hasGroups && (

@@ -1,3 +1,4 @@
+import { CONSOLE_TABS, type ConsoleTab, MatchControlTabs } from '@/components/match-control-tabs';
 import { DisplaySwitch } from '@/components/match-control/display-switch';
 import { TeamCards } from '@/components/match-control/team-cards';
 import { TeamCardBadge } from '@/components/team-card-badge';
@@ -30,15 +31,6 @@ const STATE_LABELS: Record<CompetitionMatch['status'], string> = {
     completed: 'COMMITTED',
     cancelled: 'CANCELLED',
 };
-
-type ConsoleTab = 'schedule' | 'incomplete' | 'active' | 'video';
-
-const CONSOLE_TABS: { value: ConsoleTab; label: string }[] = [
-    { value: 'schedule', label: 'Schedule' },
-    { value: 'incomplete', label: 'Incomplete Matches' },
-    { value: 'active', label: 'Active Match' },
-    { value: 'video', label: 'Video Switch' },
-];
 
 const ROLE_LABELS: Record<RefereeRole, string> = { scoring: 'Scoring', penalty: 'Penalties' };
 
@@ -582,29 +574,7 @@ export default function MatchControlConsole() {
                 {error && <p className="mx-2 mt-2 rounded bg-[#f8d7da] px-3 py-1 text-[#842029]">{error}</p>}
             </div>
 
-            <nav className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 bg-[#578394] px-2 pt-[3px]" role="tablist">
-                {CONSOLE_TABS.map((option) => (
-                    <button
-                        key={option.value}
-                        type="button"
-                        role="tab"
-                        aria-selected={tab === option.value}
-                        onClick={() => changeTab(option.value)}
-                        className={cn('rounded-t-lg px-2 leading-[26px] text-white', tab === option.value ? 'bg-[#13458f]' : 'bg-[#1e7abb]')}
-                    >
-                        {option.label}
-                    </button>
-                ))}
-                {[
-                    { label: 'Settings', href: '/admin/competition-settings?from=match-control' },
-                    { label: 'Alliance Selection', href: '/admin/alliance-selection' },
-                    { label: 'Present Awards', href: '/admin/awards' },
-                ].map((link) => (
-                    <Link key={link.label} href={eventUrl(link.href)} className="rounded-t-lg bg-[#1e7abb] px-2 leading-[26px] text-white">
-                        {link.label}
-                    </Link>
-                ))}
-            </nav>
+            <MatchControlTabs active={tab} onSelect={changeTab} />
 
             <main className="min-h-0 flex-1 overflow-auto">
                 {tab === 'schedule' && (
