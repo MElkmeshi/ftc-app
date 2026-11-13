@@ -13,6 +13,8 @@ import {
     DisplayModeValue,
     EliminationBracket,
     Group,
+    MatchControlSettings,
+    MatchNote,
     ScoreType,
     Team,
     TeamDisplay,
@@ -358,6 +360,41 @@ export const useApi = () => {
         return get('/api/settings/competition');
     }, []);
 
+    const getMatchControlSettings = useCallback(async (): Promise<MatchControlSettings> => {
+        return get('/api/match-control/settings');
+    }, []);
+
+    const updateMatchControlSettings = useCallback(async (changes: Partial<MatchControlSettings>): Promise<MatchControlSettings> => {
+        return put('/api/match-control/settings', changes);
+    }, []);
+
+    const commitUnplayedMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
+        return post(`/api/matches/${matchId}/commit`);
+    }, []);
+
+    const replayMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
+        return post(`/api/matches/${matchId}/replay`);
+    }, []);
+
+    const setReviewRequired = useCallback(async (matchId: number, required: boolean): Promise<CompetitionMatch> => {
+        return put(`/api/matches/${matchId}/review`, { required });
+    }, []);
+
+    const getMatchNotes = useCallback(async (): Promise<MatchNote[]> => {
+        return get('/api/match-notes');
+    }, []);
+
+    const createMatchNote = useCallback(
+        async (note: { match_id: number; summary: string; detail: string | null; teams: string[] }): Promise<MatchNote> => {
+            return post('/api/match-notes', note);
+        },
+        [],
+    );
+
+    const deleteMatchNote = useCallback(async (noteId: number): Promise<void> => {
+        await del(`/api/match-notes/${noteId}`);
+    }, []);
+
     const updateCompetitionSettings = useCallback(async (data: Record<string, number>): Promise<void> => {
         await put('/api/settings/competition', data);
     }, []);
@@ -401,6 +438,14 @@ export const useApi = () => {
         getCompetitionSettings,
         updateCompetitionSettings,
         resetCompetitionSettings,
+        getMatchControlSettings,
+        updateMatchControlSettings,
+        commitUnplayedMatch,
+        replayMatch,
+        setReviewRequired,
+        getMatchNotes,
+        createMatchNote,
+        deleteMatchNote,
         getMatches,
         getMatch,
         getActiveMatch,

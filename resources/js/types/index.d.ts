@@ -281,6 +281,26 @@ export interface CompetitionMatch {
     submissions?: ScoreSubmission[] | null;
     /** Penalty referee seats that joined this match; the head referee's commit waits for them too. */
     referee_seats?: { alliance_id: number; role: RefereeRole }[] | null;
+    review_required?: boolean;
+}
+
+export interface MatchControlSettings {
+    live_scoring: boolean;
+    require_ready: boolean;
+    referee_tablets: boolean;
+    flip_alliances: boolean;
+    recorded_countdown: boolean;
+    active_phase: CompetitionMatch['type'] | null;
+}
+
+export interface MatchNote {
+    id: number;
+    match_id: number;
+    summary: string;
+    detail: string | null;
+    teams: string[] | null;
+    created_at: string;
+    author?: { id: number; name: string } | null;
 }
 
 export interface ScoreSubmission {

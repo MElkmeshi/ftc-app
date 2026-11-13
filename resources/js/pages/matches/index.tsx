@@ -220,7 +220,7 @@ function RetimeScheduleDialog() {
 }
 
 function PracticeScheduleDialog({ hasPractice }: { hasPractice: boolean }) {
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).has('practice'));
     const [matchesPerTeam, setMatchesPerTeam] = useState('1');
     const [teamsPerAlliance, setTeamsPerAlliance] = useState('2');
     const [firstMatchAt, setFirstMatchAt] = useState<string | null>(null);

@@ -38,6 +38,7 @@ class EventSetupChecklist
     {
         $scoreTypeCount = ScoreType::query()->count();
         $teamCount = Team::query()->count();
+        $practiceMatches = CompetitionMatch::query()->practice()->count();
         $qualificationMatches = CompetitionMatch::query()->qualification()->count();
         $completedQualifications = CompetitionMatch::query()->qualification()->where('status', MatchStatus::COMPLETED)->count();
         $allianceCount = AllianceGroup::query()->count();
@@ -96,6 +97,14 @@ class EventSetupChecklist
                 PitMapController::path() !== null ? self::DONE : self::OPTIONAL,
                 PitMapController::path() !== null ? 'Published' : '(Optional)',
                 '/admin/pit-map',
+            ),
+            $this->step(
+                'practice-schedule',
+                'Practice schedule',
+                'Optional warm-up matches that never count toward the rankings.',
+                $practiceMatches > 0 ? self::DONE : self::OPTIONAL,
+                $practiceMatches > 0 ? "{$practiceMatches} matches scheduled" : 'Not generated',
+                '/competition-matches?practice=1',
             ),
             $this->step(
                 'schedule',

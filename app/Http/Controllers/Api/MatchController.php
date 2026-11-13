@@ -25,12 +25,15 @@ use App\Services\AllianceSelectionService;
 use App\Services\AudienceDisplay;
 use App\Services\CurrentEvent;
 use App\Services\EliminationScheduler;
+use App\Services\MatchControlSettings;
 use App\Services\MatchScheduler;
 use App\Services\MatchTimingService;
 use App\Services\ScheduleTiming;
 use App\Support\LiveBroadcast;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MatchController extends Controller
 {
@@ -101,9 +104,9 @@ class MatchController extends Controller
      * Starts a match. The event row is locked first, so two head referees
      * pressing Start at once cannot both find no match running and start two.
      */
-    public function startMatch(ControlMatchRequest $request, MatchTimingService $matchTiming, AudienceDisplay $display, CurrentEvent $currentEvent): JsonResponse
+    public function startMatch(ControlMatchRequest $request, MatchTimingService $matchTiming, AudienceDisplay $display, CurrentEvent $currentEvent, MatchControlSettings $settings): JsonResponse
     {
-        $result = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, $matchTiming, $currentEvent): CompetitionMatch|JsonResponse {
+        $result = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, $matchTiming, $currentEvent, $settings): CompetitionMatch|JsonResponse {
             Event::query()->lockForUpdate()->findOrFail($currentEvent->require()->id);
 
             $ongoingMatch = CompetitionMatch::query()->where('status', MatchStatus::ONGOING)->first();
@@ -119,6 +122,14 @@ class MatchController extends Controller
             if ($match->status !== MatchStatus::UPCOMING) {
                 return response()->json([
                     'message' => 'Match must be in upcoming status to start.',
+                ], 422);
+            }
+
+            $notReady = $match->matchAlliances()->where('ready', false)->with('team:id,number')->get();
+
+            if ($settings->requiresReadyTeams() && $notReady->isNotEmpty()) {
+                return response()->json([
+                    'message' => 'Waiting for pre-match setup: '.$notReady->pluck('team.number')->join(', ').'.',
                 ], 422);
             }
 
@@ -165,6 +176,12 @@ class MatchController extends Controller
                 return response()->json([
                     'message' => 'Match must be in ongoing status to end.',
                 ], 422);
+            }
+
+            if ($match->review_required) {
+                return response()->json([
+                    'message' => 'The head referee is reviewing this match. Scores are held until the review is complete.',
+                ], 409);
             }
 
             $waiting = $match->load('matchAlliances.alliance')->seatsAwaitingSubmission();
@@ -229,6 +246,102 @@ class MatchController extends Controller
         $display->load($result->id);
 
         return response()->json($result);
+    }
+
+    /**
+     * Commits a match that was never run on the timer, after its scores were
+     * typed in by hand (FTC Live's "Enter Scores").
+     */
+    public function commitUnplayed(int $id, AudienceDisplay $display): JsonResponse
+    {
+        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($id): CompetitionMatch {
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($id);
+
+            if ($match->status !== MatchStatus::UPCOMING) {
+                throw ValidationException::withMessages(['match_id' => 'Only an unplayed match can be committed this way.']);
+            }
+
+            $match->update(['status' => MatchStatus::COMPLETED, 'ended_at' => now(), 'review_required' => false]);
+            app(EliminationScheduler::class)->reconcileAfterScoreChange($match, request()->user()->id);
+
+            return $match;
+        }, 3);
+
+        if ($display->loadedMatchId() === $match->id) {
+            $display->unload();
+        }
+
+        $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+
+        LiveBroadcast::send(new MatchStatusChanged($match, 'ended'));
+        LiveBroadcast::send(new EliminationBracketUpdated);
+
+        return response()->json($match);
+    }
+
+    /**
+     * Throws a committed match's result away and readies it to be played
+     * again (FTC Live's "Replay"). The old scores stay in the match history.
+     */
+    public function replay(int $id, AudienceDisplay $display): JsonResponse
+    {
+        $match = (new CompetitionMatch)->getConnection()->transaction(function () use ($id): CompetitionMatch {
+            $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($id);
+
+            if ($match->status !== MatchStatus::COMPLETED) {
+                throw ValidationException::withMessages(['match_id' => 'Only a committed match can be replayed.']);
+            }
+
+            if (CompetitionMatch::query()->where('status', MatchStatus::ONGOING)->exists()) {
+                throw ValidationException::withMessages(['match_id' => 'Another match is running. End it before replaying this one.']);
+            }
+
+            $match->scores()->delete();
+            $match->matchAlliances()->update(['score' => 0, 'card' => null, 'ready' => false]);
+            $match->update([
+                'status' => MatchStatus::UPCOMING,
+                'started_at' => null,
+                'ended_at' => null,
+                'cancelled_at' => now(),
+                'submissions' => null,
+                'referee_seats' => null,
+                'timing' => null,
+                'review_required' => false,
+            ]);
+            app(EliminationScheduler::class)->reconcileAfterScoreChange($match, request()->user()->id);
+
+            return $match;
+        }, 3);
+
+        $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+
+        LiveBroadcast::send(new MatchStatusChanged($match, 'cancelled'));
+        LiveBroadcast::send(new EliminationBracketUpdated);
+
+        $display->load($match->id);
+
+        return response()->json($match);
+    }
+
+    /**
+     * The head referee holds a match's scores until they have reviewed it
+     * (FTC Live's "Review Required?").
+     */
+    public function setReviewRequired(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate(['required' => ['required', 'boolean']]);
+        $match = CompetitionMatch::query()->findOrFail($id);
+
+        if ($match->status === MatchStatus::COMPLETED) {
+            throw ValidationException::withMessages(['required' => 'This match is already committed.']);
+        }
+
+        $match->update(['review_required' => $validated['required']]);
+        $match->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
+
+        LiveBroadcast::send(new ScoreUpdated($match));
+
+        return response()->json($match);
     }
 
     public function loadMatch(ControlMatchRequest $request, AudienceDisplay $display): JsonResponse

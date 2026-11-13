@@ -8,12 +8,20 @@ import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { useApi } from '@/hooks/use-api';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useStartMatch } from '@/hooks/use-match';
+import { useMatchControlSettings } from '@/hooks/use-match-control-settings';
 import { eventUrl } from '@/lib/event';
 import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, scheduleDriftMinutes } from '@/lib/match-utils';
 import { findSubmission, seatsOf } from '@/lib/referee-seats';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
-import { type AudienceDisplayState, type CompetitionMatch, type DisplayModeValue, type RefereeRole, type SharedData } from '@/types';
+import {
+    type AudienceDisplayState,
+    type CompetitionMatch,
+    type DisplayModeValue,
+    type MatchControlSettings,
+    type RefereeRole,
+    type SharedData,
+} from '@/types';
 import { Head, Link, router, usePage, useProp } from '@inertiajs/react';
 import { useConnectionStatus } from '@laravel/echo-react';
 import { useQuery } from '@tanstack/react-query';
@@ -80,8 +88,8 @@ function currentPhase(matches: CompetitionMatch[]): MatchPhase {
     return finished && phases[startedIndex + 1] ? phases[startedIndex + 1].value : phases[startedIndex].value;
 }
 
-function awaitingSubmissions(match: CompetitionMatch | null): string[] {
-    if (match?.status !== 'ongoing') {
+function awaitingSubmissions(match: CompetitionMatch | null, settings: MatchControlSettings): string[] {
+    if (match?.status !== 'ongoing' || !settings.live_scoring) {
         return [];
     }
 
@@ -91,6 +99,7 @@ function awaitingSubmissions(match: CompetitionMatch | null): string[] {
         return allianceId === undefined
             ? []
             : seatsOf(match, allianceId)
+                  .filter((role) => role === 'scoring' || settings.referee_tablets)
                   .filter((role) => !findSubmission(match, allianceId, role))
                   .map((role) => `${color} ${role === 'penalty' ? 'penalties' : 'scoring'}`);
     });
@@ -130,6 +139,7 @@ function ScheduleTable({
     hasRunningMatch,
     onPlay,
     onPost,
+    onReplay,
 }: {
     matches: CompetitionMatch[];
     display: AudienceDisplayState | undefined;
@@ -137,6 +147,7 @@ function ScheduleTable({
     hasRunningMatch: boolean;
     onPlay: (match: CompetitionMatch) => void;
     onPost: (match: CompetitionMatch) => void;
+    onReplay: (match: CompetitionMatch) => void;
 }) {
     const fieldCount = useFieldCount();
     const teamsPerAlliance = Math.max(1, ...matches.map((match) => getAllianceMembers(match, 'red').length));
@@ -165,7 +176,7 @@ function ScheduleTable({
                         </th>
                     ))}
                     <th className="px-1">Blue Score</th>
-                    <th colSpan={2} />
+                    <th colSpan={3} />
                 </tr>
             </thead>
             <tbody>
@@ -198,6 +209,23 @@ function ScheduleTable({
                                     </button>
                                 )}
                                 {match.status === 'completed' && (
+                                    <button
+                                        type="button"
+                                        className={rowButtonClass}
+                                        disabled={busy || hasRunningMatch}
+                                        onClick={() => onReplay(match)}
+                                    >
+                                        Replay
+                                    </button>
+                                )}
+                            </td>
+                            <td className="px-1 py-px">
+                                {match.status === 'upcoming' && (
+                                    <Link href={eventUrl(`/matches/${match.id}/edit`)} className={cn(rowButtonClass, 'inline-block')}>
+                                        Enter Scores
+                                    </Link>
+                                )}
+                                {match.status === 'completed' && (
                                     <button type="button" className={rowButtonClass} disabled={posted} onClick={() => onPost(match)}>
                                         {posted ? 'Posted' : 'Post'}
                                     </button>
@@ -205,9 +233,9 @@ function ScheduleTable({
                             </td>
                             <td className="px-1 py-px">
                                 {match.status === 'completed' && (
-                                    <a href={eventUrl('/referee/scoring')} className={cn(rowButtonClass, 'inline-block')}>
+                                    <Link href={eventUrl(`/matches/${match.id}/edit`)} className={cn(rowButtonClass, 'inline-block')}>
                                         Edit
-                                    </a>
+                                    </Link>
                                 )}
                                 {match.status !== 'upcoming' && (
                                     <a href={eventUrl(`/matches/${match.id}/history`)} className={cn(rowButtonClass, 'ml-2 inline-block')}>
@@ -294,12 +322,14 @@ function ActiveMatchPanel({
     match,
     matches,
     busy,
+    settings,
     onAbort,
     onForceCommit,
 }: {
     match: CompetitionMatch | null;
     matches: CompetitionMatch[];
     busy: boolean;
+    settings: MatchControlSettings;
     onAbort: (match: CompetitionMatch) => void;
     onForceCommit: (match: CompetitionMatch) => void;
 }) {
@@ -318,13 +348,14 @@ function ActiveMatchPanel({
     }
 
     const tabletsFor = (color: 'red' | 'blue') => seats?.seats[String(getAllianceMembers(match, color)[0]?.alliance.id)] ?? {};
-    const awaiting = awaitingSubmissions(match);
+    const awaiting = awaitingSubmissions(match, settings);
+    const [left, right] = settings.flip_alliances ? (['red', 'blue'] as const) : (['blue', 'red'] as const);
 
     return (
         <div className="flex min-h-full flex-col">
             <div className="flex flex-1 flex-col md:flex-row">
-                <AllianceHalf match={match} color="blue" tablets={tabletsFor('blue')} />
-                <AllianceHalf match={match} color="red" tablets={tabletsFor('red')} />
+                <AllianceHalf match={match} color={left} tablets={tabletsFor(left)} />
+                <AllianceHalf match={match} color={right} tablets={tabletsFor(right)} />
             </div>
             <div className="space-y-3 bg-[#334c55] p-3">
                 {(match.status === 'ongoing' || match.status === 'completed') && (
@@ -479,12 +510,16 @@ export default function MatchControlConsole() {
     const endMatch = useEndMatch();
     const cancelMatch = useCancelMatch();
     const { timer, matchConfig } = useActiveMatchTimer();
+    const { settings } = useMatchControlSettings();
+    const [replaying, setReplaying] = useState(false);
 
     const [phase, setPhase] = useState<MatchPhase>(() => currentPhase(matches));
     const [displayError, setDisplayError] = useState<string | null>(null);
 
     const refresh = { onSuccess: () => router.reload({ only: ['matches', 'display'] }) };
-    const phaseNow = currentPhase(matches);
+    const phases = MATCH_PHASES.filter((option) => matches.some((match) => match.type === option.value));
+    const phaseNow =
+        settings.active_phase && phases.some((option) => option.value === settings.active_phase) ? settings.active_phase : currentPhase(matches);
     const ongoing = matches.find((match) => match.status === 'ongoing') ?? null;
     const loaded = matches.find((match) => match.id === display?.loaded_match_id && match.status === 'upcoming') ?? null;
     const nextUpcoming =
@@ -492,14 +527,14 @@ export default function MatchControlConsole() {
         matches.find((match) => match.status === 'upcoming' && match.id !== loaded?.id) ??
         null;
     const lastCompleted = matches.filter((match) => match.status === 'completed').at(-1) ?? null;
-    const awaiting = awaitingSubmissions(ongoing);
+    const awaiting = awaitingSubmissions(ongoing, settings);
     const loadedTeams = loaded?.match_alliances ?? [];
     const notReady = loadedTeams.filter((member) => !member.ready).map((member) => member.team.number);
     const lastPosted = lastCompleted !== null && display?.mode === 'results' && display.match_id === lastCompleted.id;
 
-    const busy = loadMatch.isPending || startMatch.isPending || endMatch.isPending || cancelMatch.isPending;
+    const busy = loadMatch.isPending || startMatch.isPending || endMatch.isPending || cancelMatch.isPending || replaying;
+    const startBlocked = settings.require_ready && notReady.length > 0;
     const error = errorMessage(loadMatch.error ?? startMatch.error ?? endMatch.error ?? cancelMatch.error) ?? displayError;
-    const phases = MATCH_PHASES.filter((option) => matches.some((match) => match.type === option.value));
 
     const show = (mode: DisplayModeValue, matchId?: number | null, message?: string) => {
         setDisplayError(null);
@@ -537,6 +572,19 @@ export default function MatchControlConsole() {
     const showing = (mode: DisplayModeValue, match: CompetitionMatch | null) =>
         match !== null && display?.mode === mode && display.match_id === match.id;
     const shownMatch = ongoing ?? loaded;
+
+    const replayMatch = (match: CompetitionMatch) => {
+        if (!confirm(`Replay ${getMatchTitle(match)}? Its result is thrown away and the match is loaded to be played again.`)) {
+            return;
+        }
+
+        setDisplayError(null);
+        setReplaying(true);
+        api.replayMatch(match.id)
+            .then(() => router.reload({ only: ['matches', 'display'] }))
+            .catch((e) => setDisplayError(errorMessage(e)))
+            .finally(() => setReplaying(false));
+    };
 
     const abortMatch = () => {
         if (ongoing && confirm(matchOver ? 'Discard this match? Its scores are thrown away.' : 'Abort the running match?')) {
@@ -625,7 +673,7 @@ export default function MatchControlConsole() {
                         ) : (
                             <HeaderButton
                                 tone="danger"
-                                disabled={busy || !loaded}
+                                disabled={busy || !loaded || startBlocked}
                                 title={loaded && notReady.length > 0 ? `Not ready: ${notReady.join(', ')}` : undefined}
                                 onClick={() => loaded && startMatch.mutate(loaded.id, refresh)}
                             >
@@ -674,6 +722,7 @@ export default function MatchControlConsole() {
                             hasRunningMatch={ongoing !== null}
                             onPlay={(match) => loadMatch.mutate(match.id, refresh)}
                             onPost={(match) => show('results', match.id)}
+                            onReplay={replayMatch}
                         />
                     </>
                 )}
@@ -685,6 +734,7 @@ export default function MatchControlConsole() {
                         hasRunningMatch={ongoing !== null}
                         onPlay={(match) => loadMatch.mutate(match.id, refresh)}
                         onPost={(match) => show('results', match.id)}
+                        onReplay={replayMatch}
                     />
                 )}
                 {tab === 'active' && (
@@ -692,11 +742,12 @@ export default function MatchControlConsole() {
                         match={ongoing ?? loaded}
                         matches={matches}
                         busy={busy}
+                        settings={settings}
                         onAbort={(match) => cancelMatch.mutate(match.id, refresh)}
                         onForceCommit={(match) => endMatch.mutate({ matchId: match.id, force: true }, refresh)}
                     />
                 )}
-                {tab === 'settings' && <MatchTimingPanel />}
+                {tab === 'settings' && <MatchTimingPanel phase={phaseNow} phases={phases.map((option) => option.value)} />}
                 {tab === 'alliance' && <AllianceSelectionPanel />}
                 {tab === 'video' && (
                     <div className="p-1">

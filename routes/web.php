@@ -138,6 +138,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
 
     Route::middleware(['auth', 'can:control-matches'])->group(function () {
         Route::get('matches/{match}/history', [MatchSheetController::class, 'history'])->whereNumber('match')->name('matches.history');
+        Route::get('matches/{match}/edit', [MatchSheetController::class, 'edit'])->whereNumber('match')->name('matches.edit');
         Route::get('connect', fn () => Inertia::render('events/connect'))->name('events.connect');
     });
 

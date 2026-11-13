@@ -98,6 +98,13 @@ function dashboardRows(event: CompetitionEvent, steps: SetupStep[]): DashboardRo
             ...doneOrOptional(step('pit-map')),
         },
         {
+            key: 'practice-schedule',
+            label: 'Create Practice Schedule',
+            outline: isUnstarted(step('practice-schedule')),
+            href: `${base}/competition-matches?practice=1`,
+            ...doneOrNotStarted(step('practice-schedule')),
+        },
+        {
             key: 'schedule',
             label: 'Create Match Schedule',
             outline: isUnstarted(step('schedule')),

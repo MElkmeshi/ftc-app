@@ -1,7 +1,9 @@
 import { useApi } from '@/hooks/use-api';
+import { useMatchControlSettings } from '@/hooks/use-match-control-settings';
 import type { MatchTimingConfig } from '@/hooks/use-match-timer';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { apiScope, eventUrl } from '@/lib/event';
+import { type CompetitionMatch } from '@/types';
 import { Link } from '@inertiajs/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
@@ -79,16 +81,84 @@ function TimingForm({ timing }: { timing: MatchTimingConfig }) {
     );
 }
 
-export function MatchTimingPanel() {
+function Switch({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (checked: boolean) => void; hint?: string }) {
+    return (
+        <label className="flex w-fit items-center gap-2" title={hint}>
+            <input type="checkbox" className="size-4" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+            {label}
+        </label>
+    );
+}
+
+export function MatchTimingPanel({ phase, phases }: { phase: CompetitionMatch['type']; phases: CompetitionMatch['type'][] }) {
     const api = useApi();
     const { data } = useQuery({ queryKey: ['competition-settings', apiScope()], queryFn: () => api.getCompetitionSettings() });
+    const { settings, update, error } = useMatchControlSettings();
+    const saveError = getApiErrorMessage(error);
 
     return (
         <div className="text-lg">
             <fieldset className={fieldsetClass}>
-                <legend className="px-1">Timing Controls</legend>
-                {data ? <TimingForm key={JSON.stringify(data.timing)} timing={data.timing} /> : <p>Loading…</p>}
+                <legend className="px-1">Active Match Schedule</legend>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        className={greenButtonClass}
+                        disabled={phase !== 'practice' || !phases.includes('qualification')}
+                        onClick={() => update({ active_phase: 'qualification' })}
+                    >
+                        Advance to Quals
+                    </button>
+                    <button
+                        type="button"
+                        className={greenButtonClass}
+                        disabled={phase === 'practice' || !phases.includes('practice')}
+                        onClick={() => update({ active_phase: 'practice' })}
+                    >
+                        Return to Practice
+                    </button>
+                </div>
             </fieldset>
+            <fieldset className={fieldsetClass}>
+                <legend className="px-1">Timing Controls</legend>
+                <Switch
+                    label="Enable Recorded Countdown"
+                    hint="Plays the 3-2-1 countdown before the match starts"
+                    checked={settings.recorded_countdown}
+                    onChange={(recorded_countdown) => update({ recorded_countdown })}
+                />
+                <div className="mt-2">{data ? <TimingForm key={JSON.stringify(data.timing)} timing={data.timing} /> : <p>Loading…</p>}</div>
+            </fieldset>
+            <fieldset className={fieldsetClass}>
+                <legend className="px-1">Live Scoring</legend>
+                <Switch
+                    label="Use Live Scoring"
+                    hint="When off, a match can be committed without waiting for any tablet; enter its scores from the schedule"
+                    checked={settings.live_scoring}
+                    onChange={(live_scoring) => update({ live_scoring })}
+                />
+                <Switch
+                    label="Require Scorer Init Submit Before Match Start"
+                    hint="Start Match stays locked until every team's pre-match setup is submitted"
+                    checked={settings.require_ready}
+                    onChange={(require_ready) => update({ require_ready })}
+                />
+                <Switch
+                    label="Enable Referee Tablets"
+                    hint="When off, a match is committed without waiting for the penalty referees' tablets"
+                    checked={settings.referee_tablets}
+                    onChange={(referee_tablets) => update({ referee_tablets })}
+                />
+            </fieldset>
+            <fieldset className={fieldsetClass}>
+                <legend className="px-1">Control Page Appearance</legend>
+                <Switch
+                    label="Flip Alliances (Red on Left)"
+                    checked={settings.flip_alliances}
+                    onChange={(flip_alliances) => update({ flip_alliances })}
+                />
+            </fieldset>
+            {saveError && <p className="m-1 w-fit rounded bg-[#f8d7da] px-3 py-1 text-[#842029]">{saveError}</p>}
             <fieldset className={fieldsetClass}>
                 <legend className="px-1">Game Setup</legend>
                 <Link href={eventUrl('/admin/competition-settings?from=match-control')} className={`${greenButtonClass} inline-block`}>

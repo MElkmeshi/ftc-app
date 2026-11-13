@@ -6,6 +6,7 @@ use App\Enums\MatchStatus;
 use App\Enums\MatchType;
 use App\Enums\RefereeRole;
 use App\Models\Concerns\BelongsToEvent;
+use App\Services\MatchControlSettings;
 use Database\Factories\MatchFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -45,7 +46,7 @@ class CompetitionMatch extends Model
     protected $table = 'matches';
 
     protected $fillable = [
-        'event_id', 'number', 'type', 'round', 'field', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'timing', 'ended_at', 'cancelled_at', 'submissions', 'referee_seats', 'created_by', 'updated_by',
+        'event_id', 'number', 'type', 'round', 'field', 'elimination_series_id', 'start_time', 'status', 'started_at', 'duration_ms', 'timing', 'ended_at', 'cancelled_at', 'submissions', 'referee_seats', 'review_required', 'created_by', 'updated_by',
     ];
 
     protected $hidden = [
@@ -67,6 +68,7 @@ class CompetitionMatch extends Model
             'cancelled_at' => 'datetime',
             'submissions' => 'array',
             'referee_seats' => 'array',
+            'review_required' => 'boolean',
         ];
     }
 
@@ -168,15 +170,25 @@ class CompetitionMatch extends Model
     /**
      * The referee seats the head referee is still waiting for: every
      * alliance's scoring referee, plus a penalty referee wherever one joined.
+     * Nothing is waited for when Match Control has live scoring switched off,
+     * and penalty referees are not when referee tablets are switched off.
      *
      * @return Collection<int, array{alliance: Alliance, role: RefereeRole}>
      */
     public function seatsAwaitingSubmission(): Collection
     {
+        $settings = app(MatchControlSettings::class);
+
+        if (! $settings->waitsForTablets()) {
+            return collect();
+        }
+
+        $waitsForReferees = $settings->waitsForRefereeTablets();
+
         return $this->matchAlliances->pluck('alliance')->unique('id')->values()
             ->flatMap(fn (Alliance $alliance): array => array_filter([
                 ['alliance' => $alliance, 'role' => RefereeRole::SCORING],
-                $this->hasPenaltySeat($alliance->id) ? ['alliance' => $alliance, 'role' => RefereeRole::PENALTY] : null,
+                $waitsForReferees && $this->hasPenaltySeat($alliance->id) ? ['alliance' => $alliance, 'role' => RefereeRole::PENALTY] : null,
             ]))
             ->reject(fn (array $seat): bool => $this->isSubmittedFor($seat['alliance']->id, $seat['role']))
             ->values();

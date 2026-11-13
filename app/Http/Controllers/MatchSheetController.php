@@ -36,6 +36,23 @@ class MatchSheetController extends Controller
         ]);
     }
 
+    /**
+     * Where the head referee types a match's scores in by hand or corrects
+     * them afterwards (FTC Live's Score Edit tab).
+     */
+    public function edit(CompetitionMatch $match, CurrentEvent $currentEvent): Response
+    {
+        return Inertia::render('matches/edit', [
+            'match' => Inertia::live(
+                fn () => $this->sheet($match->id),
+                on: [MatchStatusChanged::class, ScoreUpdated::class],
+                channel: $currentEvent->channel('match-control'),
+                throttle: 500,
+            ),
+            'scoreTypes' => ScoreType::query()->with('group:id,name,display_order')->orderBy('name')->get(),
+        ]);
+    }
+
     public function history(CompetitionMatch $match): Response
     {
         $match->load('matchAlliances.alliance', 'matchAlliances.team');

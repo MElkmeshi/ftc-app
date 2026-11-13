@@ -49,6 +49,7 @@ class EventArchive
         'matches' => ['elimination_series_id' => 'elimination_series'],
         'match_alliances' => ['match_id' => 'matches', 'team_id' => 'teams', 'alliance_group_id' => 'alliance_groups'],
         'scores' => ['match_id' => 'matches', 'team_id' => 'teams', 'score_type_id' => 'score_types'],
+        'match_notes' => ['match_id' => 'matches'],
         'alliance_selection_declines' => ['team_id' => 'teams', 'alliance_group_id' => 'alliance_groups'],
         'settings' => [],
     ];
