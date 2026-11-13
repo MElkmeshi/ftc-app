@@ -1,4 +1,5 @@
 import { type AwardPresentation, type AwardRow, PresentAwards, winnersText } from '@/components/awards/present-awards';
+import { TeamPicker } from '@/components/awards/team-picker';
 import InputError from '@/components/input-error';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
@@ -11,13 +12,15 @@ import { type FormEventHandler, useState } from 'react';
 
 interface AwardsProps extends SharedData {
     awards: AwardRow[];
-    teams: Pick<Team, 'id' | 'number' | 'name'>[];
+    teams: TeamOption[];
     locked: boolean;
     presenting: AwardPresentation | null;
 }
 
+type TeamOption = Pick<Team, 'id' | 'number' | 'name'>;
+
 interface PlaceEntry {
-    teams: string;
+    teams: string[];
     recipient: string;
 }
 
@@ -41,21 +44,10 @@ function placeEntries(award: AwardRow | null): PlaceEntry[] {
         const winners = award?.winners.filter((winner) => winner.place === index + 1) ?? [];
 
         return {
-            teams: winners
-                .map((winner) => winner.team?.number)
-                .filter(Boolean)
-                .join(', '),
+            teams: winners.flatMap((winner) => (winner.team ? [String(winner.team.number)] : [])),
             recipient: winners.find((winner) => winner.recipient)?.recipient ?? '',
         };
     });
-}
-
-function parseTeamNumbers(text: string): number[] {
-    return text
-        .split(/[\s,]+/)
-        .map((part) => part.trim())
-        .filter((part) => part !== '')
-        .map((part) => Number(part));
 }
 
 function useAwardForm(award: AwardRow | null, base: string, onDone?: () => void) {
@@ -72,7 +64,7 @@ function useAwardForm(award: AwardRow | null, base: string, onDone?: () => void)
         places: data.places,
         winners: data.entries.slice(0, data.places).map((entry, index) => ({
             place: index + 1,
-            teams: parseTeamNumbers(entry.teams),
+            teams: entry.teams.map(Number),
             recipient: entry.recipient.trim() || null,
         })),
     }));
@@ -210,7 +202,7 @@ function ManageAwards({ awards, base, locked }: { awards: AwardRow[]; base: stri
     );
 }
 
-function AwardWinnersForm({ award, base, locked }: { award: AwardRow; base: string; locked: boolean }) {
+function AwardWinnersForm({ award, base, locked, teams }: { award: AwardRow; base: string; locked: boolean; teams: TeamOption[] }) {
     const { form, submit } = useAwardForm(award, base);
 
     const placeError = (index: number): string | undefined =>
@@ -227,30 +219,29 @@ function AwardWinnersForm({ award, base, locked }: { award: AwardRow; base: stri
             <h4 className={bs.h4}>{award.name}</h4>
             {award.description && <p className="mb-4">{award.description}</p>}
             {form.data.entries.slice(0, form.data.places).map((entry, index) => (
-                <div key={index} className="mb-2">
-                    <label htmlFor={`place-${award.id}-${index}`} className={bs.formLabel}>
-                        {placeLabel(index + 1, form.data.places)}:
+                <div key={index} className="mb-4">
+                    <div className="font-bold capitalize">{placeLabel(index + 1, form.data.places)}</div>
+                    <label htmlFor={`place-${award.id}-${index}`} className="mb-1 block">
+                        Team
                     </label>
-                    <div className="flex gap-2">
-                        <input
-                            id={`place-${award.id}-${index}`}
-                            type="text"
-                            className={`${bs.formControl} disabled:bg-[#e9ecef]`}
-                            placeholder="Team numbers, e.g. 1234, 5678"
-                            disabled={locked}
-                            value={entry.teams}
-                            onChange={(changeEvent) => updateEntry(index, { teams: changeEvent.target.value })}
-                        />
-                        <input
-                            type="text"
-                            aria-label={`${placeLabel(index + 1, form.data.places)} person`}
-                            className={`${bs.formControl} disabled:bg-[#e9ecef]`}
-                            placeholder="Person (optional)"
-                            disabled={locked}
-                            value={entry.recipient}
-                            onChange={(changeEvent) => updateEntry(index, { recipient: changeEvent.target.value })}
-                        />
-                    </div>
+                    <TeamPicker
+                        id={`place-${award.id}-${index}`}
+                        teams={teams}
+                        selected={entry.teams}
+                        disabled={locked}
+                        onChange={(numbers) => updateEntry(index, { teams: numbers })}
+                    />
+                    <label htmlFor={`person-${award.id}-${index}`} className="mt-2 mb-1 block">
+                        Name (optional)
+                    </label>
+                    <input
+                        id={`person-${award.id}-${index}`}
+                        type="text"
+                        className={`${bs.formControl} disabled:bg-[#e9ecef]`}
+                        disabled={locked}
+                        value={entry.recipient}
+                        onChange={(changeEvent) => updateEntry(index, { recipient: changeEvent.target.value })}
+                    />
                     <InputError message={placeError(index)} />
                 </div>
             ))}
@@ -263,7 +254,8 @@ function AwardWinnersForm({ award, base, locked }: { award: AwardRow; base: stri
     );
 }
 
-function EnterAwards({ awards, base, locked, hasTeams }: { awards: AwardRow[]; base: string; locked: boolean; hasTeams: boolean }) {
+function EnterAwards({ awards, base, locked, teams }: { awards: AwardRow[]; base: string; locked: boolean; teams: TeamOption[] }) {
+    const hasTeams = teams.length > 0;
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const selected = awards.find((award) => award.id === selectedId) ?? null;
 
@@ -315,12 +307,15 @@ function EnterAwards({ awards, base, locked, hasTeams }: { awards: AwardRow[]; b
                 </div>
                 <div className="lg:w-2/3">
                     {selected ? (
-                        <AwardWinnersForm
-                            key={`${selected.id}-${selected.places}-${selected.winners.length}`}
-                            award={selected}
-                            base={base}
-                            locked={locked}
-                        />
+                        <div className="rounded-md border border-black/[0.175] bg-white p-4">
+                            <AwardWinnersForm
+                                key={`${selected.id}-${selected.places}-${selected.winners.length}`}
+                                award={selected}
+                                base={base}
+                                locked={locked}
+                                teams={teams}
+                            />
+                        </div>
                     ) : (
                         <div>Select an award to edit</div>
                     )}
@@ -372,7 +367,7 @@ export default function Awards() {
                 <InputError message={(errors as Record<string, string>).awards} />
 
                 {tab === 'manage' && <ManageAwards awards={awards} base={base} locked={locked} />}
-                {tab === 'enter' && <EnterAwards awards={awards} base={base} locked={locked} hasTeams={teams.length > 0} />}
+                {tab === 'enter' && <EnterAwards awards={awards} base={base} locked={locked} teams={teams} />}
                 {tab === 'present' && <PresentAwards awards={awards} base={base} locked={locked} presenting={presenting} />}
             </div>
         </AppLayout>
