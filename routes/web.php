@@ -32,7 +32,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', [EventController::class, 'index'])->name('home');
+Route::get('/', [EventController::class, 'home'])->name('home');
 Route::get('events', [EventController::class, 'index'])->name('events.index');
 Route::redirect('/dashboard', '/');
 

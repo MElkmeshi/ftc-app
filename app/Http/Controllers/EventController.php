@@ -22,6 +22,13 @@ class EventController extends Controller
     /**
      * The server home page: every event hosted here, like FTC Live's event list.
      */
+    public function home(): Response|RedirectResponse
+    {
+        $codes = Event::query()->limit(2)->pluck('code');
+
+        return $codes->count() === 1 ? to_route('events.show', ['event' => $codes->first()]) : $this->index();
+    }
+
     public function index(): Response
     {
         $events = Event::query()

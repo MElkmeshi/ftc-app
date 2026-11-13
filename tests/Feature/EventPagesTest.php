@@ -17,6 +17,11 @@ it('lists every event on the home page', function () {
     );
 });
 
+it('sends the home page straight to the event when there is only one', function () {
+    $this->get('/')->assertRedirect('/event/testevent');
+    $this->get('/events')->assertOk();
+});
+
 it('shows an event home page with links for every field', function () {
     $this->get('/event/testevent')->assertOk()->assertInertia(fn ($page) => $page
         ->component('events/show')
