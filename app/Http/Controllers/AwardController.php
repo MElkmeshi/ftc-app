@@ -8,6 +8,7 @@ use App\Models\Award;
 use App\Models\Setting;
 use App\Models\Team;
 use App\Services\AudienceDisplay;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,14 +29,42 @@ class AwardController extends Controller
 
     public function index(AudienceDisplay $display): Response
     {
-        $presented = $display->state()['award'];
-
         return Inertia::render('admin/awards', [
-            'awards' => Award::query()->with('winners.team:id,number,name')->orderBy('display_order')->orderBy('id')->get(),
+            'awards' => $this->awards(),
             'teams' => Team::query()->orderBy('number')->get(['id', 'number', 'name']),
             'locked' => $this->isLocked(),
-            'presenting' => $presented === null ? null : ['award_id' => $presented['id'], 'revealed' => count($presented['revealed'])],
+            'presenting' => $this->presenting($display),
         ]);
+    }
+
+    /**
+     * @return array{awards: Collection<int, Award>, awardsLocked: bool, presenting: ?array{award_id: int, revealed: int}}
+     */
+    public function presentationProps(AudienceDisplay $display): array
+    {
+        return [
+            'awards' => $this->awards(),
+            'awardsLocked' => $this->isLocked(),
+            'presenting' => $this->presenting($display),
+        ];
+    }
+
+    /**
+     * @return Collection<int, Award>
+     */
+    private function awards(): Collection
+    {
+        return Award::query()->with('winners.team:id,number,name')->orderBy('display_order')->orderBy('id')->get();
+    }
+
+    /**
+     * @return ?array{award_id: int, revealed: int}
+     */
+    private function presenting(AudienceDisplay $display): ?array
+    {
+        $presented = $display->state()['award'];
+
+        return $presented === null ? null : ['award_id' => $presented['id'], 'revealed' => count($presented['revealed'])];
     }
 
     public function store(SaveAwardRequest $request): RedirectResponse

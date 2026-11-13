@@ -25,6 +25,7 @@ use App\Models\Game;
 use App\Models\MatchAlliance;
 use App\Models\Sponsor;
 use App\Models\Team;
+use App\Services\AudienceDisplay;
 use App\Services\CurrentEvent;
 use App\Services\EventSetupChecklist;
 use App\Support\EventLiveProps;
@@ -156,10 +157,11 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
     Route::get('reports/team-list', [ReportController::class, 'teamList'])->name('reports.team-list');
     Route::get('reports/field-notes', [ReportController::class, 'fieldNotes'])->name('reports.field-notes');
 
-    Route::get('match-control', function (EventLiveProps $live) {
+    Route::get('match-control', function (EventLiveProps $live, AwardController $awards, AudienceDisplay $display) {
         return Inertia::render('match-control/index', [
             'matches' => $live->matches(),
             'display' => $live->audienceDisplay(),
+            ...$awards->presentationProps($display),
         ]);
     })->middleware(['auth', 'can:control-matches'])->name('match-control');
 
@@ -239,9 +241,12 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
             Route::get('admin/awards', [AwardController::class, 'index'])->name('awards.index');
             Route::post('awards', [AwardController::class, 'store'])->name('awards.store');
             Route::put('awards/lock', [AwardController::class, 'lock'])->name('awards.lock');
-            Route::delete('awards/presenting', [AwardController::class, 'stopPresenting'])->name('awards.stop-presenting');
             Route::put('awards/{award}', [AwardController::class, 'update'])->whereNumber('award')->name('awards.update');
             Route::delete('awards/{award}', [AwardController::class, 'destroy'])->whereNumber('award')->name('awards.destroy');
+        });
+
+        Route::middleware('can:present-awards')->group(function () {
+            Route::delete('awards/presenting', [AwardController::class, 'stopPresenting'])->name('awards.stop-presenting');
             Route::post('awards/{award}/present', [AwardController::class, 'present'])->whereNumber('award')->name('awards.present');
         });
 

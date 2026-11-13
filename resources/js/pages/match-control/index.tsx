@@ -1,5 +1,8 @@
+import { type AwardPresentation, type AwardRow, PresentAwards } from '@/components/awards/present-awards';
 import { CONSOLE_TABS, type ConsoleTab, MatchControlTabs } from '@/components/match-control-tabs';
+import { AllianceSelectionPanel } from '@/components/match-control/alliance-selection-panel';
 import { DisplaySwitch } from '@/components/match-control/display-switch';
+import { MatchTimingPanel } from '@/components/match-control/match-timing-panel';
 import { TeamCards } from '@/components/match-control/team-cards';
 import { TeamCardBadge } from '@/components/team-card-badge';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
@@ -415,8 +418,14 @@ function HeaderButton({ isNext, className, children, ...props }: { isNext: boole
     );
 }
 
+interface MatchControlProps extends SharedData {
+    awards: AwardRow[];
+    awardsLocked: boolean;
+    presenting: AwardPresentation | null;
+}
+
 export default function MatchControlConsole() {
-    const { event, name } = usePage<SharedData>().props;
+    const { event, name, awards, awardsLocked, presenting } = usePage<MatchControlProps>().props;
     const [tab, changeTab] = useConsoleTab();
     const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
     const { value: display } = useProp<AudienceDisplayState>('display');
@@ -624,6 +633,13 @@ export default function MatchControlConsole() {
                         onAbort={(match) => cancelMatch.mutate(match.id, refresh)}
                         onForceCommit={(match) => endMatch.mutate({ matchId: match.id, force: true }, refresh)}
                     />
+                )}
+                {tab === 'settings' && <MatchTimingPanel />}
+                {tab === 'alliance' && <AllianceSelectionPanel />}
+                {tab === 'awards' && (
+                    <div className="m-2 rounded-md bg-white p-4 text-[#212529]">
+                        <PresentAwards awards={awards} base={`/event/${event?.code}`} locked={awardsLocked} presenting={presenting} />
+                    </div>
                 )}
                 {tab === 'video' && (
                     <div className="p-1">

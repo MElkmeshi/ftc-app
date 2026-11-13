@@ -1,4 +1,5 @@
 import { type ScheduleTimingValue } from '@/components/schedule-timing-fields';
+import type { MatchTimingConfig } from '@/hooks/use-match-timer';
 import { type DisplayConfig } from '@/lib/display-config';
 import { eventApiUrl } from '@/lib/event';
 import { uuid } from '@/lib/uuid';
@@ -353,6 +354,18 @@ export const useApi = () => {
         await del('/api/elimination/reset');
     }, []);
 
+    const getCompetitionSettings = useCallback(async (): Promise<{ timing: MatchTimingConfig }> => {
+        return get('/api/settings/competition');
+    }, []);
+
+    const updateCompetitionSettings = useCallback(async (data: Record<string, number>): Promise<void> => {
+        await put('/api/settings/competition', data);
+    }, []);
+
+    const resetCompetitionSettings = useCallback(async (): Promise<void> => {
+        await del('/api/settings/competition/reset');
+    }, []);
+
     // Match Schedule
     const getScheduleTiming = useCallback(async (): Promise<ScheduleTimingValue> => {
         return get('/api/matches/schedule-timing');
@@ -385,6 +398,9 @@ export const useApi = () => {
     }, []);
 
     return {
+        getCompetitionSettings,
+        updateCompetitionSettings,
+        resetCompetitionSettings,
         getMatches,
         getMatch,
         getActiveMatch,
