@@ -13,8 +13,10 @@ import {
     DisplayModeValue,
     EliminationBracket,
     Group,
+    HeadRefereeDesk,
     MatchControlSettings,
     MatchNote,
+    MeetingType,
     ScoreType,
     Team,
     TeamDisplay,
@@ -368,6 +370,22 @@ export const useApi = () => {
         return put('/api/match-control/settings', changes);
     }, []);
 
+    const setTestMode = useCallback(async (enabled: boolean): Promise<MatchControlSettings> => {
+        return put('/api/match-control/test-mode', { enabled });
+    }, []);
+
+    const getHeadRefereeDesk = useCallback(async (): Promise<HeadRefereeDesk> => {
+        return get('/api/head-referee/desk');
+    }, []);
+
+    const setTwoMinuteWarning = useCallback(async (active: boolean): Promise<HeadRefereeDesk> => {
+        return put('/api/head-referee/warning', { active });
+    }, []);
+
+    const setMeetingNotes = useCallback(async (type: MeetingType, text: string): Promise<HeadRefereeDesk> => {
+        return put('/api/head-referee/meeting-notes', { type, text });
+    }, []);
+
     const commitUnplayedMatch = useCallback(async (matchId: number): Promise<CompetitionMatch> => {
         return post(`/api/matches/${matchId}/commit`);
     }, []);
@@ -440,6 +458,10 @@ export const useApi = () => {
         resetCompetitionSettings,
         getMatchControlSettings,
         updateMatchControlSettings,
+        setTestMode,
+        getHeadRefereeDesk,
+        setTwoMinuteWarning,
+        setMeetingNotes,
         commitUnplayedMatch,
         replayMatch,
         setReviewRequired,

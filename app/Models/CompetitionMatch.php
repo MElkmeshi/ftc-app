@@ -20,6 +20,10 @@ class CompetitionMatch extends Model
     /** @use HasFactory<MatchFactory> */
     use BelongsToEvent, HasFactory, SoftDeletes;
 
+    public const TEST_ROUND = 'test';
+
+    public const FIRST_TEST_NUMBER = 9001;
+
     protected static function newFactory(): MatchFactory
     {
         return MatchFactory::new();
@@ -88,7 +92,26 @@ class CompetitionMatch extends Model
 
     public function scopePractice(Builder $query): Builder
     {
-        return $query->where('type', MatchType::PRACTICE);
+        return $query->where('type', MatchType::PRACTICE)->withoutTests();
+    }
+
+    /**
+     * Throwaway matches made by Match Control's test mode. They are practice
+     * matches marked with their own round, so they never touch the rankings.
+     */
+    public function scopeTests(Builder $query): Builder
+    {
+        return $query->where('type', MatchType::PRACTICE)->where('round', self::TEST_ROUND);
+    }
+
+    public function scopeWithoutTests(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $inner) => $inner->whereNull('round')->orWhere('round', '!=', self::TEST_ROUND));
+    }
+
+    public function isTest(): bool
+    {
+        return $this->type === MatchType::PRACTICE && $this->round === self::TEST_ROUND;
     }
 
     /**

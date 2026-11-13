@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DisplayController;
 use App\Http\Controllers\Api\EliminationController;
 use App\Http\Controllers\Api\EventArchiveController;
+use App\Http\Controllers\Api\HeadRefereeDeskController;
 use App\Http\Controllers\Api\MatchCardController;
 use App\Http\Controllers\Api\MatchController;
 use App\Http\Controllers\Api\MatchControlSettingsController;
@@ -66,6 +67,10 @@ Route::middleware(['auth', 'can:control-matches'])->group(function () {
     Route::put('/matches/{id}/review', [MatchController::class, 'setReviewRequired'])->whereNumber('id');
     Route::get('/match-control/settings', [MatchControlSettingsController::class, 'show']);
     Route::put('/match-control/settings', [MatchControlSettingsController::class, 'update']);
+    Route::put('/match-control/test-mode', [MatchControlSettingsController::class, 'setTestMode']);
+    Route::get('/head-referee/desk', [HeadRefereeDeskController::class, 'show']);
+    Route::put('/head-referee/warning', [HeadRefereeDeskController::class, 'setWarning']);
+    Route::put('/head-referee/meeting-notes', [HeadRefereeDeskController::class, 'setMeetingNotes']);
     Route::get('/match-notes', [MatchNoteController::class, 'index']);
     Route::post('/match-notes', [MatchNoteController::class, 'store']);
     Route::delete('/match-notes/{note}', [MatchNoteController::class, 'destroy']);

@@ -11,6 +11,8 @@ export const DEFAULT_MATCH_CONTROL_SETTINGS: MatchControlSettings = {
     flip_alliances: false,
     recorded_countdown: false,
     active_phase: null,
+    hr_control: 'none',
+    test_mode: false,
 };
 
 const MUTATION_KEY = ['match-control-settings', 'save'];
@@ -39,5 +41,19 @@ export function useMatchControlSettings() {
         onError: () => queryClient.invalidateQueries({ queryKey }),
     });
 
-    return { settings: data ?? DEFAULT_MATCH_CONTROL_SETTINGS, update: save.mutate, error: save.error };
+    const testMode = useMutation({
+        mutationFn: (enabled: boolean) => api.setTestMode(enabled),
+        onSuccess: (saved) => {
+            queryClient.setQueryData(queryKey, saved);
+            router.reload({ only: ['matches', 'display'] });
+        },
+    });
+
+    return {
+        settings: data ?? DEFAULT_MATCH_CONTROL_SETTINGS,
+        update: save.mutate,
+        setTestMode: testMode.mutate,
+        changingTestMode: testMode.isPending,
+        error: save.error ?? testMode.error,
+    };
 }

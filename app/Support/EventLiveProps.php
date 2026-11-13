@@ -65,12 +65,14 @@ class EventLiveProps
     }
 
     /**
-     * Every match with its teams and running scores, for match control.
+     * Every match with its teams and running scores. Match control and the
+     * head referee also get test mode's throwaway matches.
      */
-    public function matches(): LiveProp
+    public function matches(bool $withTests = false): LiveProp
     {
         return Inertia::live(
             fn () => CompetitionMatch::query()
+                ->when(! $withTests, fn ($query) => $query->withoutTests())
                 ->withScoreSummary()
                 ->with('eliminationSeries:id,round')
                 ->inPlayOrder()

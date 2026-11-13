@@ -21,6 +21,7 @@ use App\Models\EliminationSeries;
 use App\Models\Event;
 use App\Models\MatchAlliance;
 use App\Models\Score;
+use App\Models\Setting;
 use App\Services\AllianceSelectionService;
 use App\Services\AudienceDisplay;
 use App\Services\CurrentEvent;
@@ -152,6 +153,7 @@ class MatchController extends Controller
         }
 
         $display->unload();
+        Setting::set(HeadRefereeDeskController::GROUP, HeadRefereeDeskController::WARNING, null);
 
         $result->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
 

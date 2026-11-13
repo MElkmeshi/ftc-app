@@ -3,7 +3,7 @@ import { bs } from '@/lib/bootstrap';
 import { getMatchTitle } from '@/lib/match-utils';
 import { allianceColorsOf, membersOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
-import { type BreadcrumbItem, type CompetitionMatch, type SharedData } from '@/types';
+import { type BreadcrumbItem, type CompetitionMatch, type MatchNote, type SharedData } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { Printer } from 'lucide-react';
 
@@ -35,7 +35,7 @@ function allianceColumns(matches: CompetitionMatch[]): { color: string; seat: nu
 }
 
 export default function FieldNotesReport() {
-    const { event, matches } = usePage<SharedData & { matches: CompetitionMatch[] }>().props;
+    const { event, matches, notes } = usePage<SharedData & { matches: CompetitionMatch[]; notes: MatchNote[] }>().props;
     const columns = allianceColumns(matches);
 
     return (
@@ -74,7 +74,17 @@ export default function FieldNotesReport() {
                                             {membersOf(match, column.color)[column.seat]?.team?.number}
                                         </td>
                                     ))}
-                                    <td className="text-center" />
+                                    <td className="text-left">
+                                        {notes
+                                            .filter((note) => note.match_id === match.id)
+                                            .map((note) => (
+                                                <div key={note.id}>
+                                                    <b>{note.summary}</b>
+                                                    {note.detail && ` — ${note.detail}`}
+                                                    {note.teams?.length ? ` [${note.teams.join(', ')}]` : ''}
+                                                </div>
+                                            ))}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

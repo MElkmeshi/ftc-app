@@ -16,7 +16,11 @@ export const TEST_TIMING: MatchTimingConfig = {
 
 export function renderWithQueryClient(ui: (client: QueryClient) => ReactNode) {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-    return { client, ui: ui(client), Wrapper: ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> };
+    return {
+        client,
+        ui: ui(client),
+        Wrapper: ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+    };
 }
 
 /** Captures the latest useEcho callback per channel/event pair so tests can fire it directly. */

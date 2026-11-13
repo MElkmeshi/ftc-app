@@ -170,7 +170,17 @@ export function getFieldLabel(match: Pick<CompetitionMatch, 'field'>, fieldCount
     return fieldCount > 1 && match.field ? `Field ${match.field}` : null;
 }
 
+export const FIRST_TEST_NUMBER = 9001;
+
+export function isTestMatch(match: Pick<CompetitionMatch, 'type' | 'round'>): boolean {
+    return match.type === 'practice' && match.round === 'test';
+}
+
 export function getMatchTitle(match: Pick<CompetitionMatch, 'number' | 'type' | 'round'>): string {
+    if (isTestMatch(match)) {
+        return `Test Match ${match.number - FIRST_TEST_NUMBER + 1}`;
+    }
+
     if (match.type === 'practice') {
         return `Practice ${match.number}`;
     }

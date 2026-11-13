@@ -3,7 +3,7 @@ import { useMatchControlSettings } from '@/hooks/use-match-control-settings';
 import type { MatchTimingConfig } from '@/hooks/use-match-timer';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { apiScope, eventUrl } from '@/lib/event';
-import { type CompetitionMatch } from '@/types';
+import { type CompetitionMatch, type MatchControlSettings } from '@/types';
 import { Link } from '@inertiajs/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
@@ -90,10 +90,18 @@ function Switch({ label, checked, onChange, hint }: { label: string; checked: bo
     );
 }
 
-export function MatchTimingPanel({ phase, phases }: { phase: CompetitionMatch['type']; phases: CompetitionMatch['type'][] }) {
+export function MatchTimingPanel({
+    phase,
+    phases,
+    hasRunningMatch,
+}: {
+    phase: CompetitionMatch['type'] | 'test';
+    phases: (CompetitionMatch['type'] | 'test')[];
+    hasRunningMatch: boolean;
+}) {
     const api = useApi();
     const { data } = useQuery({ queryKey: ['competition-settings', apiScope()], queryFn: () => api.getCompetitionSettings() });
-    const { settings, update, error } = useMatchControlSettings();
+    const { settings, update, setTestMode, changingTestMode, error } = useMatchControlSettings();
     const saveError = getApiErrorMessage(error);
 
     return (
@@ -101,6 +109,15 @@ export function MatchTimingPanel({ phase, phases }: { phase: CompetitionMatch['t
             <fieldset className={fieldsetClass}>
                 <legend className="px-1">Active Match Schedule</legend>
                 <div className="flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        className={greenButtonClass}
+                        disabled={changingTestMode || hasRunningMatch}
+                        title="Throwaway matches for trying the timer, displays and tablets. They are deleted when you exit."
+                        onClick={() => setTestMode(!settings.test_mode)}
+                    >
+                        {settings.test_mode ? 'Exit Test Mode' : 'Enter Test Mode'}
+                    </button>
                     <button
                         type="button"
                         className={greenButtonClass}
@@ -149,6 +166,18 @@ export function MatchTimingPanel({ phase, phases }: { phase: CompetitionMatch['t
                     checked={settings.referee_tablets}
                     onChange={(referee_tablets) => update({ referee_tablets })}
                 />
+                <label className="flex w-fit items-center gap-2" title="Allows basic match control from the Head Referee page.">
+                    Enable External Match Control
+                    <select
+                        className="rounded border border-white bg-white px-1 text-black"
+                        value={settings.hr_control}
+                        onChange={(e) => update({ hr_control: e.target.value as MatchControlSettings['hr_control'] })}
+                    >
+                        <option value="none">None</option>
+                        <option value="start">Match Start</option>
+                        <option value="full">Full Control</option>
+                    </select>
+                </label>
             </fieldset>
             <fieldset className={fieldsetClass}>
                 <legend className="px-1">Control Page Appearance</legend>

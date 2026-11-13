@@ -22,6 +22,7 @@ class UpdateMatchControlSettingsRequest extends FormRequest
             'referee_tablets' => ['sometimes', 'boolean'],
             'flip_alliances' => ['sometimes', 'boolean'],
             'recorded_countdown' => ['sometimes', 'boolean'],
+            'hr_control' => ['sometimes', Rule::in(['none', 'start', 'full'])],
             'active_phase' => ['sometimes', 'nullable', Rule::enum(MatchType::class)],
         ];
     }

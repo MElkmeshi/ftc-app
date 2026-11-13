@@ -160,13 +160,13 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
 
     Route::get('match-control', function (EventLiveProps $live) {
         return Inertia::render('match-control/index', [
-            'matches' => $live->matches(),
+            'matches' => $live->matches(withTests: true),
             'display' => $live->audienceDisplay(),
         ]);
     })->middleware(['auth', 'can:control-matches'])->name('match-control');
 
     Route::get('head-referee', function (EventLiveProps $live) {
-        return Inertia::render('referee/head-referee', ['matches' => $live->matches()]);
+        return Inertia::render('referee/head-referee', ['matches' => $live->matches(withTests: true)]);
     })->middleware(['auth', 'can:control-matches'])->name('head-referee');
 
     Route::middleware(['auth', 'verified'])->group(function () {

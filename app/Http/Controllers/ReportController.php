@@ -7,6 +7,7 @@ use App\Enums\MatchType;
 use App\Models\CompetitionMatch;
 use App\Models\Group;
 use App\Models\MatchAlliance;
+use App\Models\MatchNote;
 use App\Models\ScoreType;
 use App\Models\Team;
 use App\Services\AllianceSelectionService;
@@ -83,6 +84,7 @@ class ReportController extends Controller
     {
         return Inertia::render('reports/field-notes', [
             'matches' => $this->schedule()->where('status', '!=', MatchStatus::CANCELLED)->values(),
+            'notes' => MatchNote::query()->orderBy('id')->get(['id', 'match_id', 'summary', 'detail', 'teams']),
         ]);
     }
 
@@ -173,7 +175,10 @@ class ReportController extends Controller
      */
     public function notes(): Response
     {
-        return Inertia::render('reports/notes', ['teams' => $this->teams()]);
+        return Inertia::render('reports/notes', [
+            'teams' => $this->teams(),
+            'notes' => MatchNote::query()->with('match:id,number,type,round')->orderBy('id')->get(['id', 'match_id', 'summary', 'detail', 'teams']),
+        ]);
     }
 
     /**
@@ -190,6 +195,7 @@ class ReportController extends Controller
     private function schedule(): Collection
     {
         return CompetitionMatch::query()
+            ->withoutTests()
             ->with(['matchAlliances.alliance', 'matchAlliances.team:id,number,name,organization,city,rookie_year'])
             ->inPlayOrder()
             ->get(['id', 'number', 'type', 'round', 'field', 'start_time', 'status']);

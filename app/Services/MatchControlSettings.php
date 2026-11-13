@@ -25,12 +25,13 @@ class MatchControlSettings
         'referee_tablets' => true,
         'flip_alliances' => false,
         'active_phase' => null,
+        'hr_control' => 'none',
     ];
 
     public function __construct(private CurrentGame $currentGame, private MatchTimingService $matchTiming) {}
 
     /**
-     * @return array{live_scoring: bool, require_ready: bool, referee_tablets: bool, flip_alliances: bool, active_phase: ?string, recorded_countdown: bool}
+     * @return array{live_scoring: bool, require_ready: bool, referee_tablets: bool, flip_alliances: bool, active_phase: ?string, hr_control: string, recorded_countdown: bool, test_mode: bool}
      */
     public function all(): array
     {
@@ -40,12 +41,13 @@ class MatchControlSettings
             ...self::DEFAULTS,
             ...$stored,
             'recorded_countdown' => $this->matchTiming->current()['pre_match_countdown'] > 0,
+            'test_mode' => (bool) Setting::get(self::GROUP, 'test_mode', false),
         ];
     }
 
     /**
      * @param  array<string, mixed>  $changes
-     * @return array{live_scoring: bool, require_ready: bool, referee_tablets: bool, flip_alliances: bool, active_phase: ?string, recorded_countdown: bool}
+     * @return array{live_scoring: bool, require_ready: bool, referee_tablets: bool, flip_alliances: bool, active_phase: ?string, hr_control: string, recorded_countdown: bool, test_mode: bool}
      */
     public function update(array $changes): array
     {

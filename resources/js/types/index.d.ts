@@ -291,6 +291,15 @@ export interface MatchControlSettings {
     flip_alliances: boolean;
     recorded_countdown: boolean;
     active_phase: CompetitionMatch['type'] | null;
+    hr_control: 'none' | 'start' | 'full';
+    test_mode: boolean;
+}
+
+export type MeetingType = 'referee' | 'logistics' | 'driver' | 'captain' | 'other';
+
+export interface HeadRefereeDesk {
+    warning_started_at: string | null;
+    meeting_notes: Partial<Record<MeetingType, string>>;
 }
 
 export interface MatchNote {

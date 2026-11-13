@@ -162,6 +162,7 @@ function ConnectedDisplays() {
     const [checked, setChecked] = useState<string[]>([]);
     const [bulkField, setBulkField] = useState<number | null>(null);
     const [saving, setSaving] = useState(false);
+    const [bulkEditing, setBulkEditing] = useState(false);
 
     const configure = async (displayIds: string[], changes: Partial<DisplayConfig>) => {
         setSaving(true);
@@ -173,6 +174,7 @@ function ConnectedDisplays() {
     };
 
     const selectedIds = checked.filter((id) => displays.some((display) => display.id === id));
+    const bulkTemplate = displays.find((display) => display.id === selectedIds[0]);
 
     return (
         <Card>
@@ -249,6 +251,20 @@ function ConnectedDisplays() {
                     </div>
                 )}
 
+                {displays.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button size="sm" disabled={selectedIds.length === 0 || saving} onClick={() => setBulkEditing(true)}>
+                            Bulk Reconfigure
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setChecked(displays.map((display) => display.id))}>
+                            Select All
+                        </Button>
+                        <Button size="sm" variant="outline" disabled={selectedIds.length === 0} onClick={() => setChecked([])}>
+                            Clear Selection
+                        </Button>
+                    </div>
+                )}
+
                 {fieldCount > 1 && displays.length > 0 && (
                     <div className="flex flex-wrap items-center gap-2 border-t pt-3">
                         <Label htmlFor="bulk-field" className="text-sm">
@@ -277,6 +293,24 @@ function ConnectedDisplays() {
                     </div>
                 )}
             </CardContent>
+
+            {bulkEditing && bulkTemplate && (
+                <DisplaySettingsDialog
+                    open
+                    onOpenChange={(open) => !open && setBulkEditing(false)}
+                    config={{ ...bulkTemplate.config, name: null }}
+                    subtitle={`Reconfigure ${selectedIds.length} ${selectedIds.length === 1 ? 'display' : 'displays'}`}
+                    onSave={(config) => {
+                        const changes: Partial<DisplayConfig> = { ...config };
+                        delete changes.name;
+
+                        return configure(selectedIds, changes).then(() => {
+                            setBulkEditing(false);
+                            setChecked([]);
+                        });
+                    }}
+                />
+            )}
 
             {editing && (
                 <DisplaySettingsDialog

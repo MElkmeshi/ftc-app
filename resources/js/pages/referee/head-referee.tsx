@@ -1,19 +1,25 @@
+import { FoulControls } from '@/components/head-referee/foul-controls';
+import { MatchControls } from '@/components/head-referee/match-controls';
+import { MeetingNotes } from '@/components/head-referee/meeting-notes';
+import { ScoresheetsTab } from '@/components/head-referee/scoresheets-tab';
 import { TeamCards } from '@/components/match-control/team-cards';
 import { formatScoreName } from '@/components/scoring/score-controls';
 import { TeamCardBadge } from '@/components/team-card-badge';
 import { useApi } from '@/hooks/use-api';
 import { useFieldCount } from '@/hooks/use-field-count';
+import { useHeadRefereeDesk } from '@/hooks/use-head-referee-desk';
 import { useLoadedMatch, useMatch, useScoreTypes } from '@/hooks/use-match';
+import { useMatchControlSettings } from '@/hooks/use-match-control-settings';
 import AppLayout from '@/layouts/app-layout';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { bs } from '@/lib/bootstrap';
-import { apiScope, eventUrl } from '@/lib/event';
-import { getAllianceMembers, getAllianceScore, getMatchTitle } from '@/lib/match-utils';
+import { apiScope } from '@/lib/event';
+import { FIRST_TEST_NUMBER, getAllianceMembers, getAllianceScore, getMatchTitle, isTestMatch } from '@/lib/match-utils';
 import { findSubmission, seatsOf } from '@/lib/referee-seats';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type CompetitionMatch, type MatchNote, type RefereeRole, type ScoreType } from '@/types';
-import { Head, Link, router, useProp } from '@inertiajs/react';
+import { Head, router, useProp } from '@inertiajs/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
@@ -26,6 +32,10 @@ const STATUS_LABELS: Record<string, string> = { upcoming: 'Unplayed', ongoing: '
 const TWO_MINUTES_MS = 120_000;
 
 function shortMatchName(match: CompetitionMatch): string {
+    if (isTestMatch(match)) {
+        return `T${match.number - FIRST_TEST_NUMBER + 1}`;
+    }
+
     if (match.type === 'practice') {
         return `P${match.number}`;
     }
@@ -84,7 +94,8 @@ function TabletStatus({
 }
 
 function countFor(match: CompetitionMatch, color: Color, scoreType: ScoreType): number {
-    const allianceIds = new Set(getAllianceMembers(match, color).map((member) => member.alliance.id));
+    const scoredFor = scoreType.awarded_to === 'opponent' ? (color === 'red' ? 'blue' : 'red') : color;
+    const allianceIds = new Set(getAllianceMembers(match, scoredFor).map((member) => member.alliance.id));
 
     return (match.scores ?? []).filter((score) => score.score_type_id === scoreType.id && allianceIds.has(score.alliance_id ?? -1)).length;
 }
@@ -231,6 +242,7 @@ function ActiveMatchTab({
             {groups.map(([name, group]) => (
                 <ScoreGroup key={name} title={`${name} Scores`} scoreTypes={group.scoreTypes} match={match} flip={flip} />
             ))}
+            <FoulControls match={match} scoreTypes={scoreTypes} flip={flip} />
             <hr className="my-4" />
 
             <h6 className="mb-2 text-center font-medium">Teams / Cards</h6>
@@ -366,7 +378,7 @@ function NoteText({ note, prefix, onDelete }: { note: MatchNote; prefix?: string
 function NotesTab({ matches, onAddNote }: { matches: CompetitionMatch[]; onAddNote: (match: CompetitionMatch) => void }) {
     const api = useApi();
     const queryClient = useQueryClient();
-    const [view, setView] = useState<'match' | 'team'>('match');
+    const [view, setView] = useState<'match' | 'team' | 'meeting'>('match');
     const { data: notes = [] } = useQuery({ queryKey: ['match-notes', apiScope()], queryFn: () => api.getMatchNotes(), refetchInterval: 10000 });
     const remove = useMutation({
         mutationFn: (note: MatchNote) => api.deleteMatchNote(note.id),
@@ -387,8 +399,13 @@ function NotesTab({ matches, onAddNote }: { matches: CompetitionMatch[]; onAddNo
                 <button type="button" className={view === 'team' ? bs.btnPrimary : bs.btnSecondary} onClick={() => setView('team')}>
                     By Team
                 </button>
+                <button type="button" className={view === 'meeting' ? bs.btnPrimary : bs.btnSecondary} onClick={() => setView('meeting')}>
+                    Meeting
+                </button>
             </div>
-            {view === 'match' ? (
+            {view === 'meeting' ? (
+                <MeetingNotes />
+            ) : view === 'match' ? (
                 <>
                     <p className="mb-2">Tap on a row to add a note for that match.</p>
                     <table className={cn(bs.table, bs.tableStriped)}>
@@ -454,7 +471,8 @@ function duration(milliseconds: number): string {
 
 function TimersTab({ matches, next }: { matches: CompetitionMatch[]; next: CompetitionMatch | null }) {
     const [now, setNow] = useState(() => serverNow());
-    const [warningEndsAt, setWarningEndsAt] = useState<number | null>(null);
+    const { warningStartedAt, setWarning } = useHeadRefereeDesk();
+    const warningEndsAt = warningStartedAt === null ? null : warningStartedAt + TWO_MINUTES_MS;
 
     useEffect(() => {
         const id = setInterval(() => setNow(serverNow()), 500);
@@ -507,8 +525,8 @@ function TimersTab({ matches, next }: { matches: CompetitionMatch[]; next: Compe
                         <span className="italic">
                             {warningEndsAt !== null
                                 ? warningEndsAt > now
-                                    ? `2-minute warning: ${duration(warningEndsAt - now)} left`
-                                    : '2-minute warning has ended!'
+                                    ? `2-Minute Warning Active: ${duration(warningEndsAt - now)}`
+                                    : '2-Minute Warning has ended!'
                                 : nextStart !== null && nextStart > now
                                   ? `Match starts in ${duration(nextStart - now)}`
                                   : 'Match start time has passed!'}
@@ -516,9 +534,9 @@ function TimersTab({ matches, next }: { matches: CompetitionMatch[]; next: Compe
                         <button
                             type="button"
                             className={bs.btnSuccess}
-                            onClick={() => setWarningEndsAt(warningEndsAt === null ? serverNow() + TWO_MINUTES_MS : null)}
+                            onClick={() => (warningEndsAt === null || confirm('Are you sure you want to restart the timer?')) && setWarning(true)}
                         >
-                            {warningEndsAt === null ? 'Start 2-Minute Warning' : 'Clear 2-Minute Warning'}
+                            {warningEndsAt === null ? 'Start 2-Minute Warning' : 'Restart 2-Minute Warning'}
                         </button>
                     </div>
                     <hr className="my-4" />
@@ -554,40 +572,6 @@ function TimersTab({ matches, next }: { matches: CompetitionMatch[]; next: Compe
     );
 }
 
-function ScoresheetsTab({ matches }: { matches: CompetitionMatch[] }) {
-    const [matchId, setMatchId] = useState('');
-
-    return (
-        <div className="my-4 flex flex-wrap items-center gap-3">
-            <label htmlFor="scoresheet-match">Match:</label>
-            <select id="scoresheet-match" className={cn(bs.formSelect, 'w-auto')} value={matchId} onChange={(e) => setMatchId(e.target.value)}>
-                <option value="">Select Match</option>
-                {matches.map((match) => (
-                    <option key={match.id} value={match.id}>
-                        {shortMatchName(match)}
-                    </option>
-                ))}
-            </select>
-            {matchId && (
-                <>
-                    <Link href={eventUrl(`/matches/${matchId}`)} className={bs.btnPrimary}>
-                        View Scoresheet
-                    </Link>
-                    <Link href={eventUrl(`/matches/${matchId}/edit`)} className={bs.btnSecondary}>
-                        Edit Scores
-                    </Link>
-                    <Link href={eventUrl(`/matches/${matchId}/history`)} className={bs.btnSecondary}>
-                        History
-                    </Link>
-                </>
-            )}
-            <Link href={eventUrl('/reports/scoresheets')} className="ml-auto text-[#0d6efd] underline">
-                Printable scoresheets
-            </Link>
-        </div>
-    );
-}
-
 const TABS = [
     { value: 'active', label: 'Active Match' },
     { value: 'notes', label: 'Notes' },
@@ -596,16 +580,29 @@ const TABS = [
 ] as const;
 
 export default function HeadReferee() {
-    const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
+    const { value: allMatches = [] } = useProp<CompetitionMatch[]>('matches');
+    const fieldCount = useFieldCount();
+    const [field, setField] = useState<number | null>(() => {
+        const requested = Number(new URLSearchParams(window.location.search).get('field'));
+
+        return Number.isInteger(requested) && requested > 0 ? requested : null;
+    });
+    const matches = useMemo(() => (field === null ? allMatches : allMatches.filter((match) => match.field === field)), [allMatches, field]);
+    const { settings } = useMatchControlSettings();
+    const chooseField = (chosen: number | null) => {
+        setField(chosen);
+        window.history.replaceState(window.history.state, '', chosen === null ? window.location.pathname : `?field=${chosen}`);
+    };
     const [tab, setTab] = useState<(typeof TABS)[number]['value']>('active');
     const [noteMatch, setNoteMatch] = useState<CompetitionMatch | null>(null);
     const running = matches.find((match) => match.status === 'ongoing');
     const { data: loadedMatch } = useLoadedMatch(5000);
-    const waiting = loadedMatch?.status === 'upcoming' ? loadedMatch : null;
+    const waiting = loadedMatch?.status === 'upcoming' && (field === null || loadedMatch.field === field) ? loadedMatch : null;
     const lastPlayed = [...matches].reverse().find((match) => match.status === 'completed');
     const { data: liveMatch } = useMatch(running?.id ?? waiting?.id ?? lastPlayed?.id ?? null, 2000);
     const match = liveMatch ?? running ?? null;
-    const next = waiting ?? matches.find((candidate) => candidate.status === 'upcoming') ?? null;
+    const firstUnplayed = matches.find((candidate) => candidate.status === 'upcoming') ?? null;
+    const next = waiting ?? firstUnplayed;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -620,7 +617,21 @@ export default function HeadReferee() {
                         Fullscreen
                     </button>
                 </div>
-                <h2 className={cn(bs.h2, 'text-center')}>Head Referee</h2>
+                <h2 className={cn(bs.h2, 'text-center')}>Head Referee ({field === null ? 'All Fields' : `Field ${field}`})</h2>
+                {fieldCount > 1 && (
+                    <div className="mb-2 flex flex-wrap justify-center gap-2">
+                        {[null, ...Array.from({ length: fieldCount }, (_, index) => index + 1)].map((option) => (
+                            <button
+                                key={option ?? 'all'}
+                                type="button"
+                                className={cn(bs.btnSm, option === field ? bs.btnPrimary : bs.btnSecondary)}
+                                onClick={() => chooseField(option)}
+                            >
+                                {option === null ? 'All Fields' : `Field ${option}`}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 <ul className="flex flex-wrap border-b border-[#dee2e6]" role="tablist">
                     {TABS.map((option) => (
@@ -643,6 +654,7 @@ export default function HeadReferee() {
                     ))}
                 </ul>
 
+                {tab === 'active' && <MatchControls control={settings.hr_control} loaded={waiting} running={running ?? null} next={firstUnplayed} />}
                 {tab === 'active' &&
                     (match ? (
                         <ActiveMatchTab match={match} matches={matches} onAddNote={setNoteMatch} />

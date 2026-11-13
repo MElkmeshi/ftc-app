@@ -10,7 +10,7 @@ import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useStartMatch } from '@/hooks/use-match';
 import { useMatchControlSettings } from '@/hooks/use-match-control-settings';
 import { eventUrl } from '@/lib/event';
-import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, scheduleDriftMinutes } from '@/lib/match-utils';
+import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, isTestMatch, scheduleDriftMinutes } from '@/lib/match-utils';
 import { findSubmission, seatsOf } from '@/lib/referee-seats';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
@@ -27,9 +27,12 @@ import { useConnectionStatus } from '@laravel/echo-react';
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 
-type MatchPhase = CompetitionMatch['type'];
+type MatchPhase = CompetitionMatch['type'] | 'test';
+
+const phaseOf = (match: CompetitionMatch): MatchPhase => (isTestMatch(match) ? 'test' : match.type);
 
 const MATCH_PHASES: { value: MatchPhase; label: string }[] = [
+    { value: 'test', label: 'Test' },
     { value: 'practice', label: 'Practice' },
     { value: 'qualification', label: 'Qualification' },
     { value: 'elimination', label: 'Playoffs' },
@@ -73,8 +76,8 @@ function errorMessage(error: unknown): string | null {
 }
 
 function currentPhase(matches: CompetitionMatch[]): MatchPhase {
-    const phases = MATCH_PHASES.filter((option) => matches.some((match) => match.type === option.value));
-    const ofPhase = (phase: MatchPhase) => matches.filter((match) => match.type === phase);
+    const phases = MATCH_PHASES.filter((option) => matches.some((match) => phaseOf(match) === option.value));
+    const ofPhase = (phase: MatchPhase) => matches.filter((match) => phaseOf(match) === phase);
     const startedIndex = phases.findLastIndex((phase) =>
         ofPhase(phase.value).some((match) => match.status === 'ongoing' || match.status === 'completed'),
     );
@@ -430,7 +433,10 @@ function ActiveMatchPanel({
 
 function SyncFooter({ matches }: { matches: CompetitionMatch[] }) {
     const status = useConnectionStatus();
-    const drift = scheduleDriftMinutes(matches, useServerNow());
+    const drift = scheduleDriftMinutes(
+        matches.filter((match) => !isTestMatch(match)),
+        useServerNow(),
+    );
     const driftLabel = drift === null ? '' : Math.abs(drift) <= 1 ? 'On schedule' : drift > 0 ? `${drift}m behind` : `${-drift}m ahead`;
 
     return (
@@ -517,15 +523,23 @@ export default function MatchControlConsole() {
     const [displayError, setDisplayError] = useState<string | null>(null);
 
     const refresh = { onSuccess: () => router.reload({ only: ['matches', 'display'] }) };
-    const phases = MATCH_PHASES.filter((option) => matches.some((match) => match.type === option.value));
-    const phaseNow =
-        settings.active_phase && phases.some((option) => option.value === settings.active_phase) ? settings.active_phase : currentPhase(matches);
+    const phases = MATCH_PHASES.filter((option) => matches.some((match) => phaseOf(match) === option.value));
+    const hasPhase = (wanted: MatchPhase | null) => wanted !== null && phases.some((option) => option.value === wanted);
+    const phaseNow: MatchPhase = hasPhase('test')
+        ? 'test'
+        : hasPhase(settings.active_phase)
+          ? (settings.active_phase as MatchPhase)
+          : currentPhase(matches.filter((match) => !isTestMatch(match)));
     const ongoing = matches.find((match) => match.status === 'ongoing') ?? null;
     const loaded = matches.find((match) => match.id === display?.loaded_match_id && match.status === 'upcoming') ?? null;
     const nextUpcoming =
-        matches.find((match) => match.type === phaseNow && match.status === 'upcoming' && match.id !== loaded?.id) ??
-        matches.find((match) => match.status === 'upcoming' && match.id !== loaded?.id) ??
+        matches.find((match) => phaseOf(match) === phaseNow && match.status === 'upcoming' && match.id !== loaded?.id) ??
+        matches.find((match) => !isTestMatch(match) && phaseNow !== 'test' && match.status === 'upcoming' && match.id !== loaded?.id) ??
         null;
+    useEffect(() => {
+        setPhase(phaseNow);
+    }, [phaseNow]);
+
     const lastCompleted = matches.filter((match) => match.status === 'completed').at(-1) ?? null;
     const awaiting = awaitingSubmissions(ongoing, settings);
     const loadedTeams = loaded?.match_alliances ?? [];
@@ -716,7 +730,7 @@ export default function MatchControlConsole() {
                             </div>
                         )}
                         <ScheduleTable
-                            matches={matches.filter((match) => match.type === phase)}
+                            matches={matches.filter((match) => phaseOf(match) === phase)}
                             display={display}
                             busy={busy}
                             hasRunningMatch={ongoing !== null}
@@ -747,7 +761,9 @@ export default function MatchControlConsole() {
                         onForceCommit={(match) => endMatch.mutate({ matchId: match.id, force: true }, refresh)}
                     />
                 )}
-                {tab === 'settings' && <MatchTimingPanel phase={phaseNow} phases={phases.map((option) => option.value)} />}
+                {tab === 'settings' && (
+                    <MatchTimingPanel phase={phaseNow} phases={phases.map((option) => option.value)} hasRunningMatch={ongoing !== null} />
+                )}
                 {tab === 'alliance' && <AllianceSelectionPanel />}
                 {tab === 'video' && (
                     <div className="p-1">

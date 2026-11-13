@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type CompetitionMatch, type Group, type ScoreType } from '@/types';
 import { Head, usePage, useProp } from '@inertiajs/react';
 
-type SheetScoreType = Pick<ScoreType, 'id' | 'name' | 'points' | 'group_id' | 'awarded_to' | 'target'>;
+export type SheetScoreType = Pick<ScoreType, 'id' | 'name' | 'points' | 'group_id' | 'awarded_to' | 'target'>;
 
 interface SheetLine {
     key: string;
@@ -96,7 +96,7 @@ function buildSections(match: CompetitionMatch, color: string, scoreTypes: Map<n
     ];
 }
 
-function AllianceSheet({
+export function AllianceSheet({
     match,
     color,
     scoreTypes,

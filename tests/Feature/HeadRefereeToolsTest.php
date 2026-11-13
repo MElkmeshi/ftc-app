@@ -135,3 +135,60 @@ it('opens the score edit page for the head referee only', function () {
         ->get("/event/testevent/matches/{$this->match->id}/edit")
         ->assertForbidden();
 });
+
+it('enters test mode with throwaway matches that stay out of the practice schedule, and deletes them on leaving', function () {
+    Alliance::create(['name' => 'Blue Alliance', 'color' => 'blue']);
+    Team::factory()->count(2)->create();
+
+    $this->putJson('/api/match-control/test-mode', ['enabled' => true])->assertOk()->assertJsonPath('test_mode', true);
+
+    expect(CompetitionMatch::query()->tests()->count())->toBe(3)
+        ->and(CompetitionMatch::query()->practice()->count())->toBe(0)
+        ->and(CompetitionMatch::query()->tests()->first()->matchAlliances()->count())->toBe(4);
+
+    $this->get('/event/testevent/schedule')->assertInertia(fn ($page) => $page->has('matches', 1));
+    $this->get('/event/testevent/match-control')->assertInertia(fn ($page) => $page->has('matches', 4));
+
+    $test = CompetitionMatch::query()->tests()->first();
+    $this->postJson('/api/matches/start', ['match_id' => $test->id])->assertOk();
+    $this->putJson('/api/match-control/test-mode', ['enabled' => false])->assertUnprocessable();
+    $this->postJson('/api/matches/cancel', ['match_id' => $test->id])->assertOk();
+
+    $this->putJson('/api/match-control/test-mode', ['enabled' => false])->assertOk()->assertJsonPath('test_mode', false);
+
+    expect(CompetitionMatch::withTrashed()->tests()->count())->toBe(0)
+        ->and(CompetitionMatch::query()->count())->toBe(1);
+    $this->getJson('/api/matches/loaded')->assertExactJson([]);
+});
+
+it('shares the two-minute warning between head referee screens until the next match starts', function () {
+    $this->getJson('/api/head-referee/desk')->assertOk()->assertJsonPath('warning_started_at', null);
+
+    $this->putJson('/api/head-referee/warning', ['active' => true])->assertOk();
+    expect($this->getJson('/api/head-referee/desk')->json('warning_started_at'))->not->toBeNull();
+
+    $this->postJson('/api/matches/start', ['match_id' => $this->match->id])->assertOk();
+    $this->getJson('/api/head-referee/desk')->assertJsonPath('warning_started_at', null);
+});
+
+it('keeps notes for each kind of meeting', function () {
+    $this->putJson('/api/head-referee/meeting-notes', ['type' => 'driver', 'text' => 'Stay behind the line'])->assertOk();
+    $this->putJson('/api/head-referee/meeting-notes', ['type' => 'referee', 'text' => 'Call fouls early'])
+        ->assertOk()
+        ->assertJsonPath('meeting_notes.driver', 'Stay behind the line')
+        ->assertJsonPath('meeting_notes.referee', 'Call fouls early');
+
+    $this->putJson('/api/head-referee/meeting-notes', ['type' => 'lunch', 'text' => 'x'])->assertUnprocessable();
+});
+
+it('lets the head referee page control matches only as far as match control allows', function () {
+    $this->putJson('/api/match-control/settings', ['hr_control' => 'start'])->assertOk()->assertJsonPath('hr_control', 'start');
+    $this->putJson('/api/match-control/settings', ['hr_control' => 'everything'])->assertUnprocessable();
+});
+
+it('prints match notes on the head referee tracking and FTA notes reports', function () {
+    MatchNote::factory()->create(['match_id' => $this->match->id, 'summary' => 'Late to field', 'teams' => [(string) $this->teams[0]->number]]);
+
+    $this->get('/event/testevent/reports/notes')->assertInertia(fn ($page) => $page->where('notes.0.summary', 'Late to field')->where('notes.0.match.number', 1));
+    $this->get('/event/testevent/reports/field-notes')->assertInertia(fn ($page) => $page->where('notes.0.match_id', $this->match->id));
+});
