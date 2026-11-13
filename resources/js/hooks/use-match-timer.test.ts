@@ -146,4 +146,25 @@ describe('useMatchTimer', () => {
 
         expect(result.current.phase).toBe('transition');
     });
+
+    it('plays the start whistle when joining a match with no countdown in its first seconds, and not when joining late', () => {
+        const timing = { ...TIMING, pre_match_countdown: 0, total_with_countdown: 170 };
+        const playSound = vi.fn();
+        const { result } = renderHook(() => useMatchTimer({ timing, playSound }));
+
+        act(() => {
+            vi.setSystemTime(new Date('2026-01-01T00:00:01.500Z'));
+            result.current.resumeFrom('2026-01-01T00:00:00.000Z', 170_000);
+        });
+
+        expect(playSound).toHaveBeenCalledTimes(1);
+        expect(playSound).toHaveBeenCalledWith('match_start_whistle.wav');
+
+        act(() => {
+            vi.setSystemTime(new Date('2026-01-01T00:10:10.000Z'));
+            result.current.resumeFrom('2026-01-01T00:10:00.000Z', 170_000);
+        });
+
+        expect(playSound).toHaveBeenCalledTimes(1);
+    });
 });

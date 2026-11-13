@@ -57,6 +57,8 @@ const DEFAULT_TIMING: MatchTimingConfig = {
     total_with_countdown: 158,
 };
 
+const START_SOUND_GRACE_SECONDS = 3;
+
 export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & MatchTimerActions {
     const { timing = DEFAULT_TIMING, onMatchEnd, playSound } = config;
 
@@ -318,7 +320,12 @@ export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & 
             if (remaining <= totalDuration && remaining > totalMatch) {
                 soundsPlayedRef.current.add('pre_countdown');
             }
-            if (remaining <= totalMatch) soundsPlayedRef.current.add('start');
+            if (remaining <= totalMatch) {
+                if (totalMatch - remaining < START_SOUND_GRACE_SECONDS && !soundsPlayedRef.current.has('start')) {
+                    playSoundRef.current?.('match_start_whistle.wav');
+                }
+                soundsPlayedRef.current.add('start');
+            }
             if (remaining <= transitionRemaining) soundsPlayedRef.current.add('transition_start');
             if (remaining <= transitionCountdownStart) soundsPlayedRef.current.add('transition_countdown');
             if (remaining <= teleopRemaining) soundsPlayedRef.current.add('teleop_start');
