@@ -7,6 +7,7 @@ const config = (overrides: Partial<DisplayConfig>): DisplayConfig => ({
     flipped: false,
     field: null,
     name: null,
+    overlay: false,
     color: null,
     ...overrides,
 });
@@ -19,6 +20,7 @@ describe('display config', () => {
             flipped: true,
             field: 2,
             name: null,
+            overlay: false,
             color: null,
         });
     });
@@ -53,11 +55,13 @@ describe('display config', () => {
         expect(displayPlaysSound(config({ type: 'pit' }))).toBe(false);
     });
 
-    it('keeps a chosen chroma key colour only on a stream overlay', () => {
-        expect(displayConfigQuery(config({ type: 'overlay', color: '#0000ff' }))).toBe('?type=overlay&color=%230000ff');
-        expect(displayConfigQuery(config({ type: 'overlay', color: '#00ff00' }))).toBe('?type=overlay');
+    it('keeps the display type when the overlay is switched on, with its chroma key colour', () => {
+        expect(displayConfigQuery(config({ type: 'field', overlay: true, color: '#0000ff' }))).toBe('?type=field&overlay=1&color=%230000ff');
+        expect(displayConfigQuery(config({ type: 'audience', overlay: true, color: '#00ff00' }))).toBe('?type=audience&overlay=1');
         expect(displayConfigQuery(config({ type: 'audience', color: '#0000ff' }))).toBe('?type=audience');
-        expect(parseDisplayConfig('?type=overlay&color=%230000FF').color).toBe('#0000ff');
-        expect(parseDisplayConfig('?type=overlay&color=red').color).toBeNull();
+        expect(displayConfigQuery(config({ type: 'pit', overlay: true }))).toBe('?type=pit');
+        expect(parseDisplayConfig('?type=field&overlay=1&color=%230000FF')).toMatchObject({ type: 'field', overlay: true, color: '#0000ff' });
+        expect(parseDisplayConfig('?type=overlay')).toMatchObject({ type: 'audience', overlay: true });
+        expect(parseDisplayConfig('?type=audience&overlay=1&color=red').color).toBeNull();
     });
 });

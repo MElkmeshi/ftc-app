@@ -33,7 +33,7 @@ it('lists the displays that are open, with what each is set to show', function (
         ->assertOk()
         ->assertJsonCount(1)
         ->assertJsonPath('0.id', SCREEN)
-        ->assertJsonPath('0.config', ['type' => 'field', 'mute' => false, 'flipped' => false, 'field' => 2, 'name' => 'Field 2 TV', 'color' => null]);
+        ->assertJsonPath('0.config', ['type' => 'field', 'mute' => false, 'flipped' => false, 'field' => 2, 'name' => 'Field 2 TV', 'overlay' => false, 'color' => null]);
 });
 
 it('drops a display that stops reporting', function () {
@@ -60,21 +60,21 @@ it('changes the chosen displays and tells each one to switch', function () {
 
     Event::assertDispatchedTimes(DisplayConfigured::class, 1);
     Event::assertDispatched(DisplayConfigured::class, fn (DisplayConfigured $event) => $event->displayId === SCREEN
-        && $event->config === ['type' => 'field', 'mute' => true, 'flipped' => false, 'field' => 1, 'name' => null, 'color' => null]
+        && $event->config === ['type' => 'field', 'mute' => true, 'flipped' => false, 'field' => 1, 'name' => null, 'overlay' => false, 'color' => null]
         && $event->broadcastOn()[0]->name === 'event.testevent.display');
 });
 
 it('keeps a sponsor screen and a stream overlay with its chroma colour', function () {
-    reportScreen(SCREEN, ['type' => 'overlay', 'color' => '#0000ff']);
+    reportScreen(SCREEN, ['type' => 'field', 'overlay' => true, 'color' => '#0000ff']);
     reportScreen('22222222-2222-4222-8222-222222222222', ['type' => 'sponsor']);
 
     $this->actingAs($this->headReferee)->getJson('/api/display/connected')
-        ->assertJsonFragment(['type' => 'overlay', 'color' => '#0000ff'])
+        ->assertJsonFragment(['type' => 'field', 'overlay' => true, 'color' => '#0000ff'])
         ->assertJsonFragment(['type' => 'sponsor']);
 });
 
 it('rejects an overlay colour that is not a hex colour', function () {
-    $this->postJson('/api/display/connected', ['display_id' => SCREEN, 'type' => 'overlay', 'mute' => false, 'flipped' => false, 'color' => 'red;'])
+    $this->postJson('/api/display/connected', ['display_id' => SCREEN, 'type' => 'audience', 'overlay' => true, 'mute' => false, 'flipped' => false, 'color' => 'red;'])
         ->assertJsonValidationErrors('color');
 });
 

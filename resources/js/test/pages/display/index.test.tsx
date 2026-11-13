@@ -145,6 +145,6 @@ describe('Display', () => {
         fireEvent.change(screen.getByLabelText('Overlay colour picker'), { target: { value: '#0000ff' } });
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-        expect(inertia.get).toHaveBeenCalledWith(expect.stringMatching(/\?type=overlay&color=%230000ff$/), {}, expect.anything());
+        expect(inertia.get).toHaveBeenCalledWith(expect.stringMatching(/\?type=audience&overlay=1&color=%230000ff$/), {}, expect.anything());
     });
 });

@@ -1,10 +1,11 @@
 import { AllianceSelectionScreen } from '@/components/display/alliance-selection-screen';
-import { BlankScreen, MatchScreen, PreviewScreen } from '@/components/display/audience-screen';
+import { allianceSummary, BlankScreen, ChromaStage, matchClock, MatchScreen, PreviewScreen } from '@/components/display/audience-screen';
+import { PreviewBar, ScoreBar } from '@/components/display/display-kit';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { type SoundName } from '@/hooks/use-audio-engine';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { useLoadedMatch, useMatch, useMatches } from '@/hooks/use-match';
-import { getFieldLabel } from '@/lib/match-utils';
+import { getAllianceMembers, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
 import { type AudienceDisplayState, type CompetitionMatch } from '@/types';
 import { useProp } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
@@ -20,7 +21,17 @@ import { useEffect, useState } from 'react';
  * "bind to field"); it then ignores the other field's matches and, while
  * nothing is happening on its own field, shows the next match coming to it.
  */
-export function FieldScreen({ playSound, flipped, field }: { playSound?: (name: SoundName) => void; flipped: boolean; field: number | null }) {
+export function FieldScreen({
+    playSound,
+    flipped,
+    field,
+    chromaColor,
+}: {
+    playSound?: (name: SoundName) => void;
+    flipped: boolean;
+    field: number | null;
+    chromaColor?: string;
+}) {
     const fieldCount = useFieldCount();
     const boundField = field && field <= fieldCount && fieldCount > 1 ? field : null;
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound, field: boundField });
@@ -64,6 +75,14 @@ export function FieldScreen({ playSound, flipped, field }: { playSound?: (name: 
     const matchIsUp = display?.mode === 'match' && display.match_id === shown?.id;
 
     if (!activeMatch && !showingFinal && !matchIsUp) {
+        if (shown && chromaColor) {
+            return (
+                <ChromaStage color={chromaColor}>
+                    <PreviewBar title={getMatchTitle(shown)} red={getAllianceMembers(shown, 'red')} blue={getAllianceMembers(shown, 'blue')} />
+                </ChromaStage>
+            );
+        }
+
         return shown ? <PreviewScreen match={shown} /> : <BlankScreen />;
     }
 
@@ -71,11 +90,27 @@ export function FieldScreen({ playSound, flipped, field }: { playSound?: (name: 
         return <BlankScreen />;
     }
 
+    const teleopSeconds = matchConfig?.timing.teleop ?? 120;
+
+    if (chromaColor) {
+        return (
+            <ChromaStage color={chromaColor}>
+                <ScoreBar
+                    title={shown ? getMatchTitle(shown) : ''}
+                    red={allianceSummary(shown, 'red')}
+                    blue={allianceSummary(shown, 'blue')}
+                    flipped={flipped}
+                    clock={matchClock(timer, teleopSeconds, shown)}
+                />
+            </ChromaStage>
+        );
+    }
+
     return (
         <MatchScreen
             match={shown}
             timer={timer}
-            teleopSeconds={matchConfig?.timing.teleop ?? 120}
+            teleopSeconds={teleopSeconds}
             flipped={flipped}
             waitingLabel={boundField ? 'No more matches on this field' : 'No match loaded'}
             fieldLabel={boundField ? `Field ${boundField}` : shown ? getFieldLabel(shown, fieldCount) : null}

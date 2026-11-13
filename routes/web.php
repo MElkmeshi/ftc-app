@@ -94,7 +94,7 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
         })->name('display');
 
         Route::get('display/pit', fn () => to_route('display', ['type' => 'pit']))->name('display.pit');
-        Route::get('display/match-overlay', fn () => to_route('display', ['type' => 'overlay']))->name('display.match-overlay');
+        Route::get('display/match-overlay', fn () => to_route('display', ['type' => 'audience', 'overlay' => 1]))->name('display.match-overlay');
 
         Route::get('referee/match-control', fn () => to_route('display'))->name('referee.match-control');
 

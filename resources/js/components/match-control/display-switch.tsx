@@ -219,7 +219,10 @@ function ConnectedDisplays() {
                                                 {display.config.name ?? <span className="text-muted-foreground">Unnamed</span>}
                                             </td>
                                             <td className="text-muted-foreground py-2 pr-3 tabular-nums">{display.ip ?? '—'}</td>
-                                            <td className="py-2 pr-3">{option.label}</td>
+                                            <td className="py-2 pr-3">
+                                                {option.label}
+                                                {display.config.overlay && option.canOverlay ? ' (Overlay)' : ''}
+                                            </td>
                                             <td className="py-2 pr-3">{describeField(display.config)}</td>
                                             <td className="py-2 pr-3">{option.playsSound ? (display.config.mute ? 'Off' : 'On') : '—'}</td>
                                             <td className="py-2 pr-3">

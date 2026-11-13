@@ -3,7 +3,7 @@
  * same /display page and picks its own type; the choice lives in the page
  * address so a bookmark or a reload keeps it.
  */
-export type DisplayType = 'audience' | 'field' | 'pit' | 'overlay' | 'sponsor';
+export type DisplayType = 'audience' | 'field' | 'pit' | 'sponsor';
 
 export interface DisplayConfig {
     type: DisplayType;
@@ -14,6 +14,8 @@ export interface DisplayConfig {
     field: number | null;
     /** A label so the screen can be told apart in match control, e.g. "Pit TV 2". */
     name: string | null;
+    /** Audience and field screens can show their bars over a chroma key colour for a livestream. */
+    overlay: boolean;
     /** The chroma key colour behind a stream overlay. */
     color: string | null;
 }
@@ -25,6 +27,7 @@ export interface DisplayTypeOption {
     playsSound: boolean;
     /** Field screens can swap sides and follow one field. */
     canFlip: boolean;
+    canOverlay: boolean;
 }
 
 export const DISPLAY_TYPES: DisplayTypeOption[] = [
@@ -34,6 +37,7 @@ export const DISPLAY_TYPES: DisplayTypeOption[] = [
         description: 'Projector for the crowd. Shows whatever Match Control puts up: preview, match, results, rankings, bracket.',
         playsSound: true,
         canFlip: false,
+        canOverlay: true,
     },
     {
         value: 'field',
@@ -41,6 +45,7 @@ export const DISPLAY_TYPES: DisplayTypeOption[] = [
         description: 'Screen for the drive teams. Always shows the match on the field with its timer and live score.',
         playsSound: true,
         canFlip: true,
+        canOverlay: true,
     },
     {
         value: 'pit',
@@ -48,13 +53,7 @@ export const DISPLAY_TYPES: DisplayTypeOption[] = [
         description: 'TV in the pits. Scrolling rankings next to the matches coming up.',
         playsSound: false,
         canFlip: false,
-    },
-    {
-        value: 'overlay',
-        label: 'Stream overlay',
-        description: 'Green-screen scorebar for a livestream (chroma key the green area).',
-        playsSound: true,
-        canFlip: false,
+        canOverlay: false,
     },
     {
         value: 'sponsor',
@@ -62,12 +61,21 @@ export const DISPLAY_TYPES: DisplayTypeOption[] = [
         description: "Cycles through the event's sponsors.",
         playsSound: false,
         canFlip: false,
+        canOverlay: false,
     },
 ];
 
 export const DEFAULT_OVERLAY_COLOR = '#00ff00';
 
-export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = { type: 'audience', mute: false, flipped: false, field: null, name: null, color: null };
+export const DEFAULT_DISPLAY_CONFIG: DisplayConfig = {
+    type: 'audience',
+    mute: false,
+    flipped: false,
+    field: null,
+    name: null,
+    overlay: false,
+    color: null,
+};
 
 export function displayTypeOption(type: DisplayType): DisplayTypeOption {
     return DISPLAY_TYPES.find((option) => option.value === type) ?? DISPLAY_TYPES[0];
@@ -88,8 +96,12 @@ export function parseDisplayConfig(search: string): DisplayConfig {
     const field = Number(params.get('field'));
     const color = params.get('color');
 
+    const legacyOverlay = type === 'overlay';
+    const resolvedType = isDisplayType(type) ? type : DEFAULT_DISPLAY_CONFIG.type;
+
     return {
-        type: isDisplayType(type) ? type : DEFAULT_DISPLAY_CONFIG.type,
+        type: resolvedType,
+        overlay: displayTypeOption(resolvedType).canOverlay && (legacyOverlay || params.get('overlay') === '1'),
         mute: params.get('mute') === '1',
         flipped: params.get('flipped') === '1',
         field: Number.isInteger(field) && field >= 1 ? field : null,
@@ -115,8 +127,12 @@ export function displayConfigQuery(config: DisplayConfig): string {
         params.set('field', String(config.field));
     }
 
-    if (config.type === 'overlay' && config.color && config.color !== DEFAULT_OVERLAY_COLOR) {
-        params.set('color', config.color);
+    if (config.overlay && option.canOverlay) {
+        params.set('overlay', '1');
+
+        if (config.color && config.color !== DEFAULT_OVERLAY_COLOR) {
+            params.set('color', config.color);
+        }
     }
 
     if (config.name?.trim()) {

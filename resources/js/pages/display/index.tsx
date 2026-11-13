@@ -26,17 +26,17 @@ function SponsorDisplay() {
 }
 
 function DisplayScreen({ config, playSound }: { config: DisplayConfig; playSound?: ReturnType<typeof useAudioEngine>['playSound'] }) {
+    const chroma = config.overlay ? (config.color ?? DEFAULT_OVERLAY_COLOR) : undefined;
+
     switch (config.type) {
         case 'field':
-            return <FieldScreen playSound={playSound} flipped={config.flipped} field={config.field} />;
+            return <FieldScreen playSound={playSound} flipped={config.flipped} field={config.field} chromaColor={chroma} />;
         case 'pit':
             return <PitScreen />;
-        case 'overlay':
-            return <StreamOverlayScreen playSound={playSound} chromaColor={config.color ?? DEFAULT_OVERLAY_COLOR} />;
         case 'sponsor':
             return <SponsorDisplay />;
         default:
-            return <AudienceScreen playSound={playSound} />;
+            return chroma ? <StreamOverlayScreen playSound={playSound} chromaColor={chroma} /> : <AudienceScreen playSound={playSound} />;
     }
 }
 
@@ -71,7 +71,11 @@ export default function Display() {
     return (
         <>
             {/* Keyed by type and field so switching screens starts each one with fresh timers. */}
-            <DisplayScreen key={`${config.type}-${config.field ?? 'all'}`} config={config} playSound={playsSound ? playSound : undefined} />
+            <DisplayScreen
+                key={`${config.type}-${config.field ?? 'all'}-${config.overlay}`}
+                config={config}
+                playSound={playsSound ? playSound : undefined}
+            />
             {playsSound && !unlocked && <AudioUnlockPrompt />}
             <DisplaySettings config={config} onChange={changeConfig} defaultOpen={!isDisplayConfigured(search)} playSound={playSound} />
         </>

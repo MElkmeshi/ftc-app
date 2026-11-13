@@ -9,7 +9,7 @@ import { type CSSProperties, type ReactNode, type PointerEvent as ReactPointerEv
 
 const CURSOR_IDLE_MS = 3000;
 
-type ScreenType = Exclude<DisplayType, 'overlay'>;
+type ScreenType = DisplayType;
 type Section = 'audio' | 'display' | 'overlay' | 'advanced';
 
 const SCREEN_TYPES: { value: ScreenType; label: string }[] = [
@@ -144,7 +144,6 @@ export function DisplaySettingsDialog({
     const [section, setSection] = useState<Section | null>('display');
     const [testSound, setTestSound] = useState<SoundName>(TEST_SOUNDS[0].value);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
-    const [overlayBase, setOverlayBase] = useState<'audience' | 'field'>('audience');
     const colorInput = useRef<HTMLInputElement>(null);
 
     const [wasOpen, setWasOpen] = useState(open);
@@ -170,10 +169,10 @@ export function DisplaySettingsDialog({
         return null;
     }
 
-    const usesOverlay = draft.type === 'overlay';
-    const screenType: ScreenType = draft.type === 'overlay' ? overlayBase : draft.type;
-    const hasTimer = screenType === 'audience' || screenType === 'field';
     const option = displayTypeOption(draft.type);
+    const screenType: ScreenType = draft.type;
+    const hasTimer = option.canOverlay;
+    const usesOverlay = draft.overlay && hasTimer;
     const toggle = (next: Section) => setSection(section === next ? null : next);
 
     const startDrag = (pointerEvent: ReactPointerEvent<HTMLDivElement>) => {
@@ -257,12 +256,7 @@ export function DisplaySettingsDialog({
                                     id="display-type"
                                     value={screenType}
                                     onChange={(changeEvent) => {
-                                        const next = changeEvent.target.value as ScreenType;
-                                        const keepsOverlay = usesOverlay && (next === 'audience' || next === 'field');
-                                        if (keepsOverlay) {
-                                            setOverlayBase(next);
-                                        }
-                                        setDraft({ ...draft, type: keepsOverlay ? 'overlay' : next });
+                                        setDraft({ ...draft, type: changeEvent.target.value as ScreenType });
                                     }}
                                     className={selectClass}
                                     style={selectStyle}
@@ -274,7 +268,7 @@ export function DisplaySettingsDialog({
                                     ))}
                                 </select>
                             </FormRow>
-                            {screenType === 'field' && !usesOverlay && fieldCount > 1 && (
+                            {screenType === 'field' && fieldCount > 1 && (
                                 <FormRow label="Bind to Field" htmlFor="display-field">
                                     <select
                                         id="display-field"
@@ -306,17 +300,14 @@ export function DisplaySettingsDialog({
                                             type="radio"
                                             label="Use field-style timer (with a big timer in the middle of the screen)"
                                             checked={!usesOverlay}
-                                            onChange={() => setDraft({ ...draft, type: overlayBase })}
+                                            onChange={() => setDraft({ ...draft, overlay: false })}
                                         />
                                         <Check
                                             id="display-overlay"
                                             type="radio"
                                             label="Use Overlay"
                                             checked={usesOverlay}
-                                            onChange={() => {
-                                                setOverlayBase(screenType === 'field' ? 'field' : 'audience');
-                                                setDraft({ ...draft, type: 'overlay' });
-                                            }}
+                                            onChange={() => setDraft({ ...draft, overlay: true })}
                                         />
                                     </div>
                                 </fieldset>
