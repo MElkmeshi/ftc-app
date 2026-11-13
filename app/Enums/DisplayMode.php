@@ -18,6 +18,7 @@ enum DisplayMode: string
     case Message = 'message';
     case Award = 'award';
     case Sponsors = 'sponsors';
+    case Video = 'video';
 
     public function label(): string
     {
@@ -32,6 +33,7 @@ enum DisplayMode: string
             self::Message => 'Message',
             self::Award => 'Award',
             self::Sponsors => 'Sponsors',
+            self::Video => 'Video only (overlay)',
         };
     }
 

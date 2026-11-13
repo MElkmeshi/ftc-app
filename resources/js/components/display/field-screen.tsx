@@ -1,4 +1,5 @@
-import { MatchScreen } from '@/components/display/audience-screen';
+import { AllianceSelectionScreen } from '@/components/display/alliance-selection-screen';
+import { BlankScreen, MatchScreen, PreviewScreen } from '@/components/display/audience-screen';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { type SoundName } from '@/hooks/use-audio-engine';
 import { useFieldCount } from '@/hooks/use-field-count';
@@ -9,9 +10,11 @@ import { useProp } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 /**
- * The drive teams' screen. It ignores what the audience is being shown and
- * always follows the field: the loaded match before it starts, the running
- * match with its timer, then the final score until the next match is loaded.
+ * The drive teams' screen. Like FTC Live's field display it follows the field
+ * rather than the audience: the loaded match's line-up before it starts, the
+ * running match with its timer, then the final score until results are posted
+ * or the next match is loaded. Alliance selection is the one audience screen
+ * it also shows.
  *
  * At a multi-field event a screen can follow one field (like FTC Live's
  * "bind to field"); it then ignores the other field's matches and, while
@@ -52,6 +55,21 @@ export function FieldScreen({ playSound, flipped, field }: { playSound?: (name: 
     const matchId = activeMatch?.id ?? (showingFinal ? lastPlayedMatchId : null) ?? loadedMatch?.id ?? nextOnField?.id ?? null;
     const { data: match } = useMatch(matchId, 5000);
     const shown = matchId ? match : null;
+    const resultsPosted = display?.mode === 'results' && display.match_id === lastPlayedMatchId;
+
+    if (!activeMatch && display?.mode === 'alliance_selection') {
+        return <AllianceSelectionScreen />;
+    }
+
+    const matchIsUp = display?.mode === 'match' && display.match_id === shown?.id;
+
+    if (!activeMatch && !showingFinal && !matchIsUp) {
+        return shown ? <PreviewScreen match={shown} /> : <BlankScreen />;
+    }
+
+    if (showingFinal && resultsPosted) {
+        return <BlankScreen />;
+    }
 
     return (
         <MatchScreen

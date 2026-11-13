@@ -9,7 +9,7 @@ import { useApi } from '@/hooks/use-api';
 import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useStartMatch } from '@/hooks/use-match';
 import { eventUrl } from '@/lib/event';
-import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, getPhaseLabel, scheduleDriftMinutes } from '@/lib/match-utils';
+import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, scheduleDriftMinutes } from '@/lib/match-utils';
 import { findSubmission, seatsOf } from '@/lib/referee-seats';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
@@ -38,7 +38,11 @@ const ROLE_LABELS: Record<RefereeRole, string> = { scoring: 'Scoring', penalty: 
 
 const headerButtonClass =
     'rounded-md border px-3.5 py-2 leading-tight whitespace-pre-line disabled:pointer-events-none disabled:opacity-65 border-[#f8f9fa] bg-[#f8f9fa] text-black hover:bg-[#d3d4d5]';
-const nextActionClass = 'border-[#198754] bg-[#198754] text-white hover:bg-[#157347]';
+const HEADER_TONES = {
+    success: 'border-[#198754] bg-[#198754] text-white hover:bg-[#157347]',
+    warning: 'border-[#ffc107] bg-[#ffc107] text-black hover:bg-[#ffca2c]',
+    danger: 'border-[#dc3545] bg-[#dc3545] text-white hover:bg-[#bb2d3b]',
+};
 const rowButtonClass =
     'rounded-[3px] border border-[#f8f9fa] bg-[#f8f9fa] px-1.5 text-sm leading-[20px] text-black hover:bg-[#d3d4d5] disabled:opacity-65';
 
@@ -409,13 +413,59 @@ function SyncFooter({ matches }: { matches: CompetitionMatch[] }) {
     );
 }
 
-function HeaderButton({ isNext, className, children, ...props }: { isNext: boolean; children: ReactNode } & React.ComponentProps<'button'>) {
+function HeaderButton({
+    tone,
+    className,
+    children,
+    ...props
+}: { tone?: keyof typeof HEADER_TONES; children: ReactNode } & React.ComponentProps<'button'>) {
     return (
-        <button type="button" className={cn(headerButtonClass, isNext && nextActionClass, className)} {...props}>
+        <button type="button" className={cn(headerButtonClass, tone && !props.disabled && HEADER_TONES[tone], className)} {...props}>
             {children}
         </button>
     );
 }
+
+function teamNumbers(match: CompetitionMatch, color: 'red' | 'blue'): string {
+    return getAllianceMembers(match, color)
+        .map((member) => member.team.number)
+        .join(', ');
+}
+
+function MatchStatusRow({
+    label,
+    match,
+    clock,
+    awaiting = false,
+}: {
+    label: string;
+    match: CompetitionMatch | null;
+    clock: string;
+    awaiting?: boolean;
+}) {
+    return (
+        <tr>
+            <th className="p-px pr-2 text-left">{label}</th>
+            {match && (
+                <>
+                    <td className="px-6">{getMatchTitle(match)}</td>
+                    <td className="px-6 tabular-nums">{clock}</td>
+                    <td className={cn('pr-12 pl-1', awaiting && 'bg-[#fd7e14]')}>Red: {teamNumbers(match, 'red')}</td>
+                    <td className={cn('pr-12 pl-1', awaiting && 'bg-[#fd7e14]')}>Blue: {teamNumbers(match, 'blue')}</td>
+                </>
+            )}
+        </tr>
+    );
+}
+
+const PHASE_NAMES: Record<string, string> = {
+    'pre-match': 'Starting',
+    autonomous: 'AUTO',
+    transition: 'Transition',
+    teleop: 'TELEOP',
+    endgame: 'TELEOP',
+    'post-match': 'Done',
+};
 
 export default function MatchControlConsole() {
     const { event, name } = usePage<SharedData>().props;
@@ -436,7 +486,7 @@ export default function MatchControlConsole() {
     const refresh = { onSuccess: () => router.reload({ only: ['matches', 'display'] }) };
     const phaseNow = currentPhase(matches);
     const ongoing = matches.find((match) => match.status === 'ongoing') ?? null;
-    const loaded = matches.find((match) => match.id === display?.match_id && match.status === 'upcoming') ?? null;
+    const loaded = matches.find((match) => match.id === display?.loaded_match_id && match.status === 'upcoming') ?? null;
     const nextUpcoming =
         matches.find((match) => match.type === phaseNow && match.status === 'upcoming' && match.id !== loaded?.id) ??
         matches.find((match) => match.status === 'upcoming' && match.id !== loaded?.id) ??
@@ -475,14 +525,24 @@ export default function MatchControlConsole() {
         }
     };
 
-    const nextAction = ongoing ? (awaiting.length === 0 ? 'commit' : null) : loaded ? 'start' : !lastPosted && lastCompleted ? 'commit' : 'load';
-    const timerLabel =
-        ongoing &&
-        `${getPhaseLabel(timer.phase)} ${
-            timer.phase === 'autonomous'
-                ? formatTime(timer.phaseRemainingSeconds + (matchConfig?.timing.teleop ?? 120))
-                : formatTime(timer.phase === 'pre-match' ? 0 : timer.phaseRemainingSeconds)
-        }`;
+    const teleopSeconds = matchConfig?.timing.teleop ?? 120;
+    const matchSeconds = (matchConfig?.timing.autonomous ?? 30) + teleopSeconds;
+    const matchOver = ongoing !== null && timer.phase === 'post-match';
+    const activeSeconds =
+        timer.phase === 'autonomous'
+            ? timer.phaseRemainingSeconds + teleopSeconds
+            : timer.phase === 'pre-match'
+              ? matchSeconds
+              : timer.phaseRemainingSeconds;
+    const showing = (mode: DisplayModeValue, match: CompetitionMatch | null) =>
+        match !== null && display?.mode === mode && display.match_id === match.id;
+    const shownMatch = ongoing ?? loaded;
+
+    const abortMatch = () => {
+        if (ongoing && confirm(matchOver ? 'Discard this match? Its scores are thrown away.' : 'Abort the running match?')) {
+            cancelMatch.mutate(ongoing.id, refresh);
+        }
+    };
 
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-[#334c55] text-[#f8f9fa]">
@@ -501,16 +561,13 @@ export default function MatchControlConsole() {
             <div className="shrink-0 bg-[#293d45] pb-2.5">
                 <h1 className="text-center text-[30px] font-bold">Match Control</h1>
                 <div className="flex flex-wrap items-end gap-y-2 px-2">
-                    <table className="mx-auto md:ml-[300px]">
+                    <table className="mx-auto md:ml-[240px]">
                         <tbody>
-                            <tr>
-                                <th className="p-px pr-2 text-left">Loaded Match:</th>
-                                <td>{loaded ? getMatchTitle(loaded) : ''}</td>
-                            </tr>
+                            <MatchStatusRow label="Loaded Match:" match={loaded} clock={`${formatTime(matchSeconds)} (Not Started)`} />
                             {loaded && (
                                 <tr>
                                     <th className="p-px pr-2 text-left">Teams Ready:</th>
-                                    <td>
+                                    <td colSpan={4} className="px-6">
                                         <span className={cn('mr-2 font-bold', notReady.length === 0 ? 'text-[#75b798]' : 'text-[#ffc107]')}>
                                             {loadedTeams.length - notReady.length}/{loadedTeams.length}
                                         </span>
@@ -529,44 +586,56 @@ export default function MatchControlConsole() {
                                     </td>
                                 </tr>
                             )}
-                            <tr>
-                                <th className="p-px pr-2 text-left">Active Match:</th>
-                                <td>
-                                    {ongoing ? getMatchTitle(ongoing) : ''}
-                                    {timerLabel && <span className="ml-3 font-mono">{timerLabel}</span>}
-                                </td>
-                            </tr>
+                            <MatchStatusRow
+                                label="Active Match:"
+                                match={ongoing}
+                                clock={`${formatTime(activeSeconds)} (${PHASE_NAMES[timer.phase] ?? timer.phase})`}
+                                awaiting={matchOver && awaiting.length > 0}
+                            />
                         </tbody>
                     </table>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-y-2 px-2">
-                    <div className="flex flex-wrap gap-4 md:ml-[424px]">
+                    <div className="flex flex-wrap gap-4 md:ml-[360px]">
                         <HeaderButton
-                            isNext={nextAction === 'load'}
-                            disabled={busy || ongoing !== null || !nextUpcoming}
+                            tone="success"
+                            disabled={busy || loaded !== null || !nextUpcoming}
                             onClick={() => nextUpcoming && loadMatch.mutate(nextUpcoming.id, refresh)}
                         >
                             {'Load Next\nMatch'}
                         </HeaderButton>
-                        <HeaderButton isNext={false} disabled={!loaded} onClick={() => loaded && show('preview', loaded.id)}>
+                        <HeaderButton
+                            tone={showing('preview', loaded) ? 'warning' : 'success'}
+                            disabled={!loaded}
+                            onClick={() => loaded && show('preview', loaded.id)}
+                        >
                             {'Show\nPreview'}
                         </HeaderButton>
-                        <HeaderButton isNext={false} disabled={!loaded && !ongoing} onClick={() => show('match', (ongoing ?? loaded)?.id)}>
+                        <HeaderButton
+                            tone={showing('match', shownMatch) ? 'warning' : 'success'}
+                            disabled={!shownMatch}
+                            onClick={() => shownMatch && show('match', shownMatch.id)}
+                        >
                             {'Show\nMatch'}
                         </HeaderButton>
-                        <HeaderButton
-                            isNext={nextAction === 'start'}
-                            disabled={busy || !loaded || ongoing !== null}
-                            title={loaded && notReady.length > 0 ? `Not ready: ${notReady.join(', ')}` : undefined}
-                            onClick={() => loaded && startMatch.mutate(loaded.id, refresh)}
-                        >
-                            {loaded ? `Start Match\n${loadedTeams.length - notReady.length}/${loadedTeams.length} Ready` : 'Start\nMatch'}
-                        </HeaderButton>
+                        {ongoing ? (
+                            <HeaderButton tone="danger" disabled={busy} onClick={abortMatch}>
+                                {matchOver ? 'Discard\nMatch' : 'Abort\nMatch'}
+                            </HeaderButton>
+                        ) : (
+                            <HeaderButton
+                                tone="danger"
+                                disabled={busy || !loaded}
+                                title={loaded && notReady.length > 0 ? `Not ready: ${notReady.join(', ')}` : undefined}
+                                onClick={() => loaded && startMatch.mutate(loaded.id, refresh)}
+                            >
+                                {'Start\nMatch'}
+                            </HeaderButton>
+                        )}
                     </div>
                     <HeaderButton
-                        isNext={nextAction === 'commit'}
                         className="ml-auto"
-                        disabled={busy || (ongoing ? awaiting.length > 0 : !lastCompleted || lastPosted)}
+                        disabled={busy || (ongoing ? !matchOver || awaiting.length > 0 : !lastCompleted || lastPosted)}
                         title={awaiting.length > 0 ? `Waiting for ${awaiting.join(' and ')} to submit` : undefined}
                         onClick={commitAndPost}
                     >

@@ -120,11 +120,13 @@ export function ScoreBar({
     red,
     blue,
     flipped = false,
+    clock,
 }: {
     title: ReactNode;
     red: { teams: string[]; score: number };
     blue: { teams: string[]; score: number };
     flipped?: boolean;
+    clock?: string;
 }) {
     const { event } = usePage<SharedData>().props;
 
@@ -153,6 +155,12 @@ export function ScoreBar({
         </div>
     );
 
+    const timer = clock !== undefined && (
+        <div className="flex shrink-0 items-center justify-center bg-white text-black tabular-nums" style={{ width: vw(150), fontSize: vh(58) }}>
+            {clock}
+        </div>
+    );
+
     return (
         <div className="absolute inset-x-0 bottom-0">
             <div className="flex items-center bg-black" style={{ height: vh(50), fontSize: vh(22) }}>
@@ -164,14 +172,52 @@ export function ScoreBar({
                 {flipped ? (
                     <>
                         {side('blue', blue, false)}
+                        {timer}
                         {side('red', red, true)}
                     </>
                 ) : (
                     <>
                         {side('red', red, false)}
+                        {timer}
                         {side('blue', blue, true)}
                     </>
                 )}
+            </div>
+        </div>
+    );
+}
+
+export function PreviewBar({ title, red, blue }: { title: ReactNode; red: MatchAlliance[]; blue: MatchAlliance[] }) {
+    const { event } = usePage<SharedData>().props;
+
+    const side = (color: 'red' | 'blue', members: MatchAlliance[]) => (
+        <div
+            className="flex flex-1 flex-col justify-center"
+            style={{ gap: vh(4), padding: `${vh(6)} ${vw(10)}`, backgroundColor: color === 'red' ? DISPLAY_COLORS.redDark : DISPLAY_COLORS.blueDark }}
+        >
+            {members.map((member) => (
+                <div key={member.id} className="flex" style={{ height: vh(44), fontSize: vh(24) }}>
+                    <div className="flex items-center justify-center text-white" style={{ width: vw(110), backgroundColor: DISPLAY_COLORS[color] }}>
+                        {member.team.number}
+                    </div>
+                    <div className="flex flex-1 items-center truncate bg-white text-black" style={{ paddingLeft: vw(8) }}>
+                        {member.team.name}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+
+    return (
+        <div className="absolute inset-x-0 bottom-0">
+            <div className="flex items-center bg-black" style={{ height: vh(50), fontSize: vh(22) }}>
+                <div className="flex-1 truncate text-center">{event?.name}</div>
+                <div className="flex-1 truncate text-center">{title}</div>
+                <LogoBox className="h-full bg-white text-black" style={{ width: vw(220) }} />
+            </div>
+            <div className="flex">
+                {side('red', red)}
+                {side('blue', blue)}
             </div>
         </div>
     );

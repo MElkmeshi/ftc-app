@@ -140,7 +140,7 @@ class MatchController extends Controller
             return $result;
         }
 
-        cache()->forget($this->loadedMatchCacheKey());
+        $display->unload();
 
         $result->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
 
@@ -226,7 +226,7 @@ class MatchController extends Controller
 
         LiveBroadcast::send(new MatchStatusChanged($result, 'cancelled'));
 
-        $display->show(DisplayMode::Preview, $result->id);
+        $display->load($result->id);
 
         return response()->json($result);
     }
@@ -236,18 +236,16 @@ class MatchController extends Controller
         $match = CompetitionMatch::with(['matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType'])
             ->findOrFail($request->input('match_id'));
 
-        cache()->put($this->loadedMatchCacheKey(), $match->id, now()->addHours(12));
+        $display->load($match->id);
 
         LiveBroadcast::send(new MatchStatusChanged($match, 'loaded'));
-
-        $display->show(DisplayMode::Preview, $match->id);
 
         return response()->json($match);
     }
 
-    public function loadedMatch(): JsonResponse
+    public function loadedMatch(AudienceDisplay $display): JsonResponse
     {
-        $matchId = cache()->get($this->loadedMatchCacheKey());
+        $matchId = $display->loadedMatchId();
 
         if (! $matchId) {
             return response()->json(null);
@@ -373,10 +371,5 @@ class MatchController extends Controller
     public function teamsDisplay(AllianceSelectionService $selection): JsonResponse
     {
         return response()->json($selection->getRankings());
-    }
-
-    private function loadedMatchCacheKey(): string
-    {
-        return 'event.'.app(CurrentEvent::class)->require()->id.'.loaded_match_id';
     }
 }

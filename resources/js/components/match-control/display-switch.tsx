@@ -16,10 +16,7 @@ import { type ReactNode, useState } from 'react';
 const SHOW_GROUPS: { title: string; buttons: { mode: DisplayModeValue; label: string }[] }[] = [
     {
         title: 'General Information',
-        buttons: [
-            { mode: 'blank', label: 'Show Event Name' },
-            { mode: 'sponsors', label: 'Show Sponsors' },
-        ],
+        buttons: [{ mode: 'sponsors', label: 'Show Sponsors' }],
     },
     {
         title: 'Playoff',
@@ -28,7 +25,14 @@ const SHOW_GROUPS: { title: string; buttons: { mode: DisplayModeValue; label: st
             { mode: 'alliance_selection', label: 'Show Alliance Selection' },
         ],
     },
-    { title: 'Other Displays', buttons: [{ mode: 'rankings', label: 'Show Ranks' }] },
+    {
+        title: 'Other Displays',
+        buttons: [
+            { mode: 'rankings', label: 'Show Ranks & Results' },
+            { mode: 'blank', label: 'Show Blank Screen' },
+            { mode: 'video', label: 'Show Video Only (Overlay)' },
+        ],
+    },
 ];
 
 const greenButtonClass = 'rounded-md border border-[#198754] bg-[#198754] px-3 py-1.5 text-white hover:bg-[#157347] disabled:opacity-65';

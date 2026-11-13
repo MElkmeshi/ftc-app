@@ -28,7 +28,7 @@ class AudienceDisplay
      * revealed so far: displays are public pages, so a winner must not reach
      * them before it is announced.
      *
-     * @return array{mode: string, match_id: int|null, message: string|null, changed_at: string|null, award: array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, recipient: string|null}>}>}|null, sponsors: list<array{id: int, name: string, level: string|null, logo_url: string|null}>|null}
+     * @return array{mode: string, match_id: int|null, loaded_match_id: int|null, message: string|null, changed_at: string|null, award: array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, recipient: string|null}>}>}|null, sponsors: list<array{id: int, name: string, level: string|null, logo_url: string|null}>|null}
      */
     public function state(): array
     {
@@ -38,11 +38,38 @@ class AudienceDisplay
         return [
             'mode' => $mode->value,
             'match_id' => $stored['match_id'] ?? null,
+            'loaded_match_id' => $this->loadedMatchId(),
             'message' => $stored['message'] ?? null,
             'changed_at' => $stored['changed_at'] ?? null,
             'award' => $mode === DisplayMode::Award ? $this->presentedAward($stored['award_id'] ?? null, $stored['award_revealed'] ?? 0) : null,
             'sponsors' => $mode === DisplayMode::Sponsors ? $this->sponsors() : null,
         ];
+    }
+
+    public function loadedMatchId(): ?int
+    {
+        return cache()->get($this->loadedMatchKey());
+    }
+
+    /**
+     * Readies a match for the field without changing what the audience sees,
+     * like FTC Live's "Load Next Match".
+     */
+    public function load(int $matchId): void
+    {
+        cache()->put($this->loadedMatchKey(), $matchId, now()->addHours(12));
+
+        $this->store(Setting::get(self::GROUP, self::NAME) ?? ['mode' => DisplayMode::Blank->value, 'changed_at' => now()->toIso8601String()]);
+    }
+
+    public function unload(): void
+    {
+        cache()->forget($this->loadedMatchKey());
+    }
+
+    private function loadedMatchKey(): string
+    {
+        return 'event.'.$this->currentEvent->require()->id.'.loaded_match_id';
     }
 
     /**
@@ -89,8 +116,9 @@ class AudienceDisplay
         LiveBroadcast::send(new AudienceDisplayChanged($this->currentEvent->require()->code, [
             'mode' => $stored['mode'],
             'match_id' => $stored['match_id'] ?? null,
+            'loaded_match_id' => $this->loadedMatchId(),
             'message' => $stored['message'] ?? null,
-            'changed_at' => $stored['changed_at'],
+            'changed_at' => $stored['changed_at'] ?? null,
         ]));
     }
 

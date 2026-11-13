@@ -105,7 +105,8 @@ export type DisplayModeValue =
     | 'alliance_selection'
     | 'message'
     | 'award'
-    | 'sponsors';
+    | 'sponsors'
+    | 'video';
 
 export interface AwardRecipient {
     team_number: string | null;
@@ -125,6 +126,7 @@ export interface PresentedAward {
 export interface AudienceDisplayState {
     mode: DisplayModeValue;
     match_id: number | null;
+    loaded_match_id?: number | null;
     /** The text for the message screen (kept after switching away, so it can be shown again). */
     message?: string | null;
     changed_at: string | null;

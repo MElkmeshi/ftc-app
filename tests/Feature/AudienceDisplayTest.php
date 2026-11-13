@@ -19,18 +19,18 @@ it('starts on the event name screen', function () {
     $this->getJson('/api/display')->assertOk()->assertJson(['mode' => 'blank', 'match_id' => null]);
 });
 
-it('follows the match through load, start and abort', function () {
+it('readies a loaded match without changing the audience screen, then follows start and abort', function () {
     $match = CompetitionMatch::factory()->create(['status' => MatchStatus::UPCOMING]);
     $display = app(AudienceDisplay::class);
 
     $this->postJson('/api/matches/load', ['match_id' => $match->id])->assertOk();
-    expect($display->state())->mode->toBe('preview')->match_id->toBe($match->id);
+    expect($display->state())->mode->toBe('blank')->loaded_match_id->toBe($match->id);
 
     $this->postJson('/api/matches/start', ['match_id' => $match->id])->assertOk();
-    expect($display->state()['mode'])->toBe('match');
+    expect($display->state())->mode->toBe('match')->match_id->toBe($match->id)->loaded_match_id->toBeNull();
 
     $this->postJson('/api/matches/cancel', ['match_id' => $match->id])->assertOk();
-    expect($display->state()['mode'])->toBe('preview');
+    expect($display->state())->mode->toBe('match')->loaded_match_id->toBe($match->id);
 });
 
 it('switches modes and tells every display', function () {

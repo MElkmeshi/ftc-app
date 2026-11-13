@@ -1,26 +1,18 @@
 import { AllianceSelectionScreen } from '@/components/display/alliance-selection-screen';
 import { AwardScreen } from '@/components/display/award-screen';
-import { DISPLAY_COLORS, EventBar, ScoreBar, Stage, TeamCard, TopBar, vh, vw } from '@/components/display/display-kit';
+import { DISPLAY_COLORS, EventBar, PreviewBar, ScoreBar, Stage, TeamCard, TopBar, vh, vw } from '@/components/display/display-kit';
 import { RankingsBoard } from '@/components/display/pit-screen';
 import { SponsorsScreen } from '@/components/display/sponsors-screen';
 import { GameLogo, useGameLook } from '@/components/game-look';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { type SoundName } from '@/hooks/use-audio-engine';
-import { useFieldCount } from '@/hooks/use-field-count';
 import { useGroups } from '@/hooks/use-groups';
 import { useMatch } from '@/hooks/use-match';
-import {
-    formatTime,
-    getAllianceBreakdown,
-    getAllianceMembers,
-    getAllianceScore,
-    getFieldLabel,
-    getMatchTitle,
-    getPhaseLabel,
-} from '@/lib/match-utils';
+import { formatTime, getAllianceBreakdown, getAllianceMembers, getAllianceScore, getMatchTitle, getPhaseLabel } from '@/lib/match-utils';
 import EliminationBracketDisplay from '@/pages/elimination/bracket';
 import { type AudienceDisplayState, type CompetitionMatch, type SharedData, type TeamDisplay } from '@/types';
 import { Head, usePage, useProp } from '@inertiajs/react';
+import { type ReactNode } from 'react';
 
 export function BlankScreen() {
     const { event, name } = usePage<SharedData>().props;
@@ -57,8 +49,11 @@ export function MessageScreen({ message }: { message: string }) {
     return (
         <Stage>
             <Head title="Message" />
-            <div className="absolute inset-x-0 top-0 flex items-center justify-center" style={{ bottom: vh(130), padding: `0 ${vw(80)}` }}>
-                <p className="text-center leading-tight break-words whitespace-pre-line" style={{ fontSize: vh(64) }}>
+            <div className="absolute inset-x-0 top-0 flex items-center justify-center" style={{ bottom: vh(130), padding: `0 ${vw(120)}` }}>
+                <p
+                    className="bg-white text-center leading-tight break-words whitespace-pre-line text-black"
+                    style={{ fontSize: vh(60), padding: `${vh(50)} ${vw(60)}` }}
+                >
                     {message}
                 </p>
             </div>
@@ -73,7 +68,7 @@ function useTeamRanks(): Map<number, number> {
     return new Map(teams.map((team, index) => [team.team_id, index + 1]));
 }
 
-function PreviewScreen({ match }: { match: CompetitionMatch }) {
+export function PreviewScreen({ match }: { match: CompetitionMatch }) {
     const ranks = useTeamRanks();
     const half = (color: 'red' | 'blue') => (
         <div
@@ -105,6 +100,96 @@ function PreviewScreen({ match }: { match: CompetitionMatch }) {
     );
 }
 
+function matchClock(timer: ReturnType<typeof useActiveMatchTimer>['timer'], teleopSeconds: number): string {
+    return timer.phase === 'transition'
+        ? String(timer.phaseRemainingSeconds)
+        : timer.phase === 'autonomous'
+          ? formatTime(timer.phaseRemainingSeconds + teleopSeconds)
+          : formatTime(timer.phase === 'pre-match' ? teleopSeconds + 30 : timer.phaseRemainingSeconds);
+}
+
+function allianceSummary(match: CompetitionMatch | null | undefined, color: 'red' | 'blue'): { teams: string[]; score: number } {
+    return {
+        teams: match ? getAllianceMembers(match, color).map((member) => member.team.number) : [],
+        score: match ? getAllianceScore(match, color) : 0,
+    };
+}
+
+function ChromaStage({ color, children }: { color: string; children?: ReactNode }) {
+    return (
+        <div className="relative h-screen w-screen overflow-hidden font-bold text-white" style={{ backgroundColor: color }}>
+            {children}
+        </div>
+    );
+}
+
+function MatchDetailScreen({
+    match,
+    timer,
+    teleopSeconds,
+}: {
+    match: CompetitionMatch | null | undefined;
+    timer: ReturnType<typeof useActiveMatchTimer>['timer'];
+    teleopSeconds: number;
+}) {
+    const { data: groups = [] } = useGroups();
+    const running = timer.phase !== 'pre-match' && timer.phase !== 'post-match';
+    const half = (color: 'red' | 'blue') => {
+        const lines = match ? getAllianceBreakdown(match, color, groups) : [];
+        const labels = [
+            ...new Set([
+                ...[...groups].sort((a, b) => a.display_order - b.display_order).map((group) => group.name),
+                ...lines.map((line) => line.label),
+            ]),
+        ];
+
+        return (
+            <div
+                className="flex flex-1 flex-col items-center justify-center"
+                style={{ gap: vh(26), backgroundColor: color === 'red' ? DISPLAY_COLORS.redDark : DISPLAY_COLORS.blueDark }}
+            >
+                {labels.map((label) => (
+                    <div key={label} className="flex flex-col items-center" style={{ gap: vh(10) }}>
+                        <span
+                            className="bg-white text-center leading-none uppercase"
+                            style={{ minWidth: vw(270), padding: `${vh(5)} ${vw(12)}`, fontSize: vh(24), color: DISPLAY_COLORS[color] }}
+                        >
+                            {label}
+                        </span>
+                        <span className="leading-none tabular-nums" style={{ fontSize: vh(52) }}>
+                            {lines.find((line) => line.label === label)?.points ?? 0}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    return (
+        <Stage>
+            <Head title={match ? getMatchTitle(match) : 'Match'} />
+            <div className="absolute inset-x-0 top-0 flex" style={{ bottom: vh(170) }}>
+                {half('red')}
+                {half('blue')}
+                {running && (
+                    <div
+                        className="absolute left-1/2 -translate-x-1/2 bg-[#198754] text-center leading-none"
+                        style={{ top: vh(60), padding: `${vh(6)} ${vw(20)}`, fontSize: vh(24) }}
+                    >
+                        {getPhaseLabel(timer.phase)}
+                    </div>
+                )}
+            </div>
+            <ScoreBar
+                title={match ? getMatchTitle(match) : 'Waiting for match'}
+                red={allianceSummary(match, 'red')}
+                blue={allianceSummary(match, 'blue')}
+                clock={matchClock(timer, teleopSeconds)}
+            />
+        </Stage>
+    );
+}
+
 export function MatchScreen({
     match,
     timer,
@@ -120,16 +205,8 @@ export function MatchScreen({
     waitingLabel?: string;
     fieldLabel?: string | null;
 }) {
-    const clock =
-        timer.phase === 'transition'
-            ? String(timer.phaseRemainingSeconds)
-            : timer.phase === 'autonomous'
-              ? formatTime(timer.phaseRemainingSeconds + teleopSeconds)
-              : formatTime(timer.phase === 'pre-match' ? teleopSeconds + 30 : timer.phaseRemainingSeconds);
-    const alliance = (color: 'red' | 'blue') => ({
-        teams: match ? getAllianceMembers(match, color).map((member) => member.team.number) : [],
-        score: match ? getAllianceScore(match, color) : 0,
-    });
+    const clock = matchClock(timer, teleopSeconds);
+    const alliance = (color: 'red' | 'blue') => allianceSummary(match, color);
 
     return (
         <Stage>
@@ -238,27 +315,45 @@ function ResultsScreen({ match }: { match: CompetitionMatch }) {
  * shows; this page just follows, so a display that reloads or joins late
  * always lands on the right screen.
  */
-export function AudienceScreen({ playSound }: { playSound?: (name: SoundName) => void }) {
+export function AudienceScreen({ playSound, chromaColor }: { playSound?: (name: SoundName) => void; chromaColor?: string }) {
     const { value: display } = useProp<AudienceDisplayState>('display');
     const { timer, activeMatch, matchConfig } = useActiveMatchTimer({ playSound });
-    const fieldCount = useFieldCount();
-
     const mode = display?.mode ?? 'blank';
     const matchId = mode === 'match' ? (activeMatch?.id ?? display?.match_id ?? null) : (display?.match_id ?? null);
     const { data: match } = useMatch(matchId, 10000);
+
+    const teleopSeconds = matchConfig?.timing.teleop ?? 120;
+
+    if (chromaColor && mode === 'video') {
+        return <ChromaStage color={chromaColor} />;
+    }
+
+    if (chromaColor && mode === 'preview' && match) {
+        return (
+            <ChromaStage color={chromaColor}>
+                <PreviewBar title={getMatchTitle(match)} red={getAllianceMembers(match, 'red')} blue={getAllianceMembers(match, 'blue')} />
+            </ChromaStage>
+        );
+    }
+
+    if (chromaColor && mode === 'match') {
+        return (
+            <ChromaStage color={chromaColor}>
+                <ScoreBar
+                    title={match ? getMatchTitle(match) : 'Waiting for match'}
+                    red={allianceSummary(match, 'red')}
+                    blue={allianceSummary(match, 'blue')}
+                    clock={matchClock(timer, teleopSeconds)}
+                />
+            </ChromaStage>
+        );
+    }
 
     switch (mode) {
         case 'preview':
             return match ? <PreviewScreen match={match} /> : <BlankScreen />;
         case 'match':
-            return (
-                <MatchScreen
-                    match={match}
-                    timer={timer}
-                    teleopSeconds={matchConfig?.timing.teleop ?? 120}
-                    fieldLabel={match ? getFieldLabel(match, fieldCount) : null}
-                />
-            );
+            return <MatchDetailScreen match={match} timer={timer} teleopSeconds={teleopSeconds} />;
         case 'results':
             return match ? <ResultsScreen match={match} /> : <BlankScreen />;
         case 'rankings':
