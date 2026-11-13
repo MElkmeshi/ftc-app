@@ -122,6 +122,18 @@
         @apply border-border;
     }
 
+    button:not(:disabled),
+    [role='button']:not([aria-disabled='true']),
+    [role='tab'],
+    select,
+    summary,
+    label[for],
+    input[type='checkbox'],
+    input[type='radio'],
+    input[type='submit'] {
+        cursor: pointer;
+    }
+
     body {
         @apply bg-background text-foreground;
     }
