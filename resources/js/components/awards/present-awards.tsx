@@ -1,54 +1,34 @@
+import { announcedSlots, type AwardRow, type AwardWinnerRow, slotLabel, winnerText } from '@/lib/award-utils';
 import { bs } from '@/lib/bootstrap';
 import { cn } from '@/lib/utils';
-import { type Team } from '@/types';
 import { router } from '@inertiajs/react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-
-interface AwardWinnerRow {
-    id: number;
-    place: number;
-    recipient: string | null;
-    team: Pick<Team, 'id' | 'number' | 'name'> | null;
-}
-
-export interface AwardRow {
-    id: number;
-    name: string;
-    description: string | null;
-    places: number;
-    winners: AwardWinnerRow[];
-}
 
 export interface AwardPresentation {
     award_id: number;
     revealed: number;
 }
 
-export function winnersText(award: AwardRow, place: number): string {
-    return award.winners
-        .filter((winner) => winner.place === place)
-        .map((winner) => [winner.team ? `${winner.team.number} ${winner.team.name}` : null, winner.recipient].filter(Boolean).join(' - '))
-        .join(', ');
-}
-
-const PLACE_LABELS = ['Winner', '2nd Place', '3rd Place'];
 const listItem =
-    'block w-full cursor-pointer border border-t-0 border-black/[0.125] px-4 py-2 text-left first:rounded-t-md first:border-t last:rounded-b-md';
+    'block w-full cursor-pointer border border-t-0 border-black/[0.125] px-4 py-2 text-left first:rounded-t-lg first:border-t last:rounded-b-lg';
 
 interface PresentationStep {
     award: AwardRow;
     revealed: number;
+    winner: AwardWinnerRow | null;
 }
 
 function presentationSteps(awards: AwardRow[]): PresentationStep[] {
-    return awards.flatMap((award) => Array.from({ length: award.places + 1 }, (_, revealed) => ({ award, revealed })));
+    return awards.flatMap((award) => [
+        { award, revealed: 0, winner: null },
+        ...announcedSlots(award).map((winner, index) => ({ award, revealed: index + 1, winner })),
+    ]);
 }
 
 function StepLine({ step, active, stealth, onPresent }: { step: PresentationStep; active: boolean; stealth: boolean; onPresent: () => void }) {
     const [peeking, setPeeking] = useState(false);
     const line = useRef<HTMLDivElement>(null);
-    const place = step.award.places - step.revealed + 1;
 
     useEffect(() => {
         if (active) {
@@ -56,7 +36,7 @@ function StepLine({ step, active, stealth, onPresent }: { step: PresentationStep
         }
     }, [active]);
 
-    if (step.revealed === 0) {
+    if (step.winner === null) {
         return (
             <div
                 ref={line}
@@ -82,8 +62,8 @@ function StepLine({ step, active, stealth, onPresent }: { step: PresentationStep
             onClick={onPresent}
             onKeyDown={(keyEvent) => keyEvent.key === 'Enter' && onPresent()}
         >
-            <b className="ml-6">{PLACE_LABELS[place - 1] ?? `Place ${place}`}</b>&nbsp;
-            {!stealth || peeking ? winnersText(step.award, place) || 'NOT GIVEN' : '<Hidden>'}
+            <b className="ml-6">{slotLabel(step.winner.place)}</b>&nbsp;
+            {!stealth || peeking ? winnerText(step.award, step.winner) : '<Hidden>'}
             {stealth && (
                 <button
                     type="button"
@@ -174,8 +154,7 @@ export function PresentAwards({
                     <div className={bs.alertWarning}>Awards must be finalized before they can be presented.</div>
                     <button
                         type="button"
-                        className={bs.btnDanger}
-                        disabled={awards.length === 0}
+                        className={bs.btnPrimary}
                         onClick={() => router.put(`${base}/awards/lock`, { locked: true }, { preserveScroll: true })}
                     >
                         Finalize Awards for Presentation

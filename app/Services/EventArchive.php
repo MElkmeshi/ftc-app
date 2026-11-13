@@ -75,6 +75,8 @@ class EventArchive
 
     private const EVENT_COLUMNS = ['name', 'type', 'venue', 'timezone', 'start_date', 'end_date', 'field_count'];
 
+    public function __construct(private AwardSlots $awardSlots) {}
+
     /**
      * @return array{format: string, version: int, exported_at: string, event: array<string, mixed>, game: array<string, mixed>, alliances: array<int, string>, tables: array<string, list<array<string, mixed>>>}
      */
@@ -201,6 +203,12 @@ class EventArchive
                         $idMaps[$table][$oldId] = $newId;
                     }
                 }
+            }
+
+            $this->awardSlots->flattenSharedPlaces($event->id);
+
+            if (! array_key_exists('is_team_award', (array) ($archive['tables']['awards'][0] ?? ['is_team_award' => null]))) {
+                $this->awardSlots->inferTeamAwards($event->id);
             }
 
             return $event;

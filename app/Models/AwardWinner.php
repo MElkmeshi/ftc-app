@@ -8,20 +8,25 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A team (and optionally a named person) given one place of an award. An
- * alliance award has several teams in the same place.
+ * Who was given one slot of an award: a team, a named person (with or
+ * without their team), and what the judges said about them.
  */
 class AwardWinner extends Model
 {
     use BelongsToEvent, HasFactory;
 
-    protected $fillable = ['event_id', 'award_id', 'place', 'team_id', 'recipient'];
+    protected $fillable = ['event_id', 'award_id', 'place', 'team_id', 'recipient', 'comment'];
 
     protected $hidden = ['event_id', 'created_at', 'updated_at'];
 
     protected function casts(): array
     {
         return ['place' => 'integer'];
+    }
+
+    public function isGiven(): bool
+    {
+        return $this->team_id !== null || filled($this->recipient);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\DisplayMode;
+use App\Http\Requests\SaveAwardAssignmentRequest;
 use App\Http\Requests\SaveAwardRequest;
 use App\Models\Award;
 use App\Models\Setting;
@@ -18,7 +19,7 @@ use Inertia\Response;
 
 /**
  * Awards for the event, like FTC Live's awards pages: set them up, enter
- * who won each place, lock the results, then present them one place at a
+ * who is given each slot, finalize them, then present them one slot at a
  * time on the audience display.
  */
 class AwardController extends Controller
@@ -57,43 +58,124 @@ class AwardController extends Controller
 
     public function store(SaveAwardRequest $request): RedirectResponse
     {
-        $this->ensureUnlocked();
-
-        DB::transaction(function () use ($request) {
-            $award = Award::create([
-                ...$request->safe()->only(['name', 'description', 'places']),
-                'display_order' => (int) Award::query()->max('display_order') + 1,
-            ]);
-
-            $this->saveWinners($award, $request->validated('winners', []));
-        });
+        Award::create([
+            ...$request->validated(),
+            'places' => 1,
+            'display_order' => (int) Award::query()->max('display_order') + 1,
+        ]);
 
         return back();
     }
 
     public function update(SaveAwardRequest $request, Award $award): RedirectResponse
     {
-        $this->ensureUnlocked();
-
-        DB::transaction(function () use ($request, $award) {
-            $award->update($request->safe()->only(['name', 'description', 'places']));
-            $this->saveWinners($award, $request->validated('winners', []));
-        });
+        $award->update($request->validated());
 
         return back();
     }
 
     public function destroy(Award $award): RedirectResponse
     {
-        $this->ensureUnlocked();
-
         $award->delete();
 
         return back();
     }
 
     /**
-     * Locking stops the results changing while they are presented.
+     * Swaps two awards in the order they are listed and presented.
+     */
+    public function swap(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'first' => ['required', 'integer', 'different:second'],
+            'second' => ['required', 'integer'],
+        ]);
+
+        DB::transaction(function () use ($validated): void {
+            $ordered = $this->awards()->modelKeys();
+            $first = array_search($validated['first'], $ordered, true);
+            $second = array_search($validated['second'], $ordered, true);
+
+            if ($first === false || $second === false) {
+                throw ValidationException::withMessages(['awards' => 'That award is no longer in this event.']);
+            }
+
+            [$ordered[$first], $ordered[$second]] = [$ordered[$second], $ordered[$first]];
+
+            foreach ($ordered as $position => $awardId) {
+                Award::query()->whereKey($awardId)->update(['display_order' => $position + 1]);
+            }
+        });
+
+        return back();
+    }
+
+    public function addSlot(Award $award): RedirectResponse
+    {
+        if ($award->places >= Award::MAX_PLACES) {
+            throw ValidationException::withMessages(['awards' => 'An award can have at most '.Award::MAX_PLACES.' slots.']);
+        }
+
+        $award->increment('places');
+
+        return back();
+    }
+
+    /**
+     * Removes the award's last slot together with whoever was entered in it.
+     */
+    public function removeSlot(Award $award): RedirectResponse
+    {
+        if ($award->places > 0) {
+            DB::transaction(function () use ($award): void {
+                $award->winners()->where('place', '>=', $award->places)->delete();
+                $award->decrement('places');
+            });
+        }
+
+        return back();
+    }
+
+    public function assign(SaveAwardAssignmentRequest $request, Award $award, int $place): RedirectResponse
+    {
+        abort_if($place < 1 || $place > $award->places, 404);
+
+        $assignment = [
+            'team_id' => $request->validated('team') === null ? null : Team::query()->where('number', $request->validated('team'))->value('id'),
+            'recipient' => $this->trimmed($request->validated('name')),
+            'comment' => $this->trimmed($request->validated('comment')),
+        ];
+
+        DB::transaction(function () use ($award, $place, $assignment): void {
+            if (array_filter($assignment, fn (mixed $value): bool => $value !== null) === []) {
+                $award->winners()->where('place', $place)->delete();
+
+                return;
+            }
+
+            $winner = $award->winners()->where('place', $place)->first();
+
+            if ($winner === null) {
+                $award->winners()->create(['place' => $place, ...$assignment]);
+
+                return;
+            }
+
+            $winner->update($assignment);
+            $award->winners()->where('place', $place)->whereKeyNot($winner->id)->delete();
+        });
+
+        return back();
+    }
+
+    private function trimmed(?string $text): ?string
+    {
+        return blank($text) ? null : trim($text);
+    }
+
+    /**
+     * Finalizing the awards is what lets them be presented and read out in
+     * the scripts; like FTC Live, they can still be corrected afterwards.
      */
     public function lock(Request $request): RedirectResponse
     {
@@ -105,16 +187,16 @@ class AwardController extends Controller
     }
 
     /**
-     * Shows the award on every audience display with `revealed` places
-     * announced, lowest place first.
+     * Shows the award on every audience display with `revealed` of its
+     * given slots announced, the last place first.
      */
     public function present(Request $request, Award $award, AudienceDisplay $display): RedirectResponse
     {
         if (! $this->isLocked()) {
-            throw ValidationException::withMessages(['awards' => 'Lock the award results before presenting them.']);
+            throw ValidationException::withMessages(['awards' => 'Finalize the awards before presenting them.']);
         }
 
-        $revealed = $request->validate(['revealed' => ['required', 'integer', 'min:0', 'max:'.$award->places]])['revealed'];
+        $revealed = $request->validate(['revealed' => ['required', 'integer', 'min:0', 'max:'.$award->announcedWinners()->count()]])['revealed'];
 
         $display->presentAward($award, (int) $revealed);
 
@@ -128,42 +210,8 @@ class AwardController extends Controller
         return back();
     }
 
-    /**
-     * @param  list<array{place: int, teams: list<int>, recipient?: string|null}>  $winners
-     */
-    private function saveWinners(Award $award, array $winners): void
-    {
-        $award->winners()->delete();
-
-        $teamIds = Team::query()->pluck('id', 'number');
-
-        foreach ($winners as $winner) {
-            if ($winner['place'] > $award->places) {
-                continue;
-            }
-
-            $recipient = blank($winner['recipient'] ?? null) ? null : trim($winner['recipient']);
-            $teams = $winner['teams'] === [] && $recipient !== null ? [null] : $winner['teams'];
-
-            foreach ($teams as $number) {
-                $award->winners()->create([
-                    'place' => $winner['place'],
-                    'team_id' => $number === null ? null : $teamIds[$number] ?? null,
-                    'recipient' => $recipient,
-                ]);
-            }
-        }
-    }
-
     private function isLocked(): bool
     {
         return (bool) Setting::get(self::SETTING_GROUP, self::LOCKED, false);
-    }
-
-    private function ensureUnlocked(): void
-    {
-        if ($this->isLocked()) {
-            throw ValidationException::withMessages(['awards' => 'The award results are locked. Unlock them to make changes.']);
-        }
     }
 }

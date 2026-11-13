@@ -3,7 +3,7 @@ import { GameLogo, useGameLook } from '@/components/game-look';
 import { type AwardRecipient, type PresentedAward, type SharedData } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 
-const PLACE_LABELS = ['Winner', '2nd Place', '3rd Place'];
+const PLACE_LABELS = ['Winner', '2nd Place', '3rd Place', 'Runner Up'];
 const SPONSOR_SEPARATOR = ' sponsored by ';
 
 function recipientLabel(winner: AwardRecipient): string {
@@ -14,7 +14,7 @@ function recipientLabel(winner: AwardRecipient): string {
     return winner.team_number ?? '';
 }
 
-function WinnerBar({ winner }: { winner: AwardRecipient }) {
+function WinnerBar({ winner, showsTeamBox }: { winner: AwardRecipient; showsTeamBox: boolean }) {
     const hasLogo = Boolean(useGameLook()?.logo_url);
 
     return (
@@ -22,7 +22,7 @@ function WinnerBar({ winner }: { winner: AwardRecipient }) {
             className="flex items-center text-left text-black"
             style={{ height: vh(100), marginTop: vh(6.7), fontSize: vh(36), backgroundColor: DISPLAY_COLORS.olive }}
         >
-            {winner.team_number && hasLogo && (
+            {showsTeamBox && winner.team_number && hasLogo && (
                 <div className="flex h-full shrink-0 items-center justify-center bg-white" style={{ width: vw(123), marginRight: vw(13) }}>
                     <GameLogo className="max-h-[60%] max-w-[70%]" />
                 </div>
@@ -61,16 +61,14 @@ function AwardBars({ award }: { award: PresentedAward }) {
                     {appName}
                 </div>
                 <span className="truncate">{title}</span>
-                {latest && latest.winners.length <= 1 && (
-                    <span className="shrink-0">&nbsp;{PLACE_LABELS[latest.place - 1] ?? `Place ${latest.place}`}</span>
-                )}
+                {latest && <span className="shrink-0">&nbsp;{PLACE_LABELS[Math.min(latest.place, PLACE_LABELS.length) - 1]}</span>}
                 {sponsor && (
                     <span className="shrink-0" style={{ fontSize: vh(24) }}>
                         &nbsp;sponsored by {sponsor}
                     </span>
                 )}
             </div>
-            {latest?.winners.map((winner, index) => <WinnerBar key={index} winner={winner} />)}
+            {latest?.winners.map((winner, index) => <WinnerBar key={index} winner={winner} showsTeamBox={award.is_team_award} />)}
         </>
     );
 }

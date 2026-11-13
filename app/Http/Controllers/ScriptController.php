@@ -37,7 +37,7 @@ class ScriptController extends Controller
                 'team_count' => Team::query()->count(),
                 'game_name' => $currentGame->get()?->name,
             ],
-            'awards' => Award::query()->with('winners.team:id,number,name')->orderBy('display_order')->orderBy('id')->get(),
+            'awards' => Award::query()->with('winners.team:id,number,name,city')->orderBy('display_order')->orderBy('id')->get(),
             'awardsLocked' => (bool) Setting::get('awards', 'locked', false),
             'selection' => Inertia::live(
                 fn () => app(AllianceSelectionService::class)->getGroups()->map(fn ($group): array => [

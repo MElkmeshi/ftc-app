@@ -125,6 +125,7 @@ export interface PresentedAward {
     id: number;
     name: string;
     description: string | null;
+    is_team_award: boolean;
     places: number;
     revealed: { place: number; winners: AwardRecipient[] }[];
 }

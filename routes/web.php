@@ -241,6 +241,10 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
             Route::get('admin/awards', [AwardController::class, 'index'])->name('awards.index');
             Route::post('awards', [AwardController::class, 'store'])->name('awards.store');
             Route::put('awards/lock', [AwardController::class, 'lock'])->name('awards.lock');
+            Route::post('awards/swap', [AwardController::class, 'swap'])->name('awards.swap');
+            Route::post('awards/{award}/slots', [AwardController::class, 'addSlot'])->whereNumber('award')->name('awards.slots.add');
+            Route::delete('awards/{award}/slots', [AwardController::class, 'removeSlot'])->whereNumber('award')->name('awards.slots.remove');
+            Route::put('awards/{award}/slots/{place}', [AwardController::class, 'assign'])->whereNumber(['award', 'place'])->name('awards.slots.assign');
             Route::put('awards/{award}', [AwardController::class, 'update'])->whereNumber('award')->name('awards.update');
             Route::delete('awards/{award}', [AwardController::class, 'destroy'])->whereNumber('award')->name('awards.destroy');
             Route::delete('awards/presenting', [AwardController::class, 'stopPresenting'])->name('awards.stop-presenting');

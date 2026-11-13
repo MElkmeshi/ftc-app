@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { PrintButton } from '@/layouts/print-layout';
-import { placeLabel } from '@/lib/award-utils';
+import { announcedSlots, type AwardRow, slotLabel } from '@/lib/award-utils';
 import { bs } from '@/lib/bootstrap';
 import { cn } from '@/lib/utils';
 import { type BreadcrumbItem, type SharedData, type Team } from '@/types';
@@ -18,19 +18,11 @@ interface SelectionGroup {
     pending: TeamName | null;
 }
 
-interface ScriptAward {
-    id: number;
-    name: string;
-    description: string | null;
-    places: number;
-    winners: { id: number; place: number; recipient: string | null; team: TeamName | null }[];
-}
-
 interface ScriptsProps extends SharedData {
     scripts: Record<ScriptKind, string>;
     placeholders: string[];
     facts: Record<string, string | number | null>;
-    awards: ScriptAward[];
+    awards: AwardRow[];
     awardsLocked: boolean;
 }
 
@@ -89,7 +81,7 @@ function FilledText({ text, facts, awards }: { text: string; facts: ScriptsProps
     );
 }
 
-function AwardsScript({ awards }: { awards: ScriptAward[] }) {
+function AwardsScript({ awards }: { awards: AwardRow[] }) {
     if (awards.length === 0) {
         return (
             <p className="mb-4">
@@ -102,25 +94,30 @@ function AwardsScript({ awards }: { awards: ScriptAward[] }) {
         <>
             {awards.map((award) => (
                 <div key={award.id} className="py-[.8em]">
-                    <div className="text-[1.1em] font-bold">{award.name}</div>
-                    {award.description && <div className="px-[.5em] py-[.2em]">{award.description}</div>}
-                    {Array.from({ length: award.places }, (_, index) => award.places - index).map((place) => {
-                        const winners = award.winners.filter((winner) => winner.place === place);
+                    <div className="mr-1 inline-block text-[1.1em] font-bold">{award.name}</div>
+                    <p className="mb-4 whitespace-pre-line">{award.description}</p>
+                    <div className="ml-12">
+                        {announcedSlots(award).map((winner) => {
+                            const label = slotLabel(winner.place);
+                            const location = winner.team?.city;
 
-                        return (
-                            <div key={place} className="px-[.5em] py-[.2em]">
-                                {award.places === 1 ? 'The winner is' : `In ${placeLabel(place, award.places).toLowerCase()}:`}{' '}
-                                {winners.length === 0 ? (
-                                    <Blank>[not entered]</Blank>
-                                ) : (
-                                    winners
-                                        .map((winner) => [winner.team ? teamName(winner.team) : null, winner.recipient].filter(Boolean).join(', '))
-                                        .join(' and ')
-                                )}
-                                !
-                            </div>
-                        );
-                    })}
+                            return (
+                                <div key={winner.place} className="px-[.5em] py-[.2em]">
+                                    <div className="inline-block w-[8em] font-bold">{label}</div>
+                                    <div className="inline-block">
+                                        {winner.comment && (
+                                            <>
+                                                <div>Here is what the Judges have to say about the {label.toLowerCase()} of this Award:</div>
+                                                <div className="whitespace-pre-line">{winner.comment}</div>
+                                            </>
+                                        )}
+                                        {!award.is_team_award && winner.recipient && `${winner.recipient} ${winner.team ? ' of Team ' : ''}`}
+                                        {winner.team && `${winner.team.number} ${winner.team.name}${location ? ` - from ${location}` : ''}`}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             ))}
         </>

@@ -28,7 +28,7 @@ class AudienceDisplay
      * revealed so far: displays are public pages, so a winner must not reach
      * them before it is announced.
      *
-     * @return array{mode: string, match_id: int|null, loaded_match_id: int|null, message: string|null, changed_at: string|null, award: array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, team_location: string|null, recipient: string|null}>}>}|null, sponsors: list<array{id: int, name: string, level: string|null, logo_url: string|null}>|null}
+     * @return array{mode: string, match_id: int|null, loaded_match_id: int|null, message: string|null, changed_at: string|null, award: array{id: int, name: string, description: string|null, is_team_award: bool, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, team_location: string|null, recipient: string|null}>}>}|null, sponsors: list<array{id: int, name: string, level: string|null, logo_url: string|null}>|null}
      */
     public function state(): array
     {
@@ -73,8 +73,8 @@ class AudienceDisplay
     }
 
     /**
-     * Shows an award with its last `$revealed` places announced, counting
-     * from the lowest place up to the winner.
+     * Shows an award with `$revealed` of its given slots announced,
+     * counting from the last place up to the winner.
      */
     public function presentAward(Award $award, int $revealed): void
     {
@@ -84,7 +84,7 @@ class AudienceDisplay
             ...$current,
             'mode' => DisplayMode::Award->value,
             'award_id' => $award->id,
-            'award_revealed' => max(0, min($revealed, $award->places)),
+            'award_revealed' => max(0, min($revealed, $award->announcedWinners()->count())),
             'changed_at' => now()->toIso8601String(),
         ]);
     }
@@ -133,7 +133,7 @@ class AudienceDisplay
     }
 
     /**
-     * @return array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, team_location: string|null, recipient: string|null}>}>}|null
+     * @return array{id: int, name: string, description: string|null, is_team_award: bool, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, team_location: string|null, recipient: string|null}>}>}|null
      */
     private function presentedAward(?int $awardId, int $revealed): ?array
     {
@@ -143,26 +143,24 @@ class AudienceDisplay
             return null;
         }
 
-        $revealedPlaces = array_slice(range($award->places, 1), 0, max(0, $revealed));
-
         return [
             'id' => $award->id,
             'name' => $award->name,
             'description' => $award->description,
+            'is_team_award' => $award->is_team_award,
             'places' => $award->places,
-            'revealed' => array_map(fn (int $place): array => [
-                'place' => $place,
-                'winners' => $award->winners
-                    ->where('place', $place)
-                    ->map(fn (AwardWinner $winner): array => [
+            'revealed' => $award->announcedWinners()
+                ->take(max(0, $revealed))
+                ->map(fn (AwardWinner $winner): array => [
+                    'place' => $winner->place,
+                    'winners' => [[
                         'team_number' => $winner->team?->number !== null ? (string) $winner->team->number : null,
                         'team_name' => $winner->team?->name,
                         'team_location' => $winner->team?->city,
                         'recipient' => $winner->recipient,
-                    ])
-                    ->values()
-                    ->all(),
-            ], $revealedPlaces),
+                    ]],
+                ])
+                ->all(),
         ];
     }
 }
