@@ -29,8 +29,6 @@ class AppServiceProvider extends ServiceProvider
             Gate::define($ability, fn (User $user): bool => in_array($ability, $user->role?->abilities() ?? [], true));
         }
 
-        Gate::define('present-awards', fn (User $user): bool => $user->can('manage-awards') || $user->can('control-matches'));
-
         // Force https URLs in production, but only when the app is actually served
         // over https (APP_URL reflects that) -- otherwise this generates https://
         // asset/API URLs for a plain-http deployment (e.g. a venue LAN event

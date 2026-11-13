@@ -38,18 +38,6 @@ class AwardController extends Controller
     }
 
     /**
-     * @return array{awards: Collection<int, Award>, awardsLocked: bool, presenting: ?array{award_id: int, revealed: int}}
-     */
-    public function presentationProps(AudienceDisplay $display): array
-    {
-        return [
-            'awards' => $this->awards(),
-            'awardsLocked' => $this->isLocked(),
-            'presenting' => $this->presenting($display),
-        ];
-    }
-
-    /**
      * @return Collection<int, Award>
      */
     private function awards(): Collection

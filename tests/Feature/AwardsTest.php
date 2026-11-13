@@ -73,21 +73,9 @@ it('keeps awards to admins', function (string $method, string $uri) {
 })->with([
     'page' => ['GET', '/event/testevent/admin/awards'],
     'lock' => ['PUT', '/event/testevent/awards/lock'],
+    'present' => ['POST', '/event/testevent/awards/{award}/present'],
     'delete' => ['DELETE', '/event/testevent/awards/{award}'],
 ]);
-
-it('lets match control present finalized awards but not a referee', function () {
-    $award = createThreePlaceAward();
-    lockAwards();
-
-    $this->actingAs(User::factory()->create(['role' => UserRole::Referee]))->post("/event/testevent/awards/{$award->id}/present", ['revealed' => 0])->assertForbidden();
-    $this->actingAs(User::factory()->create(['role' => UserRole::HeadReferee]))->post("/event/testevent/awards/{$award->id}/present", ['revealed' => 0])->assertRedirect();
-
-    $this->get('/event/testevent/match-control')->assertInertia(fn ($page) => $page
-        ->where('awardsLocked', true)
-        ->where('presenting.award_id', $award->id)
-        ->has('awards', 1));
-});
 
 it('stops changes once the results are locked, and presenting until they are', function () {
     $award = createThreePlaceAward();
