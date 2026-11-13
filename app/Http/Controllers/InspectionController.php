@@ -12,6 +12,7 @@ use App\Services\InspectionChecklist;
 use App\Support\LiveBroadcast;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\LiveProp;
@@ -128,20 +129,24 @@ class InspectionController extends Controller
 
     private function statuses(): LiveProp
     {
-        return Inertia::live(
-            fn () => Team::query()
-                ->with('inspection:id,team_id,status')
-                ->get(['id', 'number', 'name'])
-                ->sortBy(fn (Team $team): int => (int) $team->number)
-                ->values()
-                ->map(fn (Team $team): array => [
-                    'id' => $team->id,
-                    'number' => $team->number,
-                    'name' => $team->name,
-                    'status' => ($team->inspection->status ?? InspectionStatus::NotStarted)->value,
-                ]),
-            on: InspectionUpdated::class,
-            channel: $this->currentEvent->channel('inspection'),
-        );
+        return Inertia::live(fn () => $this->teamStatuses(), on: InspectionUpdated::class, channel: $this->currentEvent->channel('inspection'));
+    }
+
+    /**
+     * @return Collection<int, array{id: int, number: string, name: string|null, status: string}>
+     */
+    public function teamStatuses(): Collection
+    {
+        return Team::query()
+            ->with('inspection:id,team_id,status')
+            ->get(['id', 'number', 'name'])
+            ->sortBy(fn (Team $team): int => (int) $team->number)
+            ->values()
+            ->map(fn (Team $team): array => [
+                'id' => $team->id,
+                'number' => $team->number,
+                'name' => $team->name,
+                'status' => ($team->inspection->status ?? InspectionStatus::NotStarted)->value,
+            ]);
     }
 }

@@ -101,3 +101,16 @@ it('shows a message on the audience displays and keeps the match for posting res
 it('needs text to show a message', function () {
     $this->putJson('/api/display', ['mode' => 'message'])->assertUnprocessable()->assertJsonValidationErrors('message');
 });
+
+it('switches to every FTC Live video switch screen and loads inspection statuses only on request', function () {
+    foreach (['slideshow', 'wifi', 'key', 'safety', 'online_results', 'inspection', 'video'] as $mode) {
+        $this->putJson('/api/display', ['mode' => $mode])->assertOk()->assertJsonPath('mode', $mode);
+    }
+
+    auth()->logout();
+
+    $this->get('/event/testevent/display')->assertInertia(fn ($page) => $page
+        ->where('display.mode', 'video')
+        ->missing('inspection')
+        ->reloadOnly('inspection', fn ($reload) => $reload->has('inspection')));
+});

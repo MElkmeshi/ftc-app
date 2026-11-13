@@ -106,7 +106,13 @@ export type DisplayModeValue =
     | 'message'
     | 'award'
     | 'sponsors'
-    | 'video';
+    | 'video'
+    | 'slideshow'
+    | 'wifi'
+    | 'key'
+    | 'safety'
+    | 'online_results'
+    | 'inspection';
 
 export interface AwardRecipient {
     team_number: string | null;

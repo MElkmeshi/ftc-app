@@ -94,7 +94,7 @@ export function EventBar({ wide = false }: { wide?: boolean }) {
     );
 }
 
-export function TeamCard({ member, color, rank }: { member: MatchAlliance; color: 'red' | 'blue'; rank?: number | null }) {
+export function TeamCard({ member, color, rank }: { member: MatchAlliance; color: 'red' | 'blue'; rank?: number | string | null }) {
     return (
         <div style={{ width: vw(522) }}>
             <div className="flex" style={{ height: vh(50) }}>

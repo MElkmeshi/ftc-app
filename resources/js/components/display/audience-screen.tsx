@@ -1,6 +1,7 @@
 import { AllianceSelectionScreen } from '@/components/display/alliance-selection-screen';
 import { AwardScreen } from '@/components/display/award-screen';
 import { DISPLAY_COLORS, EventBar, PreviewBar, ScoreBar, Stage, TeamCard, TopBar, vh, vw } from '@/components/display/display-kit';
+import { InspectionScreen, KeyScreen, OnlineResultsScreen, SafetyScreen, SlideshowScreen, WifiScreen } from '@/components/display/info-screens';
 import { RankingsBoard } from '@/components/display/pit-screen';
 import { SponsorsScreen } from '@/components/display/sponsors-screen';
 import { GameLogo, useGameLook } from '@/components/game-look';
@@ -71,21 +72,30 @@ export function MessageScreen({ message }: { message: string }) {
     );
 }
 
-function useTeamRanks(): Map<number, number> {
+function useTeamRanks(): Map<number, number | string> {
     const { value: teams = [] } = useProp<TeamDisplay[]>('rankings');
 
-    return new Map(teams.map((team, index) => [team.team_id, index + 1]));
+    return new Map(teams.map((team, index) => [team.team_id, team.played > 0 ? index + 1 : 'NP']));
+}
+
+function usePreviewTitle(match: CompetitionMatch): string {
+    const { value: matches = [] } = useProp<CompetitionMatch[]>('matches');
+    const title = getMatchTitle(match);
+    const total = matches.filter((other) => other.type === match.type).length;
+
+    return match.type === 'elimination' || total === 0 ? title : `${title} of ${total}`;
 }
 
 export function PreviewScreen({ match }: { match: CompetitionMatch }) {
     const ranks = useTeamRanks();
+    const title = usePreviewTitle(match);
     const half = (color: 'red' | 'blue') => (
         <div
             className="flex flex-1 flex-col items-center justify-center"
             style={{ gap: vh(14), backgroundColor: color === 'red' ? DISPLAY_COLORS.redDark : DISPLAY_COLORS.blueDark }}
         >
             {getAllianceMembers(match, color).map((member) => (
-                <TeamCard key={member.id} member={member} color={color} rank={ranks.get(member.team.id)} />
+                <TeamCard key={member.id} member={member} color={color} rank={ranks.get(member.team.id) ?? 'NP'} />
             ))}
         </div>
     );
@@ -93,7 +103,7 @@ export function PreviewScreen({ match }: { match: CompetitionMatch }) {
     return (
         <Stage>
             <Head title={`${getMatchTitle(match)} · Preview`} />
-            <TopBar left="Up Next" title={getMatchTitle(match)} />
+            <TopBar left="Up Next" title={title} />
             <div className="absolute inset-x-0 flex" style={{ top: vh(76), bottom: vh(76) }}>
                 {half('red')}
                 {half('blue')}
@@ -317,6 +327,18 @@ export function AudienceScreen({ playSound, chromaColor }: { playSound?: (name: 
             return display?.award ? <AwardScreen award={display.award} /> : <BlankScreen />;
         case 'sponsors':
             return display?.sponsors?.length ? <SponsorsScreen sponsors={display.sponsors} /> : <BlankScreen />;
+        case 'slideshow':
+            return <SlideshowScreen />;
+        case 'wifi':
+            return <WifiScreen />;
+        case 'key':
+            return <KeyScreen />;
+        case 'safety':
+            return <SafetyScreen />;
+        case 'online_results':
+            return <OnlineResultsScreen />;
+        case 'inspection':
+            return <InspectionScreen />;
         default:
             return <BlankScreen />;
     }

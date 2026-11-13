@@ -1,6 +1,7 @@
 import { AllianceSelectionScreen } from '@/components/display/alliance-selection-screen';
 import { allianceSummary, BlankScreen, ChromaStage, matchClock, MatchScreen, PreviewScreen } from '@/components/display/audience-screen';
 import { PreviewBar, ScoreBar } from '@/components/display/display-kit';
+import { KeyScreen } from '@/components/display/info-screens';
 import { useActiveMatchTimer } from '@/hooks/use-active-match-timer';
 import { type SoundName } from '@/hooks/use-audio-engine';
 import { useFieldCount } from '@/hooks/use-field-count';
@@ -70,6 +71,10 @@ export function FieldScreen({
 
     if (!activeMatch && display?.mode === 'alliance_selection') {
         return <AllianceSelectionScreen />;
+    }
+
+    if (!activeMatch && display?.mode === 'key') {
+        return <KeyScreen />;
     }
 
     const matchIsUp = display?.mode === 'match' && display.match_id === shown?.id;

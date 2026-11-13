@@ -23,7 +23,7 @@ return [
 
     'timing' => [
         // Pre-match countdown before match starts (3-2-1)
-        'pre_match_countdown' => (int) env('MATCH_PRE_COUNTDOWN', 3),
+        'pre_match_countdown' => (int) env('MATCH_PRE_COUNTDOWN', 0),
 
         // Autonomous period duration
         'autonomous' => (int) env('MATCH_AUTONOMOUS_DURATION', 30),

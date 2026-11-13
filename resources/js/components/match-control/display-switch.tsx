@@ -16,7 +16,13 @@ import { type ReactNode, useState } from 'react';
 const SHOW_GROUPS: { title: string; buttons: { mode: DisplayModeValue; label: string }[] }[] = [
     {
         title: 'General Information',
-        buttons: [{ mode: 'sponsors', label: 'Show Sponsors' }],
+        buttons: [
+            { mode: 'slideshow', label: 'Show Slideshow' },
+            { mode: 'sponsors', label: 'Show Sponsors' },
+            { mode: 'wifi', label: 'Show Wifi Reminder' },
+            { mode: 'key', label: 'Show Audience Key' },
+            { mode: 'safety', label: 'Show Safety & Security' },
+        ],
     },
     {
         title: 'Playoff',
@@ -31,6 +37,8 @@ const SHOW_GROUPS: { title: string; buttons: { mode: DisplayModeValue; label: st
             { mode: 'rankings', label: 'Show Ranks & Results' },
             { mode: 'blank', label: 'Show Blank Screen' },
             { mode: 'video', label: 'Show Video Only (Overlay)' },
+            { mode: 'online_results', label: 'Show Online Results Info' },
+            { mode: 'inspection', label: 'Show Inspection Status' },
         ],
     },
 ];

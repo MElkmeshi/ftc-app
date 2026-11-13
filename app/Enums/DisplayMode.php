@@ -19,6 +19,12 @@ enum DisplayMode: string
     case Award = 'award';
     case Sponsors = 'sponsors';
     case Video = 'video';
+    case Slideshow = 'slideshow';
+    case Wifi = 'wifi';
+    case Key = 'key';
+    case Safety = 'safety';
+    case OnlineResults = 'online_results';
+    case Inspection = 'inspection';
 
     public function label(): string
     {
@@ -34,6 +40,12 @@ enum DisplayMode: string
             self::Award => 'Award',
             self::Sponsors => 'Sponsors',
             self::Video => 'Video only (overlay)',
+            self::Slideshow => 'Slideshow',
+            self::Wifi => 'Wifi reminder',
+            self::Key => 'Audience key',
+            self::Safety => 'Safety & security',
+            self::OnlineResults => 'Online results info',
+            self::Inspection => 'Inspection status',
         };
     }
 

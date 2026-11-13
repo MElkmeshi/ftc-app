@@ -82,8 +82,9 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
     });
 
     Route::withoutMiddleware('stateful')->group(function () {
-        Route::get('display', function (EventLiveProps $live) {
+        Route::get('display', function (EventLiveProps $live, InspectionController $inspection) {
             return Inertia::render('display/index', [
+                'inspection' => Inertia::optional(fn () => $inspection->teamStatuses()),
                 'display' => $live->audienceDisplay(),
                 'rankings' => $live->rankings(),
                 'rankingMethod' => RankingMethod::current()->value,

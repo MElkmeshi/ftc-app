@@ -47,14 +47,14 @@ interface MatchTimerActions {
 
 // Default values matching FTC standards (fallback if config not loaded)
 const DEFAULT_TIMING: MatchTimingConfig = {
-    pre_match_countdown: 3,
+    pre_match_countdown: 0,
     autonomous: 30,
     transition: 8,
     teleop: 120,
     endgame_warning: 20,
     controllers_warning_offset: 2,
     total_match: 158,
-    total_with_countdown: 161,
+    total_with_countdown: 158,
 };
 
 export function useMatchTimer(config: MatchTimerConfig = {}): MatchTimerState & MatchTimerActions {
