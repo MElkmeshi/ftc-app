@@ -15,7 +15,8 @@ export function clearCacheOnScopeChange(queryClient: QueryClient, initialScope: 
 
         if (next !== scope) {
             scope = next;
-            queryClient.clear();
+            queryClient.removeQueries({ type: 'inactive' });
+            void queryClient.resetQueries();
         }
     };
 }
