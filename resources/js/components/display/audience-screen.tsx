@@ -324,7 +324,7 @@ export function AudienceScreen({ playSound, chromaColor }: { playSound?: (name: 
         case 'message':
             return display?.message ? <MessageScreen message={display.message} /> : <BlankScreen />;
         case 'award':
-            return display?.award ? <AwardScreen award={display.award} /> : <BlankScreen />;
+            return display?.award ? <AwardScreen award={display.award} chromaColor={chromaColor} /> : <BlankScreen />;
         case 'sponsors':
             return display?.sponsors?.length ? <SponsorsScreen sponsors={display.sponsors} /> : <BlankScreen />;
         case 'slideshow':

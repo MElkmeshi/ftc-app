@@ -46,38 +46,58 @@ function WinnerBar({ winner }: { winner: AwardRecipient }) {
     );
 }
 
-/**
- * An award on the audience display, laid out like FTC Live's: a white title
- * bar with the award's name and the place being announced, and under it a
- * bar for each winner of that place.
- */
-export function AwardScreen({ award }: { award: PresentedAward }) {
+function AwardBars({ award }: { award: PresentedAward }) {
     const { name: appName } = usePage<SharedData>().props;
     const latest = award.revealed.at(-1);
     const [title, sponsor] = award.name.split(SPONSOR_SEPARATOR);
 
     return (
+        <>
+            <div className="flex items-center bg-white text-black" style={{ height: vh(74.7), fontSize: vh(28) }}>
+                <div
+                    className="flex h-full shrink-0 items-center justify-center bg-black px-[1vw] text-center leading-none font-black text-white uppercase"
+                    style={{ width: vw(217), marginRight: vw(13), fontSize: vh(20) }}
+                >
+                    {appName}
+                </div>
+                <span className="truncate">{title}</span>
+                {latest && latest.winners.length <= 1 && (
+                    <span className="shrink-0">&nbsp;{PLACE_LABELS[latest.place - 1] ?? `Place ${latest.place}`}</span>
+                )}
+                {sponsor && (
+                    <span className="shrink-0" style={{ fontSize: vh(24) }}>
+                        &nbsp;sponsored by {sponsor}
+                    </span>
+                )}
+            </div>
+            {latest?.winners.map((winner, index) => <WinnerBar key={index} winner={winner} />)}
+        </>
+    );
+}
+
+/**
+ * An award on the audience display, laid out like FTC Live's: a white title
+ * bar with the award's name and the place being announced, and under it a
+ * bar for each winner of that place. On a stream overlay the bars sit at the
+ * bottom of the keyed picture instead.
+ */
+export function AwardScreen({ award, chromaColor }: { award: PresentedAward; chromaColor?: string }) {
+    if (chromaColor) {
+        return (
+            <div className="relative h-screen w-screen overflow-hidden font-bold" style={{ backgroundColor: chromaColor }}>
+                <Head title={award.name} />
+                <div className="absolute" style={{ left: vw(124), right: vw(124), bottom: vh(18) }}>
+                    <AwardBars award={award} />
+                </div>
+            </div>
+        );
+    }
+
+    return (
         <Stage>
             <Head title={award.name} />
             <div className="absolute" style={{ left: vw(124), right: vw(124), top: vh(40) }}>
-                <div className="flex items-center bg-white text-black" style={{ height: vh(74.7), fontSize: vh(28) }}>
-                    <div
-                        className="flex h-full shrink-0 items-center justify-center bg-black px-[1vw] text-center leading-none font-black text-white uppercase"
-                        style={{ width: vw(217), marginRight: vw(13), fontSize: vh(20) }}
-                    >
-                        {appName}
-                    </div>
-                    <span className="truncate">{title}</span>
-                    {latest && latest.winners.length <= 1 && (
-                        <span className="shrink-0">&nbsp;{PLACE_LABELS[latest.place - 1] ?? `Place ${latest.place}`}</span>
-                    )}
-                    {sponsor && (
-                        <span className="shrink-0" style={{ fontSize: vh(24) }}>
-                            &nbsp;sponsored by {sponsor}
-                        </span>
-                    )}
-                </div>
-                {latest?.winners.map((winner, index) => <WinnerBar key={index} winner={winner} />)}
+                <AwardBars award={award} />
             </div>
             <EventBar />
         </Stage>
