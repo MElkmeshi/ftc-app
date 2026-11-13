@@ -10,6 +10,10 @@ const PAGE_TITLES: Record<GamePage, string> = { scoring: 'Score Types', settings
 
 const EVENT_PAGE_PATHS: Record<GamePage, string> = { scoring: '/admin/score-types', settings: '/admin/competition-settings' };
 
+function openedFromMatchControl(): boolean {
+    return new URLSearchParams(window.location.search).get('from') === 'match-control';
+}
+
 /**
  * Breadcrumbs for a game editing page, which is reached either from the
  * Games page (`/games/{id}/...`) or from inside an event that plays the game.
@@ -17,7 +21,7 @@ const EVENT_PAGE_PATHS: Record<GamePage, string> = { scoring: '/admin/score-type
 export function gameBreadcrumbs(game: GameSummary, page: GamePage): BreadcrumbItem[] {
     if (currentGameId() === null) {
         return [
-            { title: 'Setup', href: EVENT_PAGE_PATHS[page] },
+            openedFromMatchControl() ? { title: 'Match Control', href: '/match-control' } : { title: 'Event Dashboard', href: '/dashboard' },
             { title: PAGE_TITLES[page], href: EVENT_PAGE_PATHS[page] },
         ];
     }
@@ -37,7 +41,10 @@ export function gameBreadcrumbs(game: GameSummary, page: GamePage): BreadcrumbIt
 export function GameBanner({ game, page }: { game: GameSummary; page: GamePage }) {
     const onGamePage = currentGameId() !== null;
     const playedEvents = game.events.filter((event) => event.has_played_matches);
-    const tabHref = (target: GamePage) => (onGamePage ? `/games/${game.id}/${target}` : resolveEventHref(EVENT_PAGE_PATHS[target]));
+    const tabHref = (target: GamePage) =>
+        onGamePage
+            ? `/games/${game.id}/${target}`
+            : resolveEventHref(EVENT_PAGE_PATHS[target]) + (openedFromMatchControl() ? '?from=match-control' : '');
 
     return (
         <div className="mb-4 space-y-3">

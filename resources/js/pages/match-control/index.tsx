@@ -596,7 +596,7 @@ export default function MatchControlConsole() {
                     </button>
                 ))}
                 {[
-                    { label: 'Settings', href: '/admin/competition-settings' },
+                    { label: 'Settings', href: '/admin/competition-settings?from=match-control' },
                     { label: 'Alliance Selection', href: '/admin/alliance-selection' },
                     { label: 'Present Awards', href: '/admin/awards' },
                 ].map((link) => (
