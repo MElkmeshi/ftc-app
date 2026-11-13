@@ -1,74 +1,84 @@
-import { EventBar, Stage } from '@/components/display/display-kit';
-import { placeLabel } from '@/lib/award-utils';
-import { cn } from '@/lib/utils';
-import { type AwardRecipient, type PresentedAward } from '@/types';
-import { Head } from '@inertiajs/react';
-import { Award as AwardIcon } from 'lucide-react';
+import { DISPLAY_COLORS, EventBar, Stage, vh, vw } from '@/components/display/display-kit';
+import { GameLogo, useGameLook } from '@/components/game-look';
+import { type AwardRecipient, type PresentedAward, type SharedData } from '@/types';
+import { Head, usePage } from '@inertiajs/react';
 
-function Recipients({ winners, large }: { winners: AwardRecipient[]; large: boolean }) {
+const PLACE_LABELS = ['Winner', '2nd Place', '3rd Place'];
+const SPONSOR_SEPARATOR = ' sponsored by ';
+
+function recipientLabel(winner: AwardRecipient): string {
+    if (winner.recipient) {
+        return winner.team_number ? `${winner.recipient} (${winner.team_number})` : winner.recipient;
+    }
+
+    return winner.team_number ?? '';
+}
+
+function WinnerBar({ winner }: { winner: AwardRecipient }) {
+    const hasLogo = Boolean(useGameLook()?.logo_url);
+
     return (
-        <div className={cn('flex flex-wrap justify-center', large ? 'gap-x-16 gap-y-6' : 'gap-x-10 gap-y-2')}>
-            {winners.map((winner, index) => (
-                <div key={index} className="text-center">
-                    {winner.team_number && (
-                        <div
-                            className={cn('font-mono leading-none font-black tabular-nums', large ? 'text-[min(8rem,15vh)]' : 'text-[min(3rem,6vh)]')}
-                        >
-                            {winner.team_number}
-                        </div>
-                    )}
+        <div
+            className="flex items-center text-left text-black"
+            style={{ height: vh(100), marginTop: vh(6.7), fontSize: vh(36), backgroundColor: DISPLAY_COLORS.olive }}
+        >
+            {winner.team_number && hasLogo && (
+                <div className="flex h-full shrink-0 items-center justify-center bg-white" style={{ width: vw(123), marginRight: vw(13) }}>
+                    <GameLogo className="max-h-[60%] max-w-[70%]" />
+                </div>
+            )}
+            <div className="min-w-0 flex-1" style={{ padding: `0 ${vw(13)}` }}>
+                <div className="flex items-center">
+                    <span className="shrink-0">{recipientLabel(winner)}</span>
                     {winner.team_name && (
-                        <div className={cn('font-semibold', large ? 'text-[min(2.25rem,5vh)]' : 'text-[min(1.5rem,3.5vh)] text-white/80')}>
+                        <span className="min-w-0 flex-1 truncate" style={{ marginLeft: vw(27) }}>
                             {winner.team_name}
-                        </div>
-                    )}
-                    {winner.recipient && (
-                        <div className={cn(large ? 'mt-2 text-3xl text-yellow-300' : 'text-xl text-yellow-300/80')}>{winner.recipient}</div>
+                        </span>
                     )}
                 </div>
-            ))}
+                {winner.team_location && (
+                    <div className="truncate text-right font-normal" style={{ fontSize: vh(28) }}>
+                        {winner.team_location}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
 
 /**
- * An award on the audience display. The latest place announced is shown
- * large, with the places announced before it underneath.
+ * An award on the audience display, laid out like FTC Live's: a white title
+ * bar with the award's name and the place being announced, and under it a
+ * bar for each winner of that place.
  */
 export function AwardScreen({ award }: { award: PresentedAward }) {
+    const { name: appName } = usePage<SharedData>().props;
     const latest = award.revealed.at(-1);
-    const earlier = award.revealed.slice(0, -1).reverse();
+    const [title, sponsor] = award.name.split(SPONSOR_SEPARATOR);
 
     return (
-        <Stage className="flex flex-col items-center justify-center gap-[min(2.5rem,4vh)] px-16 pt-[3vh] pb-[20vh]">
+        <Stage>
             <Head title={award.name} />
-            <div className="flex flex-col items-center gap-[min(1rem,2vh)] text-center">
-                {latest === undefined && <AwardIcon className="size-[min(5rem,9vh)] text-yellow-400" />}
-                <h1 className="text-[min(4.5rem,10vh)] leading-tight font-black tracking-tight">{award.name}</h1>
-                {award.description && latest === undefined && <p className="max-w-5xl text-3xl leading-snug text-white/70">{award.description}</p>}
-            </div>
-            {latest && (
-                <div className="flex flex-col items-center gap-4">
-                    <div className="text-[min(1.875rem,4vh)] font-semibold tracking-widest text-yellow-400 uppercase">
-                        {placeLabel(latest.place, award.places)}
+            <div className="absolute" style={{ left: vw(124), right: vw(124), top: vh(40) }}>
+                <div className="flex items-center bg-white text-black" style={{ height: vh(74.7), fontSize: vh(28) }}>
+                    <div
+                        className="flex h-full shrink-0 items-center justify-center bg-black px-[1vw] text-center leading-none font-black text-white uppercase"
+                        style={{ width: vw(217), marginRight: vw(13), fontSize: vh(20) }}
+                    >
+                        {appName}
                     </div>
-                    {latest.winners.length > 0 ? (
-                        <Recipients winners={latest.winners} large />
-                    ) : (
-                        <div className="text-4xl text-white/60">Not awarded</div>
+                    <span className="truncate">{title}</span>
+                    {latest && latest.winners.length <= 1 && (
+                        <span className="shrink-0">&nbsp;{PLACE_LABELS[latest.place - 1] ?? `Place ${latest.place}`}</span>
+                    )}
+                    {sponsor && (
+                        <span className="shrink-0" style={{ fontSize: vh(24) }}>
+                            &nbsp;sponsored by {sponsor}
+                        </span>
                     )}
                 </div>
-            )}
-            {earlier.length > 0 && (
-                <div className="flex flex-wrap justify-center gap-16 border-t border-white/10 pt-[3vh]">
-                    {earlier.map((place) => (
-                        <div key={place.place} className="flex flex-col items-center gap-2">
-                            <div className="text-lg tracking-widest text-white/50 uppercase">{placeLabel(place.place, award.places)}</div>
-                            <Recipients winners={place.winners} large={false} />
-                        </div>
-                    ))}
-                </div>
-            )}
+                {latest?.winners.map((winner, index) => <WinnerBar key={index} winner={winner} />)}
+            </div>
             <EventBar />
         </Stage>
     );

@@ -16,7 +16,7 @@ beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
     $this->first = Team::factory()->create(['number' => 111, 'name' => 'First Robotics Club']);
     $this->second = Team::factory()->create(['number' => 222, 'name' => 'Second Squad']);
-    $this->third = Team::factory()->create(['number' => 333, 'name' => 'Third Team']);
+    $this->third = Team::factory()->create(['number' => 333, 'name' => 'Third Team', 'city' => 'Tripoli']);
 });
 
 function createThreePlaceAward(): Award
@@ -103,6 +103,7 @@ it('shows only the places revealed so far on the public audience display', funct
         ->has('display.award.revealed', 1)
         ->where('display.award.revealed.0.place', 3)
         ->where('display.award.revealed.0.winners.0.team_number', '333')
+        ->where('display.award.revealed.0.winners.0.team_location', 'Tripoli')
     );
     expect($response->getContent())->not->toContain('First Robotics Club')->not->toContain('Second Squad');
 });

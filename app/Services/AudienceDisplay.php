@@ -28,7 +28,7 @@ class AudienceDisplay
      * revealed so far: displays are public pages, so a winner must not reach
      * them before it is announced.
      *
-     * @return array{mode: string, match_id: int|null, loaded_match_id: int|null, message: string|null, changed_at: string|null, award: array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, recipient: string|null}>}>}|null, sponsors: list<array{id: int, name: string, level: string|null, logo_url: string|null}>|null}
+     * @return array{mode: string, match_id: int|null, loaded_match_id: int|null, message: string|null, changed_at: string|null, award: array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, team_location: string|null, recipient: string|null}>}>}|null, sponsors: list<array{id: int, name: string, level: string|null, logo_url: string|null}>|null}
      */
     public function state(): array
     {
@@ -123,9 +123,6 @@ class AudienceDisplay
     }
 
     /**
-     * @return array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, recipient: string|null}>}>}|null
-     */
-    /**
      * @return list<array{id: int, name: string, level: string|null, logo_url: string|null}>
      */
     private function sponsors(): array
@@ -135,9 +132,12 @@ class AudienceDisplay
             ->all();
     }
 
+    /**
+     * @return array{id: int, name: string, description: string|null, places: int, revealed: list<array{place: int, winners: list<array{team_number: string|null, team_name: string|null, team_location: string|null, recipient: string|null}>}>}|null
+     */
     private function presentedAward(?int $awardId, int $revealed): ?array
     {
-        $award = $awardId === null ? null : Award::query()->with('winners.team:id,number,name')->find($awardId);
+        $award = $awardId === null ? null : Award::query()->with('winners.team:id,number,name,city')->find($awardId);
 
         if ($award === null) {
             return null;
@@ -157,6 +157,7 @@ class AudienceDisplay
                     ->map(fn (AwardWinner $winner): array => [
                         'team_number' => $winner->team?->number !== null ? (string) $winner->team->number : null,
                         'team_name' => $winner->team?->name,
+                        'team_location' => $winner->team?->city,
                         'recipient' => $winner->recipient,
                     ])
                     ->values()

@@ -117,6 +117,7 @@ export type DisplayModeValue =
 export interface AwardRecipient {
     team_number: string | null;
     team_name: string | null;
+    team_location?: string | null;
     recipient: string | null;
 }
 
