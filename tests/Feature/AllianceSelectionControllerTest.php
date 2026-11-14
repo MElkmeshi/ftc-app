@@ -164,3 +164,14 @@ it('resets through the endpoint after a bracket exists', function () {
 
     expect(AllianceGroup::count())->toBe(0);
 });
+
+it('refuses to start when there are too few teams for every alliance to pick a partner', function () {
+    $this->actingAs(User::find(1));
+    seedQualResults(4);
+
+    $this->postJson('/api/alliance-selection/start', ['number_of_alliances' => 4])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'Not enough ranked teams for 4 alliances. Need at least 8 but found 4.');
+
+    expect(AllianceGroup::count())->toBe(0);
+});

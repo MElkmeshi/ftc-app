@@ -100,7 +100,9 @@ export function RankingsBoard({ title }: { title: string }) {
     const qualifications = matches.filter((match) => match.type === 'qualification' && match.status !== 'cancelled');
     const played = matches.filter((match) => match.status === 'completed');
     const playedQualifications = qualifications.filter((match) => match.status === 'completed').length;
-    const seats = qualifications.flatMap((match) => (match.match_alliances ?? []).map((member) => member.team.id));
+    const seats = qualifications.flatMap((match) =>
+        (match.match_alliances ?? []).filter((member) => member.counts_for_ranking !== false).map((member) => member.team.id),
+    );
     const matchesPerTeam = seats.length > 0 ? Math.round(seats.length / new Set(seats).size) : 0;
 
     return (

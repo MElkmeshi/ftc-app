@@ -178,8 +178,10 @@ class AllianceSelectionService
 
         $rankings = $this->getRankings();
 
-        if ($rankings->count() < $numberOfAlliances) {
-            throw new Exception("Not enough ranked teams. Need at least {$numberOfAlliances} but found {$rankings->count()}.");
+        $teamsNeeded = $numberOfAlliances * 2;
+
+        if ($rankings->count() < $teamsNeeded) {
+            throw new Exception("Not enough ranked teams for {$numberOfAlliances} alliances. Need at least {$teamsNeeded} but found {$rankings->count()}.");
         }
 
         return DB::transaction(function () use ($numberOfAlliances, $createdBy, $rankings) {

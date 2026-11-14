@@ -129,6 +129,22 @@ export function getAllianceMembers(match: CompetitionMatch, color: string): Matc
     return match.match_alliances?.filter((ma) => ma.alliance.color === color) ?? [];
 }
 
+/**
+ * A team's number as schedules print it: FTC marks a surrogate, a team
+ * playing an extra match that does not count for its ranking, with a star.
+ */
+export function teamNumberLabel(member: Pick<MatchAlliance, 'team' | 'counts_for_ranking'> | undefined): string {
+    if (!member?.team) {
+        return '';
+    }
+
+    return `${member.team.number}${member.counts_for_ranking === false ? '*' : ''}`;
+}
+
+export function hasSurrogates(matches: CompetitionMatch[]): boolean {
+    return matches.some((match) => match.type === 'qualification' && match.match_alliances?.some((member) => member.counts_for_ranking === false));
+}
+
 export interface ScoreBreakdownLine {
     label: string;
     points: number;

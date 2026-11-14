@@ -1,6 +1,6 @@
 import PrintLayout, { ReportRow } from '@/layouts/print-layout';
 import { bs } from '@/lib/bootstrap';
-import { getMatchTitle } from '@/lib/match-utils';
+import { getMatchTitle, teamNumberLabel } from '@/lib/match-utils';
 import { allianceColorsOf, membersOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type SharedData } from '@/types';
@@ -45,7 +45,7 @@ export default function AnnouncerReport() {
                                     {membersOf(match, color).map((matchAlliance) => (
                                         <tr key={matchAlliance.id}>
                                             <td>
-                                                <b>{matchAlliance.team?.number}</b>
+                                                <b>{teamNumberLabel(matchAlliance)}</b>
                                                 <br />
                                                 {matchAlliance.team?.name}
                                             </td>

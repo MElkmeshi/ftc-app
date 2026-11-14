@@ -1,6 +1,14 @@
 import PublicLayout from '@/layouts/public-layout';
 import { bs } from '@/lib/bootstrap';
-import { determineWinner, formatMatchTime, getAllianceMembers, getAllianceScore, getMatchTitle } from '@/lib/match-utils';
+import {
+    determineWinner,
+    formatMatchTime,
+    getAllianceMembers,
+    getAllianceScore,
+    getMatchTitle,
+    hasSurrogates,
+    teamNumberLabel,
+} from '@/lib/match-utils';
 import { allianceColorsOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type SharedData } from '@/types';
@@ -118,12 +126,13 @@ function ScheduleTable({ matches }: { matches: CompetitionMatch[] }) {
                             <td>{getMatchTitle(match)}</td>
                             <td>{match.field}</td>
                             {colors.flatMap((color) =>
-                                slots.map((slot) => <td key={`${color}-${slot}`}>{getAllianceMembers(match, color)[slot]?.team?.number}</td>),
+                                slots.map((slot) => <td key={`${color}-${slot}`}>{teamNumberLabel(getAllianceMembers(match, color)[slot])}</td>),
                             )}
                         </tr>
                     ))}
                 </tbody>
             </table>
+            {hasSurrogates(matches) && <p className="px-3">* Surrogate match, does not count for the team's ranking.</p>}
         </div>
     );
 }
@@ -188,7 +197,7 @@ function ResultsTable({ matches, keepBackground }: { matches: CompetitionMatch[]
 
                                             return (
                                                 <td key={color} className={cn(rowBackground, member?.card === 'red' && 'line-through')}>
-                                                    {member?.team?.number}
+                                                    {teamNumberLabel(member)}
                                                 </td>
                                             );
                                         })}

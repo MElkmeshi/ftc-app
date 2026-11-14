@@ -256,6 +256,7 @@ export interface MatchAlliance {
     score: number;
     card?: TeamCard | null;
     ready?: boolean;
+    counts_for_ranking?: boolean;
     alliance_group_id: number | null;
     scores?: Score[];
 }

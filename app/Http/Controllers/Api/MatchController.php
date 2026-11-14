@@ -171,7 +171,9 @@ class MatchController extends Controller
      */
     public function endMatch(ControlMatchRequest $request): JsonResponse
     {
-        $result = (new CompetitionMatch)->getConnection()->transaction(function () use ($request): CompetitionMatch|JsonResponse {
+        $bracketChanged = false;
+
+        $result = (new CompetitionMatch)->getConnection()->transaction(function () use ($request, &$bracketChanged): CompetitionMatch|JsonResponse {
             $match = CompetitionMatch::query()->lockForUpdate()->findOrFail($request->input('match_id'));
 
             if ($match->status !== MatchStatus::ONGOING) {
@@ -200,6 +202,8 @@ class MatchController extends Controller
                 'ended_at' => now(),
             ]);
 
+            $bracketChanged = app(EliminationScheduler::class)->reconcileAfterScoreChange($match, $request->user()->id);
+
             return $match;
         }, 3);
 
@@ -210,6 +214,10 @@ class MatchController extends Controller
         $result->load('matchAlliances.team', 'matchAlliances.alliance', 'scores.scoreType');
 
         LiveBroadcast::send(new MatchStatusChanged($result, 'ended'));
+
+        if ($bracketChanged) {
+            LiveBroadcast::send(new EliminationBracketUpdated);
+        }
 
         return response()->json($result);
     }
@@ -381,7 +389,7 @@ class MatchController extends Controller
                 minMatchesPerTeam: $request->validated('matches_per_team'),
                 createdBy: auth()->id() ?? 1,
                 teamsPerAlliance: $request->validated('teams_per_alliance'),
-                maxScoringMatches: $request->validated('max_scoring_matches'),
+                maxScoringMatches: $request->validated('max_scoring_matches') ?? $request->validated('matches_per_team'),
             );
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);

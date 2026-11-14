@@ -56,6 +56,17 @@ it('generates a schedule with max scoring matches', function () {
     }
 });
 
+it('does not count the extra match a team plays to fill the schedule for ranking', function () {
+    Team::factory()->count(5)->create();
+
+    $this->postJson('/api/matches/generate-schedule', ['matches_per_team' => 3, 'teams_per_alliance' => 2])->assertSuccessful();
+
+    $seats = MatchAlliance::all()->groupBy('team_id');
+
+    expect($seats->map->count()->max())->toBeGreaterThan(3)
+        ->and($seats->map(fn ($teamSeats) => $teamSeats->where('counts_for_ranking', true)->count())->unique()->values()->all())->toBe([3]);
+});
+
 it('validates required fields for schedule generation', function () {
     $response = $this->postJson('/api/matches/generate-schedule', []);
 

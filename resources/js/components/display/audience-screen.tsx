@@ -18,6 +18,7 @@ import {
     getFieldLabel,
     getMatchTitle,
     getPhaseLabel,
+    teamNumberLabel,
 } from '@/lib/match-utils';
 import EliminationBracketDisplay from '@/pages/elimination/bracket';
 import { type AudienceDisplayState, type CompetitionMatch, type SharedData, type TeamDisplay } from '@/types';
@@ -203,7 +204,7 @@ function ResultsScreen({ match }: { match: CompetitionMatch }) {
                         className="flex flex-1 items-center"
                         style={{ backgroundColor: DISPLAY_COLORS[color], paddingLeft: vw(16), fontSize: vh(30) }}
                     >
-                        {member.team.number}
+                        {teamNumberLabel(member)}
                     </div>
                     <div className="flex items-center justify-center bg-black" style={{ width: vw(60), fontSize: vh(26) }}>
                         {ranks.get(member.team.id) ?? '-'}

@@ -1,6 +1,14 @@
 import type { CompetitionMatch } from '@/types';
 import { describe, expect, it } from 'vitest';
-import { determineWinner, getAllianceBreakdown, getAllianceScore, getMatchTitle, scheduleDriftMinutes } from './match-utils';
+import {
+    determineWinner,
+    getAllianceBreakdown,
+    getAllianceScore,
+    getMatchTitle,
+    hasSurrogates,
+    scheduleDriftMinutes,
+    teamNumberLabel,
+} from './match-utils';
 
 function makeMatch(points: number | undefined): CompetitionMatch {
     return {
@@ -173,5 +181,25 @@ describe('match winner', () => {
 
     it('keeps the score result in qualification, where a red card only costs that team', () => {
         expect(determineWinner(playedMatch('qualification', true))).toBe('red');
+    });
+});
+
+describe('surrogate teams', () => {
+    const team = { id: 1, number: '1001', name: 'Hacksaw' };
+
+    it('stars a team whose match does not count for its ranking, and nothing else', () => {
+        expect(teamNumberLabel({ team, counts_for_ranking: false })).toBe('1001*');
+        expect(teamNumberLabel({ team, counts_for_ranking: true })).toBe('1001');
+        expect(teamNumberLabel({ team })).toBe('1001');
+        expect(teamNumberLabel(undefined)).toBe('');
+    });
+
+    it('knows whether a qualification schedule has any surrogate', () => {
+        const match = (type: CompetitionMatch['type'], counts: boolean) =>
+            ({ type, match_alliances: [{ team, counts_for_ranking: counts }] }) as unknown as CompetitionMatch;
+
+        expect(hasSurrogates([match('qualification', true)])).toBe(false);
+        expect(hasSurrogates([match('qualification', true), match('qualification', false)])).toBe(true);
+        expect(hasSurrogates([match('practice', false)])).toBe(false);
     });
 });

@@ -1,6 +1,6 @@
 import PrintLayout, { ReportRow } from '@/layouts/print-layout';
 import { bs } from '@/lib/bootstrap';
-import { formatMatchTime, getFieldLabel, getMatchTitle } from '@/lib/match-utils';
+import { formatMatchTime, getFieldLabel, getMatchTitle, teamNumberLabel } from '@/lib/match-utils';
 import { allianceColorsOf, membersOf } from '@/lib/report-utils';
 import { cn } from '@/lib/utils';
 import { type CompetitionMatch, type SharedData, type Team } from '@/types';
@@ -10,7 +10,7 @@ import { useState } from 'react';
 function teamNumbers(match: CompetitionMatch, color: string, except: number): string {
     return membersOf(match, color)
         .filter((matchAlliance) => matchAlliance.team?.id !== except)
-        .map((matchAlliance) => matchAlliance.team?.number)
+        .map((matchAlliance) => teamNumberLabel(matchAlliance))
         .join(', ');
 }
 

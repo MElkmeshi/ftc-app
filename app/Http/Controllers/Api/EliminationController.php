@@ -37,7 +37,7 @@ class EliminationController extends Controller
 
         if ($winner) {
             // Try to advance bracket (for semifinal -> final)
-            $this->scheduler->advanceBracket($series, auth()->id() ?? 1);
+            $this->scheduler->advanceBracket($series->refresh(), auth()->id() ?? 1);
 
             LiveBroadcast::send(new EliminationBracketUpdated);
 

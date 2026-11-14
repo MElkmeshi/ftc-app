@@ -336,13 +336,16 @@ class EliminationScheduler
     }
 
     /**
-     * After a completed playoff match's score is corrected, re-decides its
-     * series. If the correction changes who won a semifinal, a final that has
-     * not been played yet is rebuilt with the right alliances; one already
-     * under way is left alone and the correction refused, since replaying it
-     * needs a deliberate bracket reset.
+     * Keeps the bracket in step with a completed playoff match, when it is
+     * finished and whenever its score is corrected afterwards. A series is
+     * given its winner as soon as it is decided, and the final is created
+     * once both semifinals have one. If a correction changes who won a
+     * semifinal, a final that has not been played yet is rebuilt with the
+     * right alliances; one already under way is left alone and the
+     * correction refused, since replaying it needs a deliberate bracket
+     * reset.
      *
-     * Call inside the transaction that changed the scores.
+     * Call inside the transaction that changed the match.
      *
      * @return bool whether the bracket changed.
      */
@@ -354,8 +357,18 @@ class EliminationScheduler
 
         $series = EliminationSeries::query()->lockForUpdate()->find($match->elimination_series_id);
 
-        if ($series === null || $series->winner_alliance_group_id === null) {
+        if ($series === null) {
             return false;
+        }
+
+        if ($series->winner_alliance_group_id === null) {
+            if ($this->determineSeriesWinner($series) === null) {
+                return false;
+            }
+
+            $this->advanceBracket($series->fresh(), $createdBy);
+
+            return true;
         }
 
         if ($this->decidedWinnerId($series, $this->getSeriesResult($series)) === $series->winner_alliance_group_id) {

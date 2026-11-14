@@ -10,7 +10,15 @@ import { useFieldCount } from '@/hooks/use-field-count';
 import { useCancelMatch, useEndMatch, useLoadMatch, useStartMatch } from '@/hooks/use-match';
 import { useMatchControlSettings } from '@/hooks/use-match-control-settings';
 import { eventUrl } from '@/lib/event';
-import { formatTime, getAllianceMembers, getAllianceScore, getMatchTitle, isTestMatch, scheduleDriftMinutes } from '@/lib/match-utils';
+import {
+    formatTime,
+    getAllianceMembers,
+    getAllianceScore,
+    getMatchTitle,
+    isTestMatch,
+    scheduleDriftMinutes,
+    teamNumberLabel,
+} from '@/lib/match-utils';
 import { findSubmission, seatsOf } from '@/lib/referee-seats';
 import { serverNow } from '@/lib/server-clock';
 import { cn } from '@/lib/utils';
@@ -196,12 +204,12 @@ function ScheduleTable({
                             <td className="px-1 tabular-nums">{getAllianceScore(match, 'red')}</td>
                             {slots.map((slot) => (
                                 <td key={`red-${slot}`} className="px-1 tabular-nums">
-                                    {red[slot]?.team.number} <TeamCardBadge card={red[slot]?.card} />
+                                    {teamNumberLabel(red[slot])} <TeamCardBadge card={red[slot]?.card} />
                                 </td>
                             ))}
                             {slots.map((slot) => (
                                 <td key={`blue-${slot}`} className="px-1 tabular-nums">
-                                    {blue[slot]?.team.number} <TeamCardBadge card={blue[slot]?.card} />
+                                    {teamNumberLabel(blue[slot])} <TeamCardBadge card={blue[slot]?.card} />
                                 </td>
                             ))}
                             <td className="px-1 tabular-nums">{getAllianceScore(match, 'blue')}</td>
