@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Http\Middleware\UseTokenGuard;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
@@ -37,7 +38,7 @@ it('keeps every API route in the web middleware group and protects mutations wit
     $publicWrites = ['api.display.report'];
 
     foreach (Route::getRoutes() as $route) {
-        if (! str_starts_with($route->uri(), 'api/')) {
+        if (! str_starts_with($route->uri(), 'api/') || str_starts_with($route->uri(), 'api/mobile')) {
             continue;
         }
         expect($route->gatherMiddleware())->toContain('web')->not->toContain('api');
@@ -49,6 +50,36 @@ it('keeps every API route in the web middleware group and protects mutations wit
         if (! in_array('GET', $route->methods(), true)) {
             expect($route->gatherMiddleware())->toContain('auth');
             expect(collect($route->gatherMiddleware())->contains(fn (string $middleware): bool => str_starts_with($middleware, 'can:')))->toBeTrue();
+        }
+    }
+});
+
+it('keeps the mobile API on tokens, never the session, and protects its mutations with a gate', function () {
+    $throttledPublicWrites = ['mobile.session.store' => 'throttle:10,1', 'mobile.api.display.report' => 'throttle:60,1'];
+    $ownAccountWrites = ['mobile.session.destroy'];
+    $mobileRoutes = collect(Route::getRoutes())->filter(fn ($route): bool => str_starts_with($route->uri(), 'api/mobile'));
+
+    expect($mobileRoutes)->not->toBeEmpty();
+
+    foreach ($mobileRoutes as $route) {
+        $middleware = $route->gatherMiddleware();
+
+        expect($middleware)->toContain(UseTokenGuard::class)->not->toContain('web')->not->toContain('stateful');
+
+        if (in_array('GET', $route->methods(), true)) {
+            continue;
+        }
+
+        if (isset($throttledPublicWrites[$route->getName()])) {
+            expect($middleware)->toContain($throttledPublicWrites[$route->getName()]);
+
+            continue;
+        }
+
+        expect($middleware)->toContain('auth');
+
+        if (! in_array($route->getName(), $ownAccountWrites, true)) {
+            expect(collect($middleware)->contains(fn (string $entry): bool => str_starts_with($entry, 'can:')))->toBeTrue();
         }
     }
 });
