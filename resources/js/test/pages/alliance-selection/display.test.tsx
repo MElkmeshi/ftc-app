@@ -113,4 +113,26 @@ describe('alliance selection display', () => {
 
         await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Alliance #2 is picking'));
     });
+
+    it('adds a second pick column and a second round for three-team alliances', async () => {
+        const { Wrapper } = renderWithQueryClient(() => null);
+        render(<AllianceSelectionDisplay />, { wrapper: Wrapper });
+
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Waiting for alliance selection to begin'));
+
+        await act(async () => {
+            echo.emit('event.testevent.alliance-selection', 'AllianceSelectionUpdated', {
+                action: 'accepted',
+                groups: [makeGroup(1, { size: 3, picked_team: makeTeam(11, '1111') }), makeGroup(2, { size: 3, picked_team: makeTeam(12, '2222') })],
+                declined_teams: [],
+                complete: false,
+                current_pick_seed: 1,
+            } satisfies AllianceSelectionUpdatedEvent);
+        });
+
+        await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Alliance #1 is picking'));
+        expect(screen.getByText('1st Pick')).toBeInTheDocument();
+        expect(screen.getByText('2nd Pick')).toBeInTheDocument();
+        expect(screen.queryByText('Partner')).not.toBeInTheDocument();
+    });
 });

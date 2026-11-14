@@ -166,25 +166,27 @@ class AllianceSelectionService
     }
 
     /**
-     * Start alliance selection by creating alliance groups for top N teams.
+     * Start alliance selection: the top teams become the captains of the
+     * alliances. Alliances have a third team when qualification matches are
+     * played three or more to a side, unless a size is given.
      *
      * @return Collection<int, AllianceGroup>
      */
-    public function startSelection(int $numberOfAlliances, int $createdBy): Collection
+    public function startSelection(int $numberOfAlliances, int $createdBy, ?int $allianceSize = null): Collection
     {
         if ($numberOfAlliances % 2 !== 0) {
             throw new Exception('Number of alliances must be even.');
         }
 
+        $allianceSize ??= $this->defaultAllianceSize();
         $rankings = $this->getRankings();
-
-        $teamsNeeded = $numberOfAlliances * 2;
+        $teamsNeeded = $numberOfAlliances * $allianceSize;
 
         if ($rankings->count() < $teamsNeeded) {
             throw new Exception("Not enough ranked teams for {$numberOfAlliances} alliances. Need at least {$teamsNeeded} but found {$rankings->count()}.");
         }
 
-        return DB::transaction(function () use ($numberOfAlliances, $createdBy, $rankings) {
+        return DB::transaction(function () use ($numberOfAlliances, $allianceSize, $createdBy, $rankings) {
             if (AllianceGroup::exists()) {
                 throw new Exception('Alliance selection has already been started. Reset first.');
             }
@@ -194,6 +196,7 @@ class AllianceSelectionService
             for ($i = 0; $i < $numberOfAlliances; $i++) {
                 $groups->push(AllianceGroup::create([
                     'seed' => $i + 1,
+                    'size' => $allianceSize,
                     'captain_team_id' => $rankings[$i]['team_id'],
                     'picked_team_id' => null,
                     'created_by' => $createdBy,
@@ -205,26 +208,38 @@ class AllianceSelectionService
         });
     }
 
-    /**
-     * The alliance whose turn it is to pick: the lowest unfilled seed. Returns
-     * null when every alliance has picked.
-     */
-    public function getCurrentPickingGroup(): ?AllianceGroup
+    private function defaultAllianceSize(): int
     {
-        return AllianceGroup::whereNull('picked_team_id')
-            ->orderBy('seed')
-            ->first();
+        $teamsPerSide = MatchAlliance::query()
+            ->whereIn('match_id', CompetitionMatch::query()->qualification()->select('id'))
+            ->max('alliance_pos');
+
+        return $teamsPerSide >= 3 ? 3 : 2;
     }
 
     /**
-     * Invite a team for an alliance group (sets pending).
+     * The alliance whose turn it is to pick. Every alliance picks its first
+     * partner in seed order, then, when alliances have three teams, its
+     * second in the same order. Returns null when every alliance is full.
+     */
+    public function getCurrentPickingGroup(): ?AllianceGroup
+    {
+        $groups = AllianceGroup::query()->orderBy('seed')->get();
+
+        return $groups->first(fn (AllianceGroup $group): bool => $group->picked_team_id === null)
+            ?? $groups->first(fn (AllianceGroup $group): bool => $group->openPick() !== null);
+    }
+
+    /**
+     * Invite a team for an alliance group (sets pending). A captain may
+     * invite the captain of a lower alliance that has not picked yet.
      */
     public function inviteTeam(int $allianceGroupId, int $teamId, int $updatedBy): AllianceGroup
     {
         return DB::transaction(function () use ($allianceGroupId, $teamId, $updatedBy) {
             $group = AllianceGroup::lockForUpdate()->findOrFail($allianceGroupId);
 
-            if ($group->picked_team_id !== null) {
+            if ($group->openPick() === null) {
                 throw new Exception('This alliance group has already picked a team.');
             }
 
@@ -232,20 +247,21 @@ class AllianceSelectionService
                 throw new Exception('This alliance group already has a pending invite.');
             }
 
-            $currentSeed = AllianceGroup::whereNull('picked_team_id')->min('seed');
-            if ($currentSeed !== null && $group->seed > $currentSeed) {
-                throw new Exception("It is alliance #{$currentSeed}'s turn to pick.");
+            $current = $this->getCurrentPickingGroup();
+            if ($current !== null && $current->id !== $group->id) {
+                throw new Exception("It is alliance #{$current->seed}'s turn to pick.");
             }
 
             if (! Team::whereKey($teamId)->exists()) {
                 throw new Exception('Team not found.');
             }
 
-            if (AllianceGroup::where('captain_team_id', $teamId)->exists()) {
+            $captained = AllianceGroup::where('captain_team_id', $teamId)->first();
+            if ($captained !== null && ($captained->seed <= $group->seed || $captained->picked_team_id !== null)) {
                 throw new Exception('Cannot pick a team that is already a captain.');
             }
 
-            if (AllianceGroup::where('picked_team_id', $teamId)->exists()) {
+            if (AllianceGroup::where('picked_team_id', $teamId)->orWhere('second_picked_team_id', $teamId)->exists()) {
                 throw new Exception('This team has already been picked by another alliance.');
             }
 
@@ -262,30 +278,62 @@ class AllianceSelectionService
                 'updated_by' => $updatedBy,
             ]);
 
-            return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+            return $group->load(['captainTeam', 'pickedTeam', 'secondPickedTeam', 'pendingTeam']);
         });
     }
 
     /**
-     * Accept a pending invite (moves pending → picked).
+     * Accept a pending invite (moves pending → picked). When the team that
+     * accepts was itself a captain, the alliances below it move up one seed
+     * and the next ranked team becomes the captain of the last alliance.
      */
     public function acceptPick(int $allianceGroupId, int $updatedBy): AllianceGroup
     {
         return DB::transaction(function () use ($allianceGroupId, $updatedBy) {
             $group = AllianceGroup::lockForUpdate()->findOrFail($allianceGroupId);
 
-            if ($group->pending_team_id === null) {
+            if ($group->pending_team_id === null || $group->openPick() === null) {
                 throw new Exception('No pending invite to accept.');
             }
 
+            $vacated = AllianceGroup::where('captain_team_id', $group->pending_team_id)->first();
+
             $group->update([
-                'picked_team_id' => $group->pending_team_id,
+                $group->openPick() => $group->pending_team_id,
                 'pending_team_id' => null,
                 'updated_by' => $updatedBy,
             ]);
 
-            return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+            if ($vacated !== null) {
+                $this->replaceVacatedAlliance($vacated, $updatedBy);
+            }
+
+            return $group->load(['captainTeam', 'pickedTeam', 'secondPickedTeam', 'pendingTeam']);
         });
+    }
+
+    private function replaceVacatedAlliance(AllianceGroup $vacated, int $updatedBy): void
+    {
+        $vacated->delete();
+
+        AllianceGroup::query()->where('seed', '>', $vacated->seed)->orderBy('seed')->get()
+            ->each(fn (AllianceGroup $group) => $group->update(['seed' => $group->seed - 1]));
+
+        $groups = AllianceGroup::all();
+        $taken = $groups->flatMap(fn (AllianceGroup $group): array => [...$group->memberIds(), $group->pending_team_id])->filter();
+        $nextCaptain = $this->getRankings()->first(fn (array $ranking): bool => ! $taken->contains($ranking['team_id']));
+
+        if ($nextCaptain === null) {
+            throw new Exception('No team is left to captain the last alliance.');
+        }
+
+        AllianceGroup::create([
+            'seed' => $groups->max('seed') + 1,
+            'size' => $vacated->size,
+            'captain_team_id' => $nextCaptain['team_id'],
+            'created_by' => $updatedBy,
+            'updated_by' => $updatedBy,
+        ]);
     }
 
     /**
@@ -311,7 +359,7 @@ class AllianceSelectionService
                 'updated_by' => $updatedBy,
             ]);
 
-            return $group->load(['captainTeam', 'pickedTeam', 'pendingTeam']);
+            return $group->load(['captainTeam', 'pickedTeam', 'secondPickedTeam', 'pendingTeam']);
         });
     }
 
@@ -322,7 +370,7 @@ class AllianceSelectionService
      */
     public function getGroups(): Collection
     {
-        return AllianceGroup::with(['captainTeam', 'pickedTeam', 'pendingTeam'])
+        return AllianceGroup::with(['captainTeam', 'pickedTeam', 'secondPickedTeam', 'pendingTeam'])
             ->orderBy('seed')
             ->get();
     }
@@ -346,9 +394,9 @@ class AllianceSelectionService
      */
     public function getAvailableTeams(): Collection
     {
-        $excludedIds = AllianceGroup::pluck('captain_team_id')
-            ->merge(AllianceGroup::whereNotNull('picked_team_id')->pluck('picked_team_id'))
-            ->merge(AllianceGroup::whereNotNull('pending_team_id')->pluck('pending_team_id'))
+        $excludedIds = AllianceGroup::all()
+            ->flatMap(fn (AllianceGroup $group): array => [...$group->memberIds(), $group->pending_team_id])
+            ->filter()
             ->merge(AllianceSelectionDecline::pluck('team_id'));
 
         return Team::whereNotIn('id', $excludedIds)->orderBy('number')->get();
@@ -359,11 +407,9 @@ class AllianceSelectionService
      */
     public function isComplete(): bool
     {
-        if (! AllianceGroup::exists()) {
-            return false;
-        }
+        $groups = AllianceGroup::all();
 
-        return AllianceGroup::whereNull('picked_team_id')->doesntExist();
+        return $groups->isNotEmpty() && $groups->every(fn (AllianceGroup $group): bool => $group->openPick() === null);
     }
 
     /**

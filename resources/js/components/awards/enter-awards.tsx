@@ -82,7 +82,7 @@ function SlotFields({
     teams: AwardTeam[];
     onChange: (changes: Partial<SlotDraft>) => void;
 }) {
-    const label = slotLabel(slot.place);
+    const label = slotLabel(slot.place, award.kind);
     const fieldId = `${award.id}-${slot.place}`;
 
     return (

@@ -1,5 +1,6 @@
 import { useChangedAt } from '@/hooks/use-changed-at';
 import PublicLayout from '@/layouts/public-layout';
+import { allianceTeams, roundCode, roundLabel } from '@/lib/alliance-utils';
 import { bs } from '@/lib/bootstrap';
 import { cn } from '@/lib/utils';
 import { type AllianceGroup, type EliminationBracket, type EliminationSeries, type SharedData } from '@/types';
@@ -7,30 +8,21 @@ import { Head, usePage, useProp } from '@inertiajs/react';
 import { Printer, Trophy } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
-const ROUND_LABELS: Record<string, string> = {
-    semifinal_1: 'Semifinal 1',
-    semifinal_2: 'Semifinal 2',
-    final: 'Final',
-    tiebreaker_semifinal_1: 'Tiebreaker SF1',
-    tiebreaker_semifinal_2: 'Tiebreaker SF2',
-    tiebreaker_final: 'Tiebreaker Final',
-};
-
-const ROUND_CODES: Record<string, string> = {
-    semifinal_1: 'SF1',
-    semifinal_2: 'SF2',
-};
+const STAGES = ['quarterfinal', 'semifinal', 'final'];
 
 const BRACKET_ITEM = 'overflow-hidden text-center font-[Tahoma] text-ellipsis text-black';
 const BRACKET_BOX = 'm-[0.5em] h-[1.75em] border border-black';
 
-function isFinalRound(round: string): boolean {
-    return round === 'final' || round === 'tiebreaker_final';
+function stageOf(round: string): string {
+    return round.replace(/^tiebreaker_/, '').replace(/_\d+$/, '');
+}
+
+function seriesNumber(round: string): number {
+    return Number(round.match(/_(\d+)$/)?.[1] ?? 1);
 }
 
 function teamNumbersOf(group: AllianceGroup): string {
-    return [group.captain_team, group.picked_team]
-        .filter((team) => team !== null)
+    return allianceTeams(group)
         .map((team) => team.number)
         .join(', ');
 }
@@ -64,7 +56,7 @@ function BracketLevel({
             className="flex flex-col items-center self-center"
             style={{ gridColumn: `${column} / span 1`, gridRow: `${row} / span ${rowSpan}` }}
         >
-            <div className="text-center font-[Tahoma] text-[24px] font-bold">{ROUND_LABELS[round] ?? round}</div>
+            <div className="text-center font-[Tahoma] text-[24px] font-bold">{roundLabel(round)}</div>
             {children}
         </div>
     );
@@ -144,11 +136,28 @@ function BracketBody({ bracket, printable }: { bracket: EliminationBracket | und
     const updatedAt = useChangedAt(bracket);
     const series = bracket?.series ?? [];
     const allianceGroups = bracket?.alliance_groups ?? [];
-    const semifinals = series.filter((entry) => entry.round === 'semifinal_1' || entry.round === 'semifinal_2');
-    const finals = series.filter((entry) => isFinalRound(entry.round));
-    const hasSemifinals = semifinals.length > 0;
-    const firstColumn = hasSemifinals ? semifinals : series;
-    const rows = Math.max(1, firstColumn.length);
+    const firstStage = STAGES.findIndex((stage) => series.some((entry) => stageOf(entry.round) === stage));
+    const stages = firstStage < 0 ? [] : STAGES.slice(firstStage);
+    const rows = Math.max(1, 2 ** (stages.length - 1));
+    const levels = stages.flatMap((stage, stageIndex) => {
+        const rowSpan = 2 ** stageIndex;
+        const feederStage = stages[stageIndex - 1];
+
+        return Array.from({ length: rows / rowSpan }, (_, index) => {
+            const round = stage === 'final' ? 'final' : `${stage}_${index + 1}`;
+            const feederRounds = feederStage ? [`${feederStage}_${index * 2 + 1}`, `${feederStage}_${index * 2 + 2}`] : [];
+
+            return {
+                round,
+                column: stageIndex + 1,
+                row: index * rowSpan + 1,
+                rowSpan,
+                feederRounds,
+                series: series.find((entry) => stageOf(entry.round) === stage && seriesNumber(entry.round) === index + 1),
+                feeders: series.filter((entry) => feederRounds.includes(entry.round)),
+            };
+        });
+    });
     const signature = series.map((entry) => `${entry.id}:${entry.winner_alliance_group_id}:${entry.round}`).join('|');
     const { containerRef, paths } = useConnectorPaths(signature);
 
@@ -178,6 +187,7 @@ function BracketBody({ bracket, printable }: { bracket: EliminationBracket | und
                         <div className={cn(BRACKET_ITEM, BRACKET_BOX, 'min-w-[3em] p-[0.2em]')}>{group.seed}</div>
                         <div className={BRACKET_ITEM}>{group.captain_team.number}</div>
                         <div className={cn(BRACKET_ITEM, 'mr-[0.5em]')}>{group.picked_team?.number}</div>
+                        {group.second_picked_team && <div className={cn(BRACKET_ITEM, 'mr-[0.5em]')}>{group.second_picked_team.number}</div>}
                     </div>
                 ))}
             </div>
@@ -188,33 +198,26 @@ function BracketBody({ bracket, printable }: { bracket: EliminationBracket | und
                 className="relative grid grid-cols-4 gap-x-[3em] text-[11pt]"
                 style={{ gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` }}
             >
-                {firstColumn.map((entry, index) => (
-                    <BracketLevel key={entry.id} round={entry.round} column={1} row={index + 1} rowSpan={1}>
-                        <SeriesBars series={entry} feeders={[]} />
+                {levels.map((level) => (
+                    <BracketLevel key={level.round} round={level.round} column={level.column} row={level.row} rowSpan={level.rowSpan}>
+                        {level.series ? (
+                            <SeriesBars series={level.series} feeders={level.feeders} />
+                        ) : (
+                            level.feederRounds.map((feederRound) => (
+                                <BracketBar
+                                    key={feederRound}
+                                    origin={feederRound}
+                                    seed={
+                                        <>
+                                            {roundCode(feederRound)}
+                                            <Trophy className="inline size-[1em] align-[-0.125em]" />
+                                        </>
+                                    }
+                                />
+                            ))
+                        )}
                     </BracketLevel>
                 ))}
-                {hasSemifinals &&
-                    finals.map((entry) => (
-                        <BracketLevel key={entry.id} round={entry.round} column={2} row={1} rowSpan={rows}>
-                            <SeriesBars series={entry} feeders={semifinals} />
-                        </BracketLevel>
-                    ))}
-                {hasSemifinals && finals.length === 0 && (
-                    <BracketLevel round="final" column={2} row={1} rowSpan={rows}>
-                        {semifinals.map((entry) => (
-                            <BracketBar
-                                key={entry.id}
-                                origin={entry.round}
-                                seed={
-                                    <>
-                                        {ROUND_CODES[entry.round]}
-                                        <Trophy className="inline size-[1em] align-[-0.125em]" />
-                                    </>
-                                }
-                            />
-                        ))}
-                    </BracketLevel>
-                )}
                 <svg className="pointer-events-none absolute top-0 left-0 overflow-visible">
                     {paths.map((path) => (
                         <path key={path} d={path} stroke="black" fill="transparent" strokeWidth={4} />

@@ -13,7 +13,19 @@ function award(overrides: Partial<AwardRow> = {}): AwardRow {
 
 describe('slot labels', () => {
     it('names the first three slots and calls every later one a runner up', () => {
-        expect([1, 2, 3, 4, 9].map(slotLabel)).toEqual(['Winner', 'Second Place', 'Third Place', 'Runner Up', 'Runner Up']);
+        expect([1, 2, 3, 4, 9].map((place) => slotLabel(place))).toEqual(['Winner', 'Second Place', 'Third Place', 'Runner Up', 'Runner Up']);
+    });
+});
+
+describe('alliance awards', () => {
+    it('names the slots after the teams of the alliance', () => {
+        expect([1, 2, 3].map((place) => slotLabel(place, 'winning_alliance'))).toEqual(['Captain', 'First Pick', 'Second Pick']);
+    });
+
+    it('announces the alliance from its captain down', () => {
+        const announced = announcedSlots(award({ kind: 'finalist_alliance', places: 3, winners: [winner(1), winner(2), winner(3)] }));
+
+        expect(announced.map((slot) => slot.place)).toEqual([1, 2, 3]);
     });
 });
 

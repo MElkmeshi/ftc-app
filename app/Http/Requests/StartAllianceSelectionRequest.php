@@ -13,6 +13,7 @@ class StartAllianceSelectionRequest extends FormRequest
     {
         return [
             'number_of_alliances' => ['required', 'integer', 'in:2,4,8'],
+            'alliance_size' => ['sometimes', 'integer', 'in:2,3'],
         ];
     }
 }

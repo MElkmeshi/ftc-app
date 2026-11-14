@@ -44,6 +44,8 @@ class ScriptController extends Controller
                     'seed' => $group->seed,
                     'captain' => $group->captainTeam?->only(['number', 'name']),
                     'picked' => $group->pickedTeam?->only(['number', 'name']),
+                    'second_picked' => $group->secondPickedTeam?->only(['number', 'name']),
+                    'size' => $group->size,
                     'pending' => $group->pendingTeam?->only(['number', 'name']),
                 ]),
                 on: AllianceSelectionUpdated::class,

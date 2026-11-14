@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AwardKind;
 use App\Models\Concerns\BelongsToEvent;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,13 +20,13 @@ class Award extends Model
 
     public const MAX_PLACES = 50;
 
-    protected $fillable = ['event_id', 'name', 'description', 'is_team_award', 'places', 'display_order'];
+    protected $fillable = ['event_id', 'name', 'description', 'is_team_award', 'kind', 'places', 'display_order'];
 
     protected $hidden = ['event_id', 'created_at', 'updated_at'];
 
     protected function casts(): array
     {
-        return ['is_team_award' => 'boolean', 'places' => 'integer', 'display_order' => 'integer'];
+        return ['is_team_award' => 'boolean', 'kind' => AwardKind::class, 'places' => 'integer', 'display_order' => 'integer'];
     }
 
     /**
@@ -38,7 +39,8 @@ class Award extends Model
 
     /**
      * The slots that have been given to someone, in the order they are
-     * announced: the last place first and the winner last.
+     * announced: the last place first and the winner last. An alliance's
+     * award is read the other way, from its captain down.
      *
      * @return Collection<int, AwardWinner>
      */
@@ -47,7 +49,7 @@ class Award extends Model
         return $this->winners
             ->filter(fn (AwardWinner $winner): bool => $winner->place <= $this->places && $winner->isGiven())
             ->unique('place')
-            ->sortByDesc('place')
+            ->sortBy('place', descending: $this->kind === null)
             ->values();
     }
 }

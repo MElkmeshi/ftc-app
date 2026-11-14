@@ -148,6 +148,7 @@ class AudienceDisplay
             'name' => $award->name,
             'description' => $award->description,
             'is_team_award' => $award->is_team_award,
+            'kind' => $award->kind?->value,
             'places' => $award->places,
             'revealed' => $award->announcedWinners()
                 ->take(max(0, $revealed))

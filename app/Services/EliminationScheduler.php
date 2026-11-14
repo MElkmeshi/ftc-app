@@ -22,9 +22,9 @@ class EliminationScheduler
      */
     public function generate(int $createdBy): void
     {
-        $groups = AllianceGroup::whereNotNull('picked_team_id')
-            ->orderBy('seed')
-            ->get();
+        $groups = AllianceGroup::query()->orderBy('seed')->get()
+            ->filter(fn (AllianceGroup $group): bool => $group->openPick() === null)
+            ->values();
 
         if ($groups->isEmpty()) {
             throw new Exception('No completed alliance groups found.');
@@ -38,98 +38,56 @@ class EliminationScheduler
             throw new Exception('Elimination bracket already exists. Reset first.');
         }
 
-        $alliances = Alliance::orderBy('id')->get();
-        if ($alliances->count() < 2) {
+        if (Alliance::count() < 2) {
             throw new Exception('At least 2 alliances (red/blue) are required.');
         }
 
-        $redAllianceId = $alliances[0]->id;
-        $blueAllianceId = $alliances[1]->id;
+        $firstRound = match ($groups->count()) {
+            2 => [EliminationRound::FINAL->value => [1, 2]],
+            4 => [EliminationRound::SEMIFINAL_1->value => [1, 4], EliminationRound::SEMIFINAL_2->value => [2, 3]],
+            8 => [
+                EliminationRound::QUARTERFINAL_1->value => [1, 8],
+                EliminationRound::QUARTERFINAL_2->value => [4, 5],
+                EliminationRound::QUARTERFINAL_3->value => [2, 7],
+                EliminationRound::QUARTERFINAL_4->value => [3, 6],
+            ],
+            default => throw new Exception('Only 2, 4 or 8 alliance groups are supported.'),
+        };
 
-        $lastMatchNumber = CompetitionMatch::query()->competitive()->max('number') ?? 0;
-        $matchNumber = $lastMatchNumber + 1;
-
-        if ($groups->count() === 2) {
-            $this->generateFinalSeries($groups[0], $groups[1], $redAllianceId, $blueAllianceId, $matchNumber, $createdBy);
-        } elseif ($groups->count() === 4) {
-            $this->generateSemifinals($groups, $redAllianceId, $blueAllianceId, $matchNumber, $createdBy);
-        } else {
-            throw new Exception('Only 2 or 4 alliance groups are supported.');
+        foreach ($firstRound as $round => [$homeSeed, $awaySeed]) {
+            $this->createSeries(EliminationRound::from($round), $groups[$homeSeed - 1], $groups[$awaySeed - 1], $createdBy);
         }
     }
 
-    private function generateFinalSeries(
-        AllianceGroup $group1,
-        AllianceGroup $group2,
-        int $redAllianceId,
-        int $blueAllianceId,
-        int &$matchNumber,
-        int $createdBy,
-    ): EliminationSeries {
+    /**
+     * A series of two matches between two alliances. The first named
+     * alliance is red in the first match and blue in the second.
+     */
+    private function createSeries(EliminationRound $round, AllianceGroup $home, AllianceGroup $away, int $createdBy): EliminationSeries
+    {
         $series = EliminationSeries::create([
-            'round' => EliminationRound::FINAL->value,
-            'alliance_group_1_id' => $group1->id,
-            'alliance_group_2_id' => $group2->id,
+            'round' => $round->value,
+            'alliance_group_1_id' => $home->id,
+            'alliance_group_2_id' => $away->id,
             'status' => 'pending',
             'created_by' => $createdBy,
             'updated_by' => $createdBy,
         ]);
 
-        // Match 1: Group1 = Red, Group2 = Blue
-        $this->createEliminationMatch($series, $group1, $group2, $redAllianceId, $blueAllianceId, $matchNumber++, $createdBy);
-
-        // Match 2: Group2 = Red, Group1 = Blue (swap home/away)
-        $this->createEliminationMatch($series, $group2, $group1, $redAllianceId, $blueAllianceId, $matchNumber++, $createdBy);
+        $this->createEliminationMatch($series, $home, $away, $createdBy);
+        $this->createEliminationMatch($series, $away, $home, $createdBy);
 
         return $series;
     }
 
-    private function generateSemifinals(
-        Collection $groups,
-        int $redAllianceId,
-        int $blueAllianceId,
-        int &$matchNumber,
-        int $createdBy,
-    ): void {
-        // Semifinal 1: Seed 1 vs Seed 4
-        $sf1 = EliminationSeries::create([
-            'round' => EliminationRound::SEMIFINAL_1->value,
-            'alliance_group_1_id' => $groups[0]->id,
-            'alliance_group_2_id' => $groups[3]->id,
-            'status' => 'pending',
-            'created_by' => $createdBy,
-            'updated_by' => $createdBy,
-        ]);
-
-        $this->createEliminationMatch($sf1, $groups[0], $groups[3], $redAllianceId, $blueAllianceId, $matchNumber++, $createdBy);
-        $this->createEliminationMatch($sf1, $groups[3], $groups[0], $redAllianceId, $blueAllianceId, $matchNumber++, $createdBy);
-
-        // Semifinal 2: Seed 2 vs Seed 3
-        $sf2 = EliminationSeries::create([
-            'round' => EliminationRound::SEMIFINAL_2->value,
-            'alliance_group_1_id' => $groups[1]->id,
-            'alliance_group_2_id' => $groups[2]->id,
-            'status' => 'pending',
-            'created_by' => $createdBy,
-            'updated_by' => $createdBy,
-        ]);
-
-        $this->createEliminationMatch($sf2, $groups[1], $groups[2], $redAllianceId, $blueAllianceId, $matchNumber++, $createdBy);
-        $this->createEliminationMatch($sf2, $groups[2], $groups[1], $redAllianceId, $blueAllianceId, $matchNumber++, $createdBy);
-    }
-
     /**
-     * Create a single elimination match with both teams from each alliance group.
+     * Create a single elimination match with every team of both alliances.
      */
-    private function createEliminationMatch(
-        EliminationSeries $series,
-        AllianceGroup $redGroup,
-        AllianceGroup $blueGroup,
-        int $redAllianceId,
-        int $blueAllianceId,
-        int $matchNumber,
-        int $createdBy,
-    ): CompetitionMatch {
+    private function createEliminationMatch(EliminationSeries $series, AllianceGroup $redGroup, AllianceGroup $blueGroup, int $createdBy): CompetitionMatch
+    {
+        [$redAllianceId, $blueAllianceId] = Alliance::query()->orderBy('id')->limit(2)->pluck('id')->all();
+        $matchNumber = (CompetitionMatch::query()->competitive()->max('number') ?? 0) + 1;
+
         $match = CompetitionMatch::create([
             'number' => $matchNumber,
             'field' => app(FieldAssignment::class)->fieldFor($matchNumber),
@@ -142,32 +100,19 @@ class EliminationScheduler
             'updated_by' => $createdBy,
         ]);
 
-        // Red alliance: both teams from redGroup
-        foreach ([$redGroup->captain_team_id, $redGroup->picked_team_id] as $pos => $teamId) {
-            MatchAlliance::create([
-                'match_id' => $match->id,
-                'team_id' => $teamId,
-                'alliance_id' => $redAllianceId,
-                'alliance_pos' => $pos + 1,
-                'score' => 0,
-                'alliance_group_id' => $redGroup->id,
-                'created_by' => $createdBy,
-                'updated_by' => $createdBy,
-            ]);
-        }
-
-        // Blue alliance: both teams from blueGroup
-        foreach ([$blueGroup->captain_team_id, $blueGroup->picked_team_id] as $pos => $teamId) {
-            MatchAlliance::create([
-                'match_id' => $match->id,
-                'team_id' => $teamId,
-                'alliance_id' => $blueAllianceId,
-                'alliance_pos' => $pos + 1,
-                'score' => 0,
-                'alliance_group_id' => $blueGroup->id,
-                'created_by' => $createdBy,
-                'updated_by' => $createdBy,
-            ]);
+        foreach ([[$redGroup, $redAllianceId], [$blueGroup, $blueAllianceId]] as [$group, $allianceId]) {
+            foreach ($group->memberIds() as $position => $teamId) {
+                MatchAlliance::create([
+                    'match_id' => $match->id,
+                    'team_id' => $teamId,
+                    'alliance_id' => $allianceId,
+                    'alliance_pos' => $position + 1,
+                    'score' => 0,
+                    'alliance_group_id' => $group->id,
+                    'created_by' => $createdBy,
+                    'updated_by' => $createdBy,
+                ]);
+            }
         }
 
         return $match;
@@ -283,6 +228,7 @@ class EliminationScheduler
 
             if ($winnerId !== null) {
                 $series->update(['winner_alliance_group_id' => $winnerId, 'status' => 'completed']);
+                app(AllianceAwards::class)->sync();
 
                 return AllianceGroup::find($winnerId);
             }
@@ -316,20 +262,11 @@ class EliminationScheduler
                 throw new Exception('Series is not tied. Cannot generate tiebreaker.');
             }
 
-            $alliances = Alliance::orderBy('id')->get();
-            $matchNumber = (CompetitionMatch::query()->competitive()->max('number') ?? 0) + 1;
-
             $group1 = AllianceGroup::findOrFail($series->alliance_group_1_id);
             $group2 = AllianceGroup::findOrFail($series->alliance_group_2_id);
 
-            // Higher seed (group 1) gets red (home)
-            $match = $this->createEliminationMatch($series, $group1, $group2, $alliances[0]->id, $alliances[1]->id, $matchNumber, $createdBy);
-
-            $match->update(['round' => match ($series->round) {
-                EliminationRound::SEMIFINAL_1->value => EliminationRound::TIEBREAKER_SEMIFINAL_1->value,
-                EliminationRound::SEMIFINAL_2->value => EliminationRound::TIEBREAKER_SEMIFINAL_2->value,
-                default => EliminationRound::TIEBREAKER_FINAL->value,
-            }]);
+            $match = $this->createEliminationMatch($series, $group1, $group2, $createdBy);
+            $match->update(['round' => EliminationRound::from($series->round)->tiebreaker()->value]);
 
             return $match;
         }, 3);
@@ -375,25 +312,25 @@ class EliminationScheduler
             return false;
         }
 
-        $final = in_array($series->round, [EliminationRound::SEMIFINAL_1->value, EliminationRound::SEMIFINAL_2->value], true)
-            ? EliminationSeries::query()->with('matches')->where('round', EliminationRound::FINAL->value)->first()
-            : null;
+        $nextRound = EliminationRound::from($series->round)->next();
+        $next = $nextRound === null ? null : EliminationSeries::query()->with('matches')->where('round', $nextRound->value)->first();
 
-        if ($final !== null && $final->matches->contains(fn (CompetitionMatch $finalMatch): bool => $finalMatch->status !== MatchStatus::UPCOMING)) {
+        if ($next !== null && $next->matches->contains(fn (CompetitionMatch $nextMatch): bool => $nextMatch->status !== MatchStatus::UPCOMING)) {
             throw ValidationException::withMessages([
-                'match_id' => 'This correction changes who won the semifinal, but the final has already started. Reset the bracket to replay it.',
+                'match_id' => 'This correction changes who won the series, but the next round has already started. Reset the bracket to replay it.',
             ]);
         }
 
-        if ($final !== null) {
-            $finalMatchIds = $final->matches->pluck('id');
-            Score::whereIn('match_id', $finalMatchIds)->forceDelete();
-            MatchAlliance::whereIn('match_id', $finalMatchIds)->forceDelete();
-            CompetitionMatch::query()->whereIn('id', $finalMatchIds)->forceDelete();
-            $final->delete();
+        if ($next !== null) {
+            $nextMatchIds = $next->matches->pluck('id');
+            Score::whereIn('match_id', $nextMatchIds)->forceDelete();
+            MatchAlliance::whereIn('match_id', $nextMatchIds)->forceDelete();
+            CompetitionMatch::query()->whereIn('id', $nextMatchIds)->forceDelete();
+            $next->delete();
         }
 
         $series->update(['winner_alliance_group_id' => null, 'status' => 'in_progress']);
+        app(AllianceAwards::class)->sync();
 
         if ($this->determineSeriesWinner($series) !== null) {
             $this->advanceBracket($series->fresh(), $createdBy);
@@ -403,7 +340,8 @@ class EliminationScheduler
     }
 
     /**
-     * Advance the bracket after a semifinal series is completed (for 4-team brackets).
+     * Once both series that feed the next round have a winner, creates the
+     * series between them. The better seed is red in the first match.
      */
     public function advanceBracket(EliminationSeries $completedSeries, int $createdBy): ?EliminationSeries
     {
@@ -411,38 +349,26 @@ class EliminationScheduler
             throw new Exception('Series must have a winner to advance bracket.');
         }
 
-        $round = $completedSeries->round;
-        if (! in_array($round, [EliminationRound::SEMIFINAL_1->value, EliminationRound::SEMIFINAL_2->value])) {
-            return null; // Only semifinals advance
-        }
+        $nextRound = EliminationRound::from($completedSeries->round)->next();
 
-        // Check if both semifinals are complete
-        $sf1 = EliminationSeries::where('round', EliminationRound::SEMIFINAL_1->value)->first();
-        $sf2 = EliminationSeries::where('round', EliminationRound::SEMIFINAL_2->value)->first();
-
-        if (! $sf1?->winner_alliance_group_id || ! $sf2?->winner_alliance_group_id) {
-            return null; // Other semifinal not done yet
-        }
-
-        // Check if final already exists
-        if (EliminationSeries::where('round', EliminationRound::FINAL->value)->exists()) {
+        if ($nextRound === null || EliminationSeries::where('round', $nextRound->value)->exists()) {
             return null;
         }
 
-        $winner1 = AllianceGroup::findOrFail($sf1->winner_alliance_group_id);
-        $winner2 = AllianceGroup::findOrFail($sf2->winner_alliance_group_id);
+        $winners = EliminationSeries::query()
+            ->whereIn('round', array_map(fn (EliminationRound $round): string => $round->value, $nextRound->feeders()))
+            ->whereNotNull('winner_alliance_group_id')
+            ->with('winner')
+            ->get()
+            ->map(fn (EliminationSeries $series): AllianceGroup => $series->winner)
+            ->sortBy('seed')
+            ->values();
 
-        $alliances = Alliance::orderBy('id')->get();
-        $redAllianceId = $alliances[0]->id;
-        $blueAllianceId = $alliances[1]->id;
+        if ($winners->count() < 2) {
+            return null;
+        }
 
-        $matchNumber = (CompetitionMatch::query()->competitive()->max('number') ?? 0) + 1;
-
-        // Higher seed gets home advantage in match 1
-        $homeGroup = $winner1->seed < $winner2->seed ? $winner1 : $winner2;
-        $awayGroup = $homeGroup->id === $winner1->id ? $winner2 : $winner1;
-
-        return $this->generateFinalSeries($homeGroup, $awayGroup, $redAllianceId, $blueAllianceId, $matchNumber, $createdBy);
+        return $this->createSeries($nextRound, $winners[0], $winners[1], $createdBy);
     }
 
     /**
@@ -453,13 +379,13 @@ class EliminationScheduler
     public function getBracket(): array
     {
         $series = EliminationSeries::with([
-            'allianceGroup1.captainTeam', 'allianceGroup1.pickedTeam',
-            'allianceGroup2.captainTeam', 'allianceGroup2.pickedTeam',
-            'winner.captainTeam', 'winner.pickedTeam',
+            'allianceGroup1.captainTeam', 'allianceGroup1.pickedTeam', 'allianceGroup1.secondPickedTeam',
+            'allianceGroup2.captainTeam', 'allianceGroup2.pickedTeam', 'allianceGroup2.secondPickedTeam',
+            'winner.captainTeam', 'winner.pickedTeam', 'winner.secondPickedTeam',
             'matches.matchAlliances.team', 'matches.matchAlliances.alliance', 'matches.scores.scoreType',
         ])->get();
 
-        $groups = AllianceGroup::with(['captainTeam', 'pickedTeam'])
+        $groups = AllianceGroup::with(['captainTeam', 'pickedTeam', 'secondPickedTeam'])
             ->orderBy('seed')
             ->get();
 
@@ -490,5 +416,6 @@ class EliminationScheduler
         CompetitionMatch::elimination()->forceDelete();
 
         EliminationSeries::query()->delete();
+        app(AllianceAwards::class)->sync();
     }
 }

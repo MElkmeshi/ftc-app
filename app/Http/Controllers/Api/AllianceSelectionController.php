@@ -28,6 +28,7 @@ class AllianceSelectionController extends Controller
             $groups = $this->service->startSelection(
                 numberOfAlliances: $request->validated('number_of_alliances'),
                 createdBy: auth()->id() ?? 1,
+                allianceSize: $request->validated('alliance_size'),
             );
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);

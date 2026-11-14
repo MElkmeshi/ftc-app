@@ -49,6 +49,7 @@ function WinnerBar({ winner, showsTeamBox }: { winner: AwardRecipient; showsTeam
 function AwardBars({ award }: { award: PresentedAward }) {
     const { name: appName } = usePage<SharedData>().props;
     const latest = award.revealed.at(-1);
+    const shown = award.kind ? award.revealed : award.revealed.slice(-1);
     const [title, sponsor] = award.name.split(SPONSOR_SEPARATOR);
 
     return (
@@ -61,14 +62,16 @@ function AwardBars({ award }: { award: PresentedAward }) {
                     {appName}
                 </div>
                 <span className="truncate">{title}</span>
-                {latest && <span className="shrink-0">&nbsp;{PLACE_LABELS[Math.min(latest.place, PLACE_LABELS.length) - 1]}</span>}
+                {latest && !award.kind && <span className="shrink-0">&nbsp;{PLACE_LABELS[Math.min(latest.place, PLACE_LABELS.length) - 1]}</span>}
                 {sponsor && (
                     <span className="shrink-0" style={{ fontSize: vh(24) }}>
                         &nbsp;sponsored by {sponsor}
                     </span>
                 )}
             </div>
-            {latest?.winners.map((winner, index) => <WinnerBar key={index} winner={winner} showsTeamBox={award.is_team_award} />)}
+            {shown.flatMap((slot) =>
+                slot.winners.map((winner, index) => <WinnerBar key={`${slot.place}-${index}`} winner={winner} showsTeamBox={award.is_team_award} />),
+            )}
         </>
     );
 }
@@ -76,7 +79,8 @@ function AwardBars({ award }: { award: PresentedAward }) {
 /**
  * An award on the audience display, laid out like FTC Live's: a white title
  * bar with the award's name and the place being announced, and under it a
- * bar for each winner of that place. On a stream overlay the bars sit at the
+ * bar for each winner of that place. An alliance's award keeps the teams
+ * already announced on screen, captain first. On a stream overlay the bars sit at the
  * bottom of the keyed picture instead.
  */
 export function AwardScreen({ award, chromaColor }: { award: PresentedAward; chromaColor?: string }) {

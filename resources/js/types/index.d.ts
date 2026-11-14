@@ -121,11 +121,14 @@ export interface AwardRecipient {
     recipient: string | null;
 }
 
+export type AwardKind = 'winning_alliance' | 'finalist_alliance';
+
 export interface PresentedAward {
     id: number;
     name: string;
     description: string | null;
     is_team_award: boolean;
+    kind?: AwardKind | null;
     places: number;
     revealed: { place: number; winners: AwardRecipient[] }[];
 }
@@ -366,7 +369,9 @@ export interface AllianceGroup {
     id: number;
     seed: number;
     captain_team: Team;
+    size?: number;
     picked_team: Team | null;
+    second_picked_team?: Team | null;
     pending_team: Team | null;
 }
 

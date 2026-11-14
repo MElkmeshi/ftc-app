@@ -15,6 +15,8 @@ interface SelectionGroup {
     seed: number;
     captain: TeamName | null;
     picked: TeamName | null;
+    second_picked: TeamName | null;
+    size: number;
     pending: TeamName | null;
 }
 
@@ -98,7 +100,7 @@ function AwardsScript({ awards }: { awards: AwardRow[] }) {
                     <p className="mb-4 whitespace-pre-line">{award.description}</p>
                     <div className="ml-12">
                         {announcedSlots(award).map((winner) => {
-                            const label = slotLabel(winner.place);
+                            const label = slotLabel(winner.place, award.kind);
                             const location = winner.team?.city;
 
                             return (
@@ -129,23 +131,27 @@ function SelectionScript({ groups }: { groups: SelectionGroup[] }) {
         return <p>Alliance selection has not yet been started by the scorekeeper.</p>;
     }
 
-    const picking = groups.find((group) => group.picked === null);
+    const needsSecondPick = (group: SelectionGroup) => group.size > 2 && group.second_picked === null;
+    const picking = groups.find((group) => group.picked === null) ?? groups.find(needsSecondPick);
+    const hasThirdTeam = groups.some((group) => group.size > 2);
 
     return (
         <div className="text-[1.2em]">
             <p className="mb-4">
-                It&apos;s time for alliance selection! Our {groups.length} alliance captains, in ranking order, will each invite one team to join them
-                for the playoffs.
+                It&apos;s time for alliance selection! Our {groups.length} alliance captains, in ranking order, will each invite{' '}
+                {hasThirdTeam ? 'two teams' : 'one team'} to join them for the playoffs.
             </p>
             {groups.map((group) => (
                 <p key={group.seed} className={cn('mb-4', group.picked === null && group !== picking && bs.textMuted)}>
-                    {group.picked ? (
-                        <>
-                            Alliance {group.seed}: {teamName(group.captain)} has chosen {teamName(group.picked)}!
-                        </>
-                    ) : group.pending ? (
+                    {group.pending ? (
                         <>
                             {teamName(group.pending)}, {teamName(group.captain)} has invited you to join alliance {group.seed}. Do you accept?
+                        </>
+                    ) : group.picked ? (
+                        <>
+                            Alliance {group.seed}: {teamName(group.captain)} has chosen {teamName(group.picked)}
+                            {group.second_picked ? ` and ${teamName(group.second_picked)}` : ''}!
+                            {group === picking ? ' Captain, please make your second invitation.' : ''}
                         </>
                     ) : (
                         <>

@@ -62,7 +62,7 @@ function StepLine({ step, active, stealth, onPresent }: { step: PresentationStep
             onClick={onPresent}
             onKeyDown={(keyEvent) => keyEvent.key === 'Enter' && onPresent()}
         >
-            <b className="ml-6">{slotLabel(step.winner.place)}</b>&nbsp;
+            <b className="ml-6">{slotLabel(step.winner.place, step.award.kind)}</b>&nbsp;
             {!stealth || peeking ? winnerText(step.award, step.winner) : '<Hidden>'}
             {stealth && (
                 <button

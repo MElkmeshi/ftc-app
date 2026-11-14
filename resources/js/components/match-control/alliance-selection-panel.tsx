@@ -17,6 +17,7 @@ import {
     useGenerateTiebreaker,
     useResetElimination,
 } from '@/hooks/use-elimination';
+import { allianceTeams, canInvite, isSelectionComplete, pickingGroup, pickLabels, roundLabel } from '@/lib/alliance-utils';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { cn } from '@/lib/utils';
 import { type AllianceGroup, type CompetitionMatch, type EliminationSeries, type TeamDisplay } from '@/types';
@@ -50,21 +51,10 @@ function getAllianceScore(match: CompetitionMatch, color: string): number {
     return teamScore + allianceWideScore;
 }
 
-function getRoundLabel(round: string): string {
-    const labels: Record<string, string> = {
-        semifinal_1: 'Semifinal 1',
-        semifinal_2: 'Semifinal 2',
-        final: 'Final',
-        tiebreaker_semifinal_1: 'Tiebreaker SF1',
-        tiebreaker_semifinal_2: 'Tiebreaker SF2',
-        tiebreaker_final: 'Tiebreaker Final',
-    };
-    return labels[round] ?? round;
-}
-
 function AllianceTable({ groups }: { groups: AllianceGroup[] }) {
     const acceptPick = useAcceptPick();
     const declinePick = useDeclinePick();
+    const labels = pickLabels(groups);
 
     return (
         <>
@@ -73,40 +63,49 @@ function AllianceTable({ groups }: { groups: AllianceGroup[] }) {
                     <tr>
                         <th>Alliance</th>
                         <th>Captain</th>
-                        <th>Partner</th>
+                        {labels.map((label) => (
+                            <th key={label}>{label}</th>
+                        ))}
                     </tr>
                 </thead>
                 <tbody>
-                    {groups.map((group) => (
-                        <tr key={group.id}>
-                            <td>{group.seed}</td>
-                            <td>{group.captain_team.number}</td>
-                            <td>
-                                {group.picked_team?.number}
-                                {!group.picked_team && group.pending_team && (
-                                    <span className="flex items-center justify-center gap-1">
-                                        <span className="text-[#ffc107]">{group.pending_team.number}</span>
-                                        <button
-                                            type="button"
-                                            className={cn(smallButtonClass, 'border-[#198754] bg-[#198754] text-white')}
-                                            disabled={acceptPick.isPending}
-                                            onClick={() => acceptPick.mutate(group.id)}
-                                        >
-                                            Accept
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={cn(smallButtonClass, 'border-[#dc3545] bg-[#dc3545] text-white')}
-                                            disabled={declinePick.isPending}
-                                            onClick={() => declinePick.mutate(group.id)}
-                                        >
-                                            Decline
-                                        </button>
-                                    </span>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
+                    {groups.map((group) => {
+                        const picks = [group.picked_team, group.second_picked_team ?? null].slice(0, labels.length);
+                        const openIndex = picks.findIndex((team) => team === null);
+
+                        return (
+                            <tr key={group.id}>
+                                <td>{group.seed}</td>
+                                <td>{group.captain_team.number}</td>
+                                {picks.map((team, index) => (
+                                    <td key={index}>
+                                        {team?.number}
+                                        {index === openIndex && group.pending_team && (
+                                            <span className="flex items-center justify-center gap-1">
+                                                <span className="text-[#ffc107]">{group.pending_team.number}</span>
+                                                <button
+                                                    type="button"
+                                                    className={cn(smallButtonClass, 'border-[#198754] bg-[#198754] text-white')}
+                                                    disabled={acceptPick.isPending}
+                                                    onClick={() => acceptPick.mutate(group.id)}
+                                                >
+                                                    Accept
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={cn(smallButtonClass, 'border-[#dc3545] bg-[#dc3545] text-white')}
+                                                    disabled={declinePick.isPending}
+                                                    onClick={() => declinePick.mutate(group.id)}
+                                                >
+                                                    Decline
+                                                </button>
+                                            </span>
+                                        )}
+                                    </td>
+                                ))}
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
             <ApiError error={acceptPick.error ?? declinePick.error} />
@@ -118,9 +117,9 @@ function TeamTable({ rankings, groups, declinedIds }: { rankings: TeamDisplay[];
     const inviteTeam = useInviteTeam();
     const acceptPick = useAcceptPick();
     const declinePick = useDeclinePick();
-    const picking = groups.find((group) => group.picked_team === null);
+    const picking = pickingGroup(groups);
     const canPick = !!picking && !picking.pending_team;
-    const takenIds = new Set(groups.flatMap((group) => [group.captain_team.id, group.picked_team?.id, group.pending_team?.id]));
+    const memberIds = new Set(groups.flatMap((group) => [...allianceTeams(group).map((team) => team.id), group.pending_team?.id]));
     const isBusy = inviteTeam.isPending || acceptPick.isPending || declinePick.isPending;
 
     const answer = (teamId: number, accepted: boolean) => {
@@ -145,15 +144,16 @@ function TeamTable({ rankings, groups, declinedIds }: { rankings: TeamDisplay[];
                 </thead>
                 <tbody>
                     {rankings.map((team, index) => {
-                        const isAvailable = !takenIds.has(team.team_id) && !declinedIds.has(team.team_id);
+                        const isAvailable = canInvite(team.team_id, picking, groups, declinedIds);
+                        const isOut = !isAvailable && (memberIds.has(team.team_id) || declinedIds.has(team.team_id));
 
                         return (
-                            <tr key={team.team_id} className={cn(!isAvailable && 'text-white/40 line-through')}>
+                            <tr key={team.team_id} className={cn(isOut && 'text-white/40 line-through')}>
                                 <td>{index + 1}</td>
                                 <td>{team.team_number}</td>
                                 <td className="text-left">{team.team_name}</td>
                                 <td>
-                                    {isAvailable && groups.length > 0 && (
+                                    {isAvailable && (
                                         <button
                                             type="button"
                                             className={cn(smallButtonClass, 'border-[#198754] bg-[#198754] text-white')}
@@ -165,7 +165,7 @@ function TeamTable({ rankings, groups, declinedIds }: { rankings: TeamDisplay[];
                                     )}
                                 </td>
                                 <td>
-                                    {isAvailable && groups.length > 0 && (
+                                    {isAvailable && (
                                         <button
                                             type="button"
                                             className={cn(smallButtonClass, 'border-[#dc3545] bg-[#dc3545] text-white')}
@@ -189,7 +189,10 @@ function TeamTable({ rankings, groups, declinedIds }: { rankings: TeamDisplay[];
 function SeriesTable({ series }: { series: EliminationSeries[] }) {
     const checkWinner = useCheckSeriesWinner();
     const generateTiebreaker = useGenerateTiebreaker();
-    const alliance = (group: AllianceGroup) => `${group.seed}: ${group.captain_team.number}, ${group.picked_team?.number ?? ''}`;
+    const alliance = (group: AllianceGroup) =>
+        `${group.seed}: ${allianceTeams(group)
+            .map((team) => team.number)
+            .join(', ')}`;
 
     return (
         <table className={cn(tableClass, 'mx-auto mt-4')}>
@@ -213,7 +216,7 @@ function SeriesTable({ series }: { series: EliminationSeries[] }) {
 
                     return (
                         <tr key={item.id}>
-                            <td>{getRoundLabel(item.round)}</td>
+                            <td>{roundLabel(item.round)}</td>
                             <td>{alliance(item.alliance_group1)}</td>
                             <td>{result?.group_1_wins ?? 0}</td>
                             <td>{alliance(item.alliance_group2)}</td>
@@ -267,9 +270,9 @@ export function AllianceSelectionPanel() {
     const resetElimination = useResetElimination();
 
     const hasGroups = groups.length > 0;
-    const allPicked = hasGroups && groups.every((group) => group.picked_team !== null);
+    const allPicked = isSelectionComplete(groups);
     const hasBracket = !!bracket && bracket.series.length > 0;
-    const maxAlliances = rankings.length >= 8 ? 8 : rankings.length >= 4 ? 4 : 2;
+    const maxAlliances = rankings.length >= 16 ? 8 : rankings.length >= 8 ? 4 : 2;
 
     const undo = () => {
         if (hasBracket) {

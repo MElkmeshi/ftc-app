@@ -1,4 +1,4 @@
-import { type Team } from '@/types';
+import { type AwardKind, type Team } from '@/types';
 
 export type AwardTeam = Pick<Team, 'id' | 'number' | 'name'> & { city?: string | null };
 
@@ -15,6 +15,7 @@ export interface AwardRow {
     name: string;
     description: string | null;
     is_team_award: boolean;
+    kind?: AwardKind | null;
     places: number;
     winners: AwardWinnerRow[];
 }
@@ -26,8 +27,16 @@ export interface AwardSlot {
 
 const SLOT_LABELS = ['Winner', 'Second Place', 'Third Place', 'Runner Up'];
 
-export function slotLabel(place: number): string {
-    return SLOT_LABELS[Math.min(place, SLOT_LABELS.length) - 1] ?? SLOT_LABELS[0];
+const ALLIANCE_SLOT_LABELS = ['Captain', 'First Pick', 'Second Pick'];
+
+/**
+ * An alliance's award names its slots after the alliance's teams instead
+ * of places.
+ */
+export function slotLabel(place: number, kind?: AwardKind | null): string {
+    const labels = kind ? ALLIANCE_SLOT_LABELS : SLOT_LABELS;
+
+    return labels[Math.min(place, labels.length) - 1] ?? labels[0];
 }
 
 export function slotsOf(award: AwardRow): AwardSlot[] {
@@ -43,13 +52,15 @@ function isFilled(winner: AwardWinnerRow | null): winner is AwardWinnerRow {
 
 /**
  * The slots that were given to someone, in the order they are announced:
- * the last place first and the winner last.
+ * the last place first and the winner last. An alliance's award is read
+ * from its captain down.
  */
 export function announcedSlots(award: AwardRow): AwardWinnerRow[] {
-    return slotsOf(award)
+    const given = slotsOf(award)
         .map((slot) => slot.winner)
-        .filter(isFilled)
-        .reverse();
+        .filter(isFilled);
+
+    return award.kind ? given : given.reverse();
 }
 
 function firstWinner(award: AwardRow): AwardWinnerRow | null {
