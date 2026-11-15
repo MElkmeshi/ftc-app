@@ -56,7 +56,7 @@ const STATE_LABELS: Record<CompetitionMatch['status'], string> = {
 const ROLE_LABELS: Record<RefereeRole, string> = { scoring: 'Scoring', penalty: 'Penalties' };
 
 const headerButtonClass =
-    'rounded-md border px-3.5 py-2 leading-tight whitespace-pre-line disabled:pointer-events-none disabled:opacity-65 border-[#f8f9fa] bg-[#f8f9fa] text-black hover:bg-[#d3d4d5]';
+    'rounded-md border px-3.5 py-2 leading-[18px] whitespace-pre-line disabled:pointer-events-none disabled:opacity-65 border-[#f8f9fa] bg-[#f8f9fa] text-black hover:bg-[#d3d4d5]';
 const HEADER_TONES = {
     success: 'border-[#198754] bg-[#198754] text-white hover:bg-[#157347]',
     warning: 'border-[#ffc107] bg-[#ffc107] text-black hover:bg-[#ffca2c]',
@@ -169,25 +169,24 @@ function ScheduleTable({
     }
 
     return (
-        <table className="text-center text-sm">
-            <thead className="sticky top-0 bg-[#375d6b] text-base">
+        <table className="w-full text-center text-sm leading-normal whitespace-nowrap [&_td]:p-px [&_td]:pr-[.4em] [&_th]:p-px [&_th]:pr-[.4em]">
+            <thead className="sticky top-0 bg-[#375d6b]">
                 <tr>
-                    <th className="px-1">Match</th>
-                    {fieldCount > 1 && <th className="px-1">Field</th>}
-                    <th className="px-1">State</th>
-                    <th className="px-1">Red Score</th>
+                    <th>Match</th>
+                    {fieldCount > 1 && <th>Field</th>}
+                    <th>State</th>
+                    <th>Red Score</th>
                     {slots.map((slot) => (
-                        <th key={`red-${slot}`} className="px-1">
-                            Red {slot + 1}
-                        </th>
+                        <th key={`red-${slot}`}>Red {slot + 1}</th>
                     ))}
                     {slots.map((slot) => (
-                        <th key={`blue-${slot}`} className="px-1">
-                            Blue {slot + 1}
-                        </th>
+                        <th key={`blue-${slot}`}>Blue {slot + 1}</th>
                     ))}
-                    <th className="px-1">Blue Score</th>
-                    <th colSpan={3} />
+                    <th>Blue Score</th>
+                    <th />
+                    <th />
+                    <th />
+                    <th className="w-full" />
                 </tr>
             </thead>
             <tbody>
@@ -197,23 +196,23 @@ function ScheduleTable({
                     const posted = display?.mode === 'results' && display.match_id === match.id;
 
                     return (
-                        <tr key={match.id} className={cn('odd:bg-[#375d6b]', match.status === 'ongoing' && 'font-bold')}>
-                            <td className="px-1 py-px whitespace-nowrap">{getMatchTitle(match)}</td>
-                            {fieldCount > 1 && <td className="px-1">{match.field}</td>}
-                            <td className="px-1">{STATE_LABELS[match.status]}</td>
-                            <td className="px-1 tabular-nums">{getAllianceScore(match, 'red')}</td>
+                        <tr key={match.id} className={cn('odd:bg-[#375d6b] even:bg-[#3b6472]', match.status === 'ongoing' && 'font-bold')}>
+                            <td>{getMatchTitle(match)}</td>
+                            {fieldCount > 1 && <td>{match.field}</td>}
+                            <td>{STATE_LABELS[match.status]}</td>
+                            <td className="tabular-nums">{getAllianceScore(match, 'red')}</td>
                             {slots.map((slot) => (
-                                <td key={`red-${slot}`} className="px-1 tabular-nums">
+                                <td key={`red-${slot}`} className="tabular-nums">
                                     {teamNumberLabel(red[slot])} <TeamCardBadge card={red[slot]?.card} />
                                 </td>
                             ))}
                             {slots.map((slot) => (
-                                <td key={`blue-${slot}`} className="px-1 tabular-nums">
+                                <td key={`blue-${slot}`} className="tabular-nums">
                                     {teamNumberLabel(blue[slot])} <TeamCardBadge card={blue[slot]?.card} />
                                 </td>
                             ))}
-                            <td className="px-1 tabular-nums">{getAllianceScore(match, 'blue')}</td>
-                            <td className="px-1 py-px">
+                            <td className="tabular-nums">{getAllianceScore(match, 'blue')}</td>
+                            <td>
                                 {match.status === 'upcoming' && (
                                     <button type="button" className={rowButtonClass} disabled={busy || hasRunningMatch} onClick={() => onPlay(match)}>
                                         Play
@@ -230,7 +229,7 @@ function ScheduleTable({
                                     </button>
                                 )}
                             </td>
-                            <td className="px-1 py-px">
+                            <td>
                                 {match.status === 'upcoming' && (
                                     <Link href={eventUrl(`/matches/${match.id}/edit`)} className={cn(rowButtonClass, 'inline-block')}>
                                         Enter Scores
@@ -242,7 +241,7 @@ function ScheduleTable({
                                     </button>
                                 )}
                             </td>
-                            <td className="px-1 py-px">
+                            <td>
                                 {match.status === 'completed' && (
                                     <Link href={eventUrl(`/matches/${match.id}/edit`)} className={cn(rowButtonClass, 'inline-block')}>
                                         Edit
@@ -254,6 +253,7 @@ function ScheduleTable({
                                     </a>
                                 )}
                             </td>
+                            <td />
                         </tr>
                     );
                 })}
@@ -490,13 +490,13 @@ function MatchStatusRow({
 }) {
     return (
         <tr>
-            <th className="p-px pr-2 text-left">{label}</th>
+            <th className="p-px text-left">{label}</th>
             {match && (
                 <>
-                    <td className="px-6">{getMatchTitle(match)}</td>
-                    <td className="px-6 tabular-nums">{clock}</td>
-                    <td className={cn('pr-12 pl-1', awaiting && 'bg-[#fd7e14]')}>Red: {teamNumbers(match, 'red')}</td>
-                    <td className={cn('pr-12 pl-1', awaiting && 'bg-[#fd7e14]')}>Blue: {teamNumbers(match, 'blue')}</td>
+                    <td className="p-px">{getMatchTitle(match)}</td>
+                    <td className="p-px tabular-nums">{clock}</td>
+                    <td className={cn('p-px', awaiting && 'bg-[#fd7e14]')}>Red: {teamNumbers(match, 'red')}</td>
+                    <td className={cn('p-px', awaiting && 'bg-[#fd7e14]')}>Blue: {teamNumbers(match, 'blue')}</td>
                 </>
             )}
         </tr>
@@ -629,15 +629,15 @@ export default function MatchControlConsole() {
             </div>
 
             <div className="shrink-0 bg-[#293d45] pb-2.5">
-                <h1 className="text-center text-[30px] font-bold">Match Control</h1>
-                <div className="flex flex-wrap items-end gap-y-2 px-2">
-                    <table className="mx-auto md:ml-[240px]">
+                <h1 className="-mt-[5px] text-center text-[30px] leading-[1.2] font-bold">Match Control</h1>
+                <div>
+                    <table className="mx-auto md:min-w-[800px]">
                         <tbody>
                             <MatchStatusRow label="Loaded Match:" match={loaded} clock={`${formatTime(matchSeconds)} (Not Started)`} />
                             {loaded && (
                                 <tr>
-                                    <th className="p-px pr-2 text-left">Teams Ready:</th>
-                                    <td colSpan={4} className="px-6">
+                                    <th className="p-px text-left">Teams Ready:</th>
+                                    <td colSpan={4} className="p-px">
                                         <span className={cn('mr-2 font-bold', notReady.length === 0 ? 'text-[#75b798]' : 'text-[#ffc107]')}>
                                             {loadedTeams.length - notReady.length}/{loadedTeams.length}
                                         </span>
@@ -665,8 +665,8 @@ export default function MatchControlConsole() {
                         </tbody>
                     </table>
                 </div>
-                <div className="mt-1 flex flex-wrap items-center gap-y-2 px-2">
-                    <div className="flex flex-wrap gap-4 md:ml-[360px]">
+                <div className="flex flex-wrap justify-center gap-y-2">
+                    <div className="mr-2 ml-auto flex flex-wrap gap-4">
                         <HeaderButton
                             tone="success"
                             disabled={busy || loaded !== null || !nextUpcoming}
@@ -704,7 +704,7 @@ export default function MatchControlConsole() {
                         )}
                     </div>
                     <HeaderButton
-                        className="ml-auto"
+                        className="mr-4 ml-auto"
                         disabled={busy || (ongoing ? !matchOver || awaiting.length > 0 : !lastCompleted || lastPosted)}
                         title={awaiting.length > 0 ? `Waiting for ${awaiting.join(' and ')} to submit` : undefined}
                         onClick={commitAndPost}
