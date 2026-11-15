@@ -228,8 +228,9 @@ Route::prefix('event/{event}')->middleware('event')->group(function () {
 
         Route::middleware('can:manage-competition')->group(function () {
             Route::get('admin/pit-map', [PitMapController::class, 'edit'])->name('pit-map.edit');
+            Route::get('admin/pit-map/assign', [PitMapController::class, 'assign'])->name('pit-map.assign');
             Route::post('pit-map', [PitMapController::class, 'update'])->name('pit-map.update');
-            Route::delete('pit-map', [PitMapController::class, 'destroy'])->name('pit-map.destroy');
+            Route::post('pit-map/config', [PitMapController::class, 'configure'])->name('pit-map.configure');
             Route::get('admin/sponsors', [SponsorController::class, 'index'])->name('sponsors.index');
             Route::post('sponsors', [SponsorController::class, 'store'])->name('sponsors.store');
             Route::post('sponsors/{sponsor}', [SponsorController::class, 'update'])->whereNumber('sponsor')->name('sponsors.update');

@@ -6,6 +6,8 @@ export const bs = {
     btnPrimary: `${btnBase} border-[#0d6efd] bg-[#0d6efd] text-white hover:border-[#0a58ca] hover:bg-[#0b5ed7]`,
     btnSecondary: `${btnBase} border-[#6c757d] bg-[#6c757d] text-white hover:border-[#565e64] hover:bg-[#5c636a]`,
     btnOutlineSecondary: `${btnBase} border-[#6c757d] bg-transparent text-[#6c757d] hover:bg-[#6c757d] hover:text-white`,
+    btnOutlinePrimary: `${btnBase} border-[#0d6efd] bg-transparent text-[#0d6efd] hover:bg-[#0d6efd] hover:text-white`,
+    btnOutlineDanger: `${btnBase} border-[#dc3545] bg-transparent text-[#dc3545] hover:bg-[#dc3545] hover:text-white`,
     btnSuccess: `${btnBase} border-[#198754] bg-[#198754] text-white hover:border-[#146c43] hover:bg-[#157347]`,
     btnDanger: `${btnBase} border-[#dc3545] bg-[#dc3545] text-white hover:border-[#b02a37] hover:bg-[#bb2d3b]`,
     btnWarning: `${btnBase} border-[#ffc107] bg-[#ffc107] text-black hover:border-[#ffc720] hover:bg-[#ffca2c]`,

@@ -93,9 +93,9 @@ class EventSetupChecklist
             $this->step(
                 'pit-map',
                 'Pit map',
-                'A picture of the pits that teams open on their phones.',
-                PitMapController::path() !== null ? self::DONE : self::OPTIONAL,
-                PitMapController::path() !== null ? 'Published' : '(Optional)',
+                'A map of the pits that teams open on their phones.',
+                PitMapController::isPublished() ? self::DONE : self::OPTIONAL,
+                PitMapController::isPublished() ? 'Published' : '(Optional)',
                 '/admin/pit-map',
             ),
             $this->step(
